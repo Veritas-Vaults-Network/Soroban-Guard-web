@@ -123,7 +123,13 @@ export default function ResultsPage() {
                 )}
               </div>
             </div>
-            <FindingsTable findings={findings} />
+            {/* Sort: High → Medium → Low */}
+            <FindingsTable
+              findings={[...findings].sort((a, b) => {
+                const order: Record<Severity, number> = { High: 0, Medium: 1, Low: 2 }
+                return order[a.severity] - order[b.severity]
+              })}
+            />
           </div>
         )}
       </main>
