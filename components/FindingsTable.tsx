@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { Finding } from '@/types/findings'
 import SeverityBadge from './SeverityBadge'
 import FindingCard from './FindingCard'
+import CheckTooltip from './CheckTooltip'
 
 interface Props {
   findings: Finding[]
@@ -50,9 +51,7 @@ export default function FindingsTable({ findings }: Props) {
               <div className="flex-1 space-y-1">
                 <div className="flex items-center gap-2">
                   <SeverityBadge severity={finding.severity} size="sm" />
-                  <span className="font-mono text-xs text-indigo-400">
-                    {finding.check_name}
-                  </span>
+                  <CheckTooltip checkName={finding.check_name} />
                 </div>
                 <p className="line-clamp-2 text-sm text-slate-400">
                   {finding.description}
@@ -64,9 +63,7 @@ export default function FindingsTable({ findings }: Props) {
             {/* Desktop layout */}
             <div className="hidden grid-cols-[120px_1fr_1fr_80px_1fr] items-center gap-4 sm:grid">
               <SeverityBadge severity={finding.severity} size="sm" />
-              <span className="font-mono text-sm text-indigo-400">
-                {finding.check_name}
-              </span>
+              <CheckTooltip checkName={finding.check_name} />
               <span className="truncate font-mono text-sm text-slate-300">
                 {finding.function_name}
               </span>

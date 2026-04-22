@@ -1,5 +1,6 @@
 import type { Finding } from '@/types/findings'
 import SeverityBadge from './SeverityBadge'
+import CheckTooltip from './CheckTooltip'
 
 interface Props {
   finding: Finding
@@ -10,9 +11,7 @@ export default function FindingCard({ finding }: Props) {
     <div className="slide-down rounded-lg border border-[#2a2d3a] bg-[#12151f] p-5">
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <SeverityBadge severity={finding.severity} />
-        <span className="font-mono text-sm font-semibold text-indigo-400">
-          {finding.check_name}
-        </span>
+        <CheckTooltip checkName={finding.check_name} />
       </div>
 
       <p className="mb-5 text-sm leading-relaxed text-slate-300">
