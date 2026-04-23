@@ -73,7 +73,10 @@ export default function FindingsTable({ findings, pageSize = 20 }: Props) {
 
                 {/* Desktop layout */}
                 <div className="hidden grid-cols-[120px_1fr_1fr_80px_1fr] items-center gap-4 sm:grid">
-                  <SeverityBadge severity={finding.severity} size="sm" />
+                  <div className="flex items-center gap-2">
+                    <SeverityBadge severity={finding.severity} size="sm" />
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{finding.severity}</span>
+                  </div>
                   <span className="font-mono text-sm text-indigo-400">
                     {finding.check_name}
                   </span>
