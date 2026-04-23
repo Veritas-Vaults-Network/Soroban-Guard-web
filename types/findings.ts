@@ -7,6 +7,7 @@ export interface Finding {
   line: number
   function_name: string
   description: string
+  remediation?: string
 }
 
 export interface ScanResponse {

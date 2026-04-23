@@ -10,7 +10,7 @@ import ThemeToggle from '@/components/ThemeToggle'
 import { scanContract } from '@/lib/api'
 import { checkNetworkHealth } from '@/lib/stellar'
 import type { Finding } from '@/types/findings'
-import type { StellarNetwork } from '@/types/stellar'
+import type { StellarNetwork, ContractScanRecord } from '@/types/stellar'
 import { NETWORKS } from '@/types/stellar'
 
 export default function HomePage() {
@@ -47,6 +47,21 @@ export default function HomePage() {
       const msg = err instanceof Error ? err.message : 'Unexpected error'
       setError(msg)
       setStatusMessage('')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleHistoryClick(contractId: string) {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await scanContract(contractId)
+      sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
+      router.push('/results')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unexpected error'
+      setError(msg)
     } finally {
       setLoading(false)
     }
@@ -137,6 +152,54 @@ export default function HomePage() {
               </div>
             )}
           </div>
+
+          {/* Recent scans */}
+          {walletKey && scanHistory.length > 0 && (
+            <div className="mt-8 rounded-2xl border border-[#2a2d3a] bg-[#1a1d27] p-6">
+              <h3 className="mb-4 text-lg font-semibold text-white">Your recent scans</h3>
+              <div className="space-y-2">
+                {scanHistory.slice(0, 5).map((record, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleHistoryClick(record.contractId)}
+                    disabled={loading}
+                    className="w-full rounded-lg border border-[#2a2d3a] bg-[#12151f] p-3 text-left transition hover:border-indigo-500/40 hover:bg-[#1a1d27] disabled:opacity-50"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-mono text-sm text-slate-300">
+                          {record.contractId.slice(0, 12)}...{record.contractId.slice(-8)}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {new Date(record.scannedAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <NetworkBadge network={NETWORKS[record.network]} />
+                        <div className="flex gap-1">
+                          {record.highCount > 0 && (
+                            <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs text-red-400">
+                              {record.highCount}H
+                            </span>
+                          )}
+                          {record.mediumCount > 0 && (
+                            <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-400">
+                              {record.mediumCount}M
+                            </span>
+                          )}
+                          {record.lowCount > 0 && (
+                            <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-xs text-sky-400">
+                              {record.lowCount}L
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
 
         {/* How it works */}

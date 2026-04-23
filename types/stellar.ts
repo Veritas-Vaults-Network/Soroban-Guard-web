@@ -35,6 +35,7 @@ export interface WalletState {
 }
 
 export interface ContractScanRecord {
+  publicKey: string
   contractId: string
   network: string
   scannedAt: string

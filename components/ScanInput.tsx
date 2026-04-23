@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 
 type InputMode = 'code' | 'github' | 'contractId'
 
@@ -14,6 +14,7 @@ export default function ScanInput({ onScan, loading }: Props) {
   const [code, setCode] = useState('')
   const [repoUrl, setRepoUrl] = useState('')
   const [contractId, setContractId] = useState('')
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -25,6 +26,15 @@ export default function ScanInput({ onScan, loading }: Props) {
           : contractId.trim()
     if (!source) return
     onScan(source)
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault()
+      if (canSubmit) {
+        handleSubmit(e as any)
+      }
+    }
   }
 
   const canSubmit =
@@ -78,8 +88,10 @@ export default function ScanInput({ onScan, loading }: Props) {
       {mode === 'code' ? (
         <div className="relative">
           <textarea
+            ref={textareaRef}
             value={code}
             onChange={e => setCode(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder={`#![no_std]\nuse soroban_sdk::{contract, contractimpl, Env};\n\n#[contract]\npub struct MyContract;\n\n#[contractimpl]\nimpl MyContract {\n    pub fn hello(env: Env) -> String {\n        // paste your contract here...\n    }\n}`}
             rows={16}
             className="code-textarea w-full resize-y rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
@@ -98,6 +110,7 @@ export default function ScanInput({ onScan, loading }: Props) {
             type="url"
             value={repoUrl}
             onChange={e => setRepoUrl(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="https://github.com/org/repo"
             className="w-full rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
             disabled={loading}
@@ -113,6 +126,7 @@ export default function ScanInput({ onScan, loading }: Props) {
             type="text"
             value={contractId}
             onChange={e => setContractId(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
             className="w-full rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 font-mono text-sm text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
             disabled={loading}
@@ -126,27 +140,30 @@ export default function ScanInput({ onScan, loading }: Props) {
       )}
 
       {/* Submit */}
-      <button
-        type="submit"
-        disabled={!canSubmit}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-      >
-        {loading ? (
-          <>
-            <svg className="spinner h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" d="M12 2a10 10 0 0 1 10 10" />
-            </svg>
-            Scanning…
-          </>
-        ) : (
-          <>
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
-            Scan Contract
-          </>
-        )}
-      </button>
+      <div className="space-y-2">
+        <button
+          type="submit"
+          disabled={!canSubmit}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+        >
+          {loading ? (
+            <>
+              <svg className="spinner h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" d="M12 2a10 10 0 0 1 10 10" />
+              </svg>
+              Scanning…
+            </>
+          ) : (
+            <>
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              Scan Contract
+            </>
+          )}
+        </button>
+        <p className="text-center text-xs text-slate-600">⌘↵ to scan</p>
+      </div>
     </form>
   )
 }
