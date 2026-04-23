@@ -6,6 +6,7 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    public retryAfter?: number,
   ) {
     super(message)
     this.name = 'ApiError'
@@ -23,6 +24,14 @@ export async function scanContract(source: string): Promise<ScanResponse> {
 
   if (!res.ok) {
     const text = await res.text().catch(() => 'Unknown error')
+    
+    // Handle rate limiting
+    if (res.status === 429) {
+      const retryAfter = res.headers.get('Retry-After')
+      const retrySeconds = retryAfter ? parseInt(retryAfter, 10) : undefined
+      throw new ApiError(res.status, text || `HTTP ${res.status}`, retrySeconds)
+    }
+    
     throw new ApiError(res.status, text || `HTTP ${res.status}`)
   }
 

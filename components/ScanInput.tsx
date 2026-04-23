@@ -7,9 +7,10 @@ type InputMode = 'code' | 'github' | 'contractId'
 interface Props {
   onScan: (source: string) => void
   loading: boolean
+  rateLimitCountdown?: number | null
 }
 
-export default function ScanInput({ onScan, loading }: Props) {
+export default function ScanInput({ onScan, loading, rateLimitCountdown }: Props) {
   const [mode, setMode] = useState<InputMode>('code')
   const [code, setCode] = useState('')
   const [repoUrl, setRepoUrl] = useState('')
@@ -39,6 +40,7 @@ export default function ScanInput({ onScan, loading }: Props) {
 
   const canSubmit =
     !loading &&
+    !rateLimitCountdown &&
     (mode === 'code'
       ? code.trim().length > 0
       : mode === 'github'
@@ -152,6 +154,13 @@ export default function ScanInput({ onScan, loading }: Props) {
                 <path strokeLinecap="round" d="M12 2a10 10 0 0 1 10 10" />
               </svg>
               Scanning…
+            </>
+          ) : rateLimitCountdown ? (
+            <>
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Retry in {rateLimitCountdown}s
             </>
           ) : (
             <>

@@ -7,7 +7,7 @@ import WalletConnect from '@/components/WalletConnect'
 import NetworkBadge from '@/components/NetworkBadge'
 import NetworkHealthBanner from '@/components/NetworkHealthBanner'
 import ThemeToggle from '@/components/ThemeToggle'
-import { scanContract } from '@/lib/api'
+import { scanContract, ApiError } from '@/lib/api'
 import { checkNetworkHealth } from '@/lib/stellar'
 import type { Finding } from '@/types/findings'
 import type { StellarNetwork, ContractScanRecord } from '@/types/stellar'
@@ -17,10 +17,48 @@ export default function HomePage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [rateLimitCountdown, setRateLimitCountdown] = useState<number | null>(null)
   const [walletKey, setWalletKey] = useState<string | null>(null)
   const [walletNetwork, setWalletNetwork] = useState<StellarNetwork>(NETWORKS.testnet)
   const [networkHealthy, setNetworkHealthy] = useState(true)
   const [statusMessage, setStatusMessage] = useState('')
+  const [scanHistory, setScanHistory] = useState<ContractScanRecord[]>([])
+
+  // Load scan history on component mount
+  useEffect(() => {
+    if (walletKey) {
+      // Load scan history from localStorage or API
+      const stored = localStorage.getItem(`sg_history_${walletKey}`)
+      if (stored) {
+        try {
+          setScanHistory(JSON.parse(stored))
+        } catch {
+          setScanHistory([])
+        }
+      }
+    }
+  }, [walletKey])
+
+  // Rate limiting countdown effect
+  useEffect(() => {
+    if (rateLimitCountdown === null || rateLimitCountdown <= 0) return
+
+    const timer = setInterval(() => {
+      setRateLimitCountdown(prev => {
+        if (prev === null || prev <= 1) {
+          // Countdown finished, auto-retry the last scan
+          const lastSource = sessionStorage.getItem('sg_last_scan_source')
+          if (lastSource) {
+            handleScan(lastSource)
+          }
+          return null
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [rateLimitCountdown])
 
   function handleWalletConnect(publicKey: string, network: StellarNetwork) {
     setWalletKey(publicKey)
@@ -36,17 +74,33 @@ export default function HomePage() {
   async function handleScan(source: string) {
     setLoading(true)
     setError(null)
+    setRateLimitCountdown(null)
     setStatusMessage('Scanning your contract…')
+    
+    // Store the source for potential auto-retry
+    sessionStorage.setItem('sg_last_scan_source', source)
+    
     try {
       const data = await scanContract(source)
       setStatusMessage(`Scan complete. ${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} detected.`)
       // Store results in sessionStorage so the results page can read them
       sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
+      
+      // Create encoded parameter for URL (assuming this exists somewhere)
+      const encoded = btoa(JSON.stringify({ source, timestamp: Date.now() }))
       router.push(`/results?r=${encoded}`)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unexpected error'
-      setError(msg)
-      setStatusMessage('')
+      if (err instanceof ApiError && err.status === 429) {
+        // Handle rate limiting
+        const retrySeconds = err.retryAfter || 60 // Default to 60 seconds if no header
+        setRateLimitCountdown(retrySeconds)
+        setError(null) // Clear generic error for rate limiting
+        setStatusMessage('')
+      } else {
+        const msg = err instanceof Error ? err.message : 'Unexpected error'
+        setError(msg)
+        setStatusMessage('')
+      }
     } finally {
       setLoading(false)
     }
@@ -55,13 +109,25 @@ export default function HomePage() {
   async function handleHistoryClick(contractId: string) {
     setLoading(true)
     setError(null)
+    setRateLimitCountdown(null)
+    
+    // Store the source for potential auto-retry
+    sessionStorage.setItem('sg_last_scan_source', contractId)
+    
     try {
       const data = await scanContract(contractId)
       sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
       router.push('/results')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unexpected error'
-      setError(msg)
+      if (err instanceof ApiError && err.status === 429) {
+        // Handle rate limiting
+        const retrySeconds = err.retryAfter || 60 // Default to 60 seconds if no header
+        setRateLimitCountdown(retrySeconds)
+        setError(null) // Clear generic error for rate limiting
+      } else {
+        const msg = err instanceof Error ? err.message : 'Unexpected error'
+        setError(msg)
+      }
     } finally {
       setLoading(false)
     }
@@ -141,7 +207,7 @@ export default function HomePage() {
 
           {/* Scan card */}
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-6 text-left shadow-2xl">
-            <ScanInput onScan={handleScan} loading={loading} />
+            <ScanInput onScan={handleScan} loading={loading} rateLimitCountdown={rateLimitCountdown} />
 
             {error && (
               <div className="mt-4 flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
@@ -149,6 +215,17 @@ export default function HomePage() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
                 <span>{error}</span>
+              </div>
+            )}
+
+            {rateLimitCountdown !== null && (
+              <div className="mt-4 flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-400">
+                <svg className="mt-0.5 h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>
+                  Rate limited — retry in {rateLimitCountdown}s
+                </span>
               </div>
             )}
           </div>
