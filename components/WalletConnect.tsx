@@ -1,17 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { connectFreighter, isFreighterInstalled, getFreighterNetwork } from '@/lib/wallet'
-import type { StellarNetwork } from '@/types/stellar'
+import { isFreighterInstalled } from '@/lib/wallet'
+import { useWallet } from '@/lib/WalletContext'
 
-interface Props {
-  onConnect?: (publicKey: string, network: StellarNetwork) => void
-}
-
-export default function WalletConnect({ onConnect }: Props) {
+export default function WalletConnect() {
+  const { publicKey, network, connect, disconnect } = useWallet()
   const [installed, setInstalled] = useState(false)
-  const [publicKey, setPublicKey] = useState<string | null>(null)
-  const [network, setNetwork] = useState<StellarNetwork | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -23,15 +18,8 @@ export default function WalletConnect({ onConnect }: Props) {
     setLoading(true)
     setError(null)
     try {
-      const key = await connectFreighter()
-      if (!key) {
-        setError('Could not retrieve public key. Make sure Freighter is unlocked.')
-        return
-      }
-      const net = await getFreighterNetwork()
-      setPublicKey(key)
-      setNetwork(net)
-      if (net) onConnect?.(key, net)
+      const result = await connect()
+      if (!result) setError('Could not retrieve public key. Make sure Freighter is unlocked.')
     } catch {
       setError('Failed to connect to Freighter.')
     } finally {
@@ -40,8 +28,7 @@ export default function WalletConnect({ onConnect }: Props) {
   }
 
   function handleDisconnect() {
-    setPublicKey(null)
-    setNetwork(null)
+    disconnect()
     setError(null)
   }
 
