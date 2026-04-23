@@ -14,6 +14,7 @@ export default function ResultsPage() {
   const searchParams = useSearchParams()
   const [findings, setFindings] = useState<Finding[] | null>(null)
   const [copied, setCopied] = useState(false)
+  const [duration, setDuration] = useState<string | null>(null)
 
   useEffect(() => {
     const encoded = searchParams.get('r')
@@ -32,6 +33,7 @@ export default function ResultsPage() {
     }
     try {
       setFindings(JSON.parse(raw) as Finding[])
+      setDuration(sessionStorage.getItem('sg_duration'))
     } catch {
       router.replace('/')
     }
@@ -117,6 +119,9 @@ export default function ResultsPage() {
             {findings.length === 0
               ? 'No issues detected.'
               : `${findings.length} finding${findings.length !== 1 ? 's' : ''} detected across your contract.`}
+            {duration && (
+              <span className="ml-2 text-slate-600">Scanned in {duration}s</span>
+            )}
           </p>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

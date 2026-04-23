@@ -28,10 +28,13 @@ export default function HomePage() {
     setError(null)
     setStatusMessage('Scanning your contract…')
     try {
+      const t0 = Date.now()
       const data = await scanContract(source)
+      const duration = ((Date.now() - t0) / 1000).toFixed(1)
       setStatusMessage(`Scan complete. ${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} detected.`)
       // Store results in sessionStorage so the results page can read them
       sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
+      sessionStorage.setItem('sg_duration', duration)
       router.push(`/results?r=${encoded}`)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unexpected error'
@@ -48,6 +51,7 @@ export default function HomePage() {
     try {
       const data = await scanContract(contractId)
       sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
+      sessionStorage.removeItem('sg_duration')
       router.push('/results')
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unexpected error'
