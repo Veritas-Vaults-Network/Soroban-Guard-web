@@ -1,12 +1,24 @@
+'use client'
+
+import { useState, useEffect } from 'react'
 import type { Finding } from '@/types/findings'
 import SeverityBadge from './SeverityBadge'
 import CheckTooltip from './CheckTooltip'
+import CodeViewer from './CodeViewer'
+import { loadSourceCode } from '@/lib/codeStore'
 
 interface Props {
   finding: Finding
 }
 
 export default function FindingCard({ finding }: Props) {
+  const [showCode, setShowCode] = useState(false)
+  const [source, setSource] = useState<string | null>(null)
+
+  useEffect(() => {
+    setSource(loadSourceCode())
+  }, [])
+
   return (
     <div className="slide-down rounded-lg border border-[#2a2d3a] bg-[#12151f] p-5">
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -32,6 +44,30 @@ export default function FindingCard({ finding }: Props) {
         <Detail label="File" value={finding.file_path} mono />
         <Detail label="Line" value={String(finding.line)} mono />
       </div>
+
+      {source && (
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => setShowCode(v => !v)}
+            className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+            aria-expanded={showCode}
+          >
+            <svg
+              className={`h-3.5 w-3.5 transition-transform ${showCode ? 'rotate-90' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+              aria-hidden="true"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+            {showCode ? 'Hide code' : 'View in code'}
+          </button>
+          {showCode && <CodeViewer source={source} highlightLine={finding.line} />}
+        </div>
+      )}
 
       <div className="mt-4 text-right">
         <a

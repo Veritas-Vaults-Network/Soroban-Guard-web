@@ -11,10 +11,12 @@ import { scanContract, ApiError } from '@/lib/api'
 import { checkNetworkHealth } from '@/lib/stellar'
 import { useWallet } from '@/lib/WalletContext'
 import ContractIdBadge from '@/components/ContractIdBadge'
+import ScanProgress from '@/components/ScanProgress'
 import type { Finding } from '@/types/findings'
 import type { ContractScanRecord } from '@/types/stellar'
 import { NETWORKS } from '@/types/stellar'
 import { addRecord } from '@/lib/history'
+import { saveSourceCode } from '@/lib/codeStore'
 
 export default function Page() {
   return (
@@ -41,6 +43,7 @@ function HomePage() {
     
     // Store the source for potential auto-retry
     sessionStorage.setItem('sg_last_scan_source', source)
+    if (mode === 'code') saveSourceCode(source)
     
     try {
       const t0 = Date.now()
@@ -176,6 +179,7 @@ function HomePage() {
           {/* Scan card */}
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-6 text-left shadow-2xl">
             <ScanInput onScan={handleScan} loading={loading} countdown={countdown} initialValue={initialSource} />
+            <ScanProgress loading={loading} />
 
             {countdown > 0 && (
               <div className="mt-4 flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-400">
@@ -253,6 +257,61 @@ function HomePage() {
               </div>
             </div>
           )}
+        </section>
+
+        {/* What is Soroban? */}
+        <section className="border-t border-[var(--border)] py-12">
+          <div className="mx-auto max-w-3xl px-4 sm:px-6">
+            <div className="flex items-start gap-4 rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-6">
+              <div className="flex-shrink-0">
+                <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" stroke="#6366f1" strokeWidth="1.5" />
+                  <path d="M8 12 C8 8 16 8 16 12 C16 16 8 16 8 12Z" fill="#6366f1" opacity="0.3" />
+                  <ellipse cx="12" cy="12" rx="4" ry="10" stroke="#6366f1" strokeWidth="1.5" />
+                  <line x1="2" y1="12" x2="22" y2="12" stroke="#6366f1" strokeWidth="1.5" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <h2 className="mb-2 text-base font-semibold text-white">What is Soroban?</h2>
+                <p className="text-sm leading-relaxed text-slate-400">
+                  Soroban is the smart contract platform built into the{' '}
+                  <a
+                    href="https://stellar.org"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2"
+                  >
+                    Stellar
+                  </a>{' '}
+                  blockchain. Contracts are written in Rust, compiled to WebAssembly, and executed on-chain with deterministic, low-cost transactions. Soroban Guard scans these contracts for security vulnerabilities before they are deployed.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-3">
+                  <a
+                    href="https://soroban.stellar.org"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    soroban.stellar.org
+                  </a>
+                  <a
+                    href="https://developers.stellar.org"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    developers.stellar.org
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* How it works */}

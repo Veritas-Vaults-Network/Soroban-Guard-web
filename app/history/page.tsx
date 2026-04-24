@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Finding } from '@/types/findings'
 import ConfirmModal from '@/components/ConfirmModal'
+import SeverityTrendChart from '@/components/SeverityTrendChart'
 
 interface HistoryEntry {
   id: string
@@ -54,7 +55,20 @@ export default function HistoryPage() {
       {entries.length === 0 ? (
         <p className="text-sm text-slate-500">No scan history yet.</p>
       ) : (
-        <ul className="space-y-3">
+        <>
+          {entries.length >= 2 && (
+            <div className="mb-6">
+              <SeverityTrendChart
+                data={entries.map(e => ({
+                  date: new Date(e.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+                  High: e.findings.filter(f => f.severity === 'High').length,
+                  Medium: e.findings.filter(f => f.severity === 'Medium').length,
+                  Low: e.findings.filter(f => f.severity === 'Low').length,
+                }))}
+              />
+            </div>
+          )}
+          <ul className="space-y-3">
           {entries.map(e => (
             <li
               key={e.id}
@@ -72,6 +86,7 @@ export default function HistoryPage() {
             </li>
           ))}
         </ul>
+        </>
       )}
 
       {showConfirm && (
