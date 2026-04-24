@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import ScanInput from '@/components/ScanInput'
 import WalletConnect from '@/components/WalletConnect'
 import NetworkBadge from '@/components/NetworkBadge'
@@ -9,63 +9,32 @@ import NetworkHealthBanner from '@/components/NetworkHealthBanner'
 import ThemeToggle from '@/components/ThemeToggle'
 import { scanContract, ApiError } from '@/lib/api'
 import { checkNetworkHealth } from '@/lib/stellar'
+import { useWallet } from '@/lib/WalletContext'
+import ContractIdBadge from '@/components/ContractIdBadge'
 import type { Finding } from '@/types/findings'
-import type { StellarNetwork, ContractScanRecord } from '@/types/stellar'
+import type { ContractScanRecord } from '@/types/stellar'
 import { NETWORKS } from '@/types/stellar'
 
 export default function HomePage() {
   const router = useRouter()
+  const { publicKey: walletKey, network: walletNetwork } = useWallet()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [countdown, setCountdown] = useState(0)
-  const pendingSourceRef = useRef<string | null>(null)
-  const [walletKey, setWalletKey] = useState<string | null>(null)
-  const [walletNetwork, setWalletNetwork] = useState<StellarNetwork>(NETWORKS.testnet)
   const [networkHealthy, setNetworkHealthy] = useState(true)
   const [statusMessage, setStatusMessage] = useState('')
-
-  function handleWalletConnect(publicKey: string, network: StellarNetwork) {
-    setWalletKey(publicKey)
-    setWalletNetwork(network)
-    setNetworkHealthy(true)
-    
-    // Check network health
-    checkNetworkHealth(network).then(healthy => {
-      setNetworkHealthy(healthy)
-    })
-  }
-
-  // Countdown timer — ticks every second, auto-retries when it hits zero
-  useEffect(() => {
-    if (countdown <= 0) return
-    const id = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(id)
-          // Auto-retry with the pending source
-          if (pendingSourceRef.current !== null) {
-            const src = pendingSourceRef.current
-            pendingSourceRef.current = null
-            handleScan(src)
-          }
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-    return () => clearInterval(id)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [countdown])
 
   async function handleScan(source: string) {
     setLoading(true)
     setError(null)
     setStatusMessage('Scanning your contract…')
     try {
+      const t0 = Date.now()
       const data = await scanContract(source)
+      const duration = ((Date.now() - t0) / 1000).toFixed(1)
       setStatusMessage(`Scan complete. ${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} detected.`)
       // Store results in sessionStorage so the results page can read them
       sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
+      sessionStorage.setItem('sg_duration', duration)
       router.push(`/results?r=${encoded}`)
     } catch (err) {
       if (err instanceof ApiError && err.status === 429 && err.retryAfter) {
@@ -89,6 +58,7 @@ export default function HomePage() {
     try {
       const data = await scanContract(contractId)
       sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
+      sessionStorage.removeItem('sg_duration')
       router.push('/results')
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unexpected error'
@@ -132,7 +102,7 @@ export default function HomePage() {
               Veritas Vaults Network
             </a>
             <ThemeToggle />
-            <WalletConnect onConnect={handleWalletConnect} />
+            <WalletConnect />
           </div>
         </div>
       </header>
@@ -207,9 +177,10 @@ export default function HomePage() {
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate font-mono text-sm text-slate-300">
-                          {record.contractId.slice(0, 12)}...{record.contractId.slice(-8)}
-                        </p>
+                        <ContractIdBadge
+                          id={record.contractId}
+                          className="text-slate-300"
+                        />
                         <p className="text-xs text-slate-500">
                           {new Date(record.scannedAt).toLocaleDateString()}
                         </p>

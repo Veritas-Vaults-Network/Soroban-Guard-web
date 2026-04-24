@@ -1,17 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { connectFreighter, isFreighterInstalled, getFreighterNetwork } from '@/lib/wallet'
-import type { StellarNetwork } from '@/types/stellar'
+import { isFreighterInstalled } from '@/lib/wallet'
+import { useWallet } from '@/lib/WalletContext'
+import ContractIdBadge from '@/components/ContractIdBadge'
 
-interface Props {
-  onConnect?: (publicKey: string, network: StellarNetwork) => void
-}
-
-export default function WalletConnect({ onConnect }: Props) {
+export default function WalletConnect() {
+  const { publicKey, network, connect, disconnect } = useWallet()
   const [installed, setInstalled] = useState(false)
-  const [publicKey, setPublicKey] = useState<string | null>(null)
-  const [network, setNetwork] = useState<StellarNetwork | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -23,15 +19,8 @@ export default function WalletConnect({ onConnect }: Props) {
     setLoading(true)
     setError(null)
     try {
-      const key = await connectFreighter()
-      if (!key) {
-        setError('Could not retrieve public key. Make sure Freighter is unlocked.')
-        return
-      }
-      const net = await getFreighterNetwork()
-      setPublicKey(key)
-      setNetwork(net)
-      if (net) onConnect?.(key, net)
+      const result = await connect()
+      if (!result) setError('Could not retrieve public key. Make sure Freighter is unlocked.')
     } catch {
       setError('Failed to connect to Freighter.')
     } finally {
@@ -40,8 +29,7 @@ export default function WalletConnect({ onConnect }: Props) {
   }
 
   function handleDisconnect() {
-    setPublicKey(null)
-    setNetwork(null)
+    disconnect()
     setError(null)
   }
 
@@ -64,9 +52,7 @@ export default function WalletConnect({ onConnect }: Props) {
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-1.5">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-          <span className="font-mono text-xs text-emerald-400">
-            {publicKey.slice(0, 6)}…{publicKey.slice(-4)}
-          </span>
+          <ContractIdBadge id={publicKey} className="text-xs text-emerald-400" />
           {network && (
             <span className="rounded-full bg-[#1a1d27] px-1.5 py-0.5 text-xs text-slate-500">
               {network.name}

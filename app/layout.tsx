@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { WalletProvider } from '@/lib/WalletContext'
 
 export const metadata: Metadata = {
   title: 'Soroban Guard — Smart Contract Security Scanner',
@@ -33,7 +34,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-[var(--bg)] text-[var(--text)] antialiased">
-        {children}
+        <WalletProvider>{children}</WalletProvider>
       </body>
     </html>
   )

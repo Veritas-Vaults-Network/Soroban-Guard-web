@@ -1,11 +1,10 @@
-import type { Metadata } from 'next'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import type { Finding, Severity } from '@/types/findings'
 import { decodeFindings } from '@/lib/share'
-<<<<<<< feat/results-og-meta
-import ResultsClient from './ResultsClient'
-=======
 import FindingsTable from '@/components/FindingsTable'
-import FindingsSkeleton from '@/components/FindingsSkeleton'
 import EmptyState from '@/components/EmptyState'
 import SeverityBadge from '@/components/SeverityBadge'
 import ThemeToggle from '@/components/ThemeToggle'
@@ -15,35 +14,24 @@ export default function ResultsPage() {
   const searchParams = useSearchParams()
   const [findings, setFindings] = useState<Finding[] | null>(null)
   const [copied, setCopied] = useState(false)
-  const [duration, setDuration] = useState<string | null>(null)
->>>>>>> main
 
-interface Props {
-  searchParams: { r?: string }
-}
-
-export function generateMetadata({ searchParams }: Props): Metadata {
-  const r = searchParams.r
-  if (!r) {
-    return {
-      title: 'Soroban Guard — Scan Results',
-      openGraph: { title: 'Soroban Guard — Scan Results' },
-      twitter: { card: 'summary' },
+  useEffect(() => {
+    const encoded = searchParams.get('r')
+    if (encoded) {
+      const decoded = decodeFindings(encoded)
+      if (decoded.length > 0) {
+        setFindings(decoded)
+        return
+      }
     }
-<<<<<<< feat/results-og-meta
-  }
 
-  const findings = decodeFindings(r)
-  if (findings.length === 0) {
-    return {
-      title: 'Soroban Guard — Scan Results',
-      openGraph: { title: 'Soroban Guard — Scan Results' },
-      twitter: { card: 'summary' },
+    const raw = sessionStorage.getItem('sg_findings')
+    if (!raw) {
+      router.replace('/')
+      return
     }
-=======
     try {
       setFindings(JSON.parse(raw) as Finding[])
-      setDuration(sessionStorage.getItem('sg_duration'))
     } catch {
       router.replace('/')
     }
@@ -63,27 +51,17 @@ export function generateMetadata({ searchParams }: Props): Metadata {
 
   if (findings === null) {
     return (
-      <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
-        <FindingsSkeleton />
+      <div className="flex min-h-screen items-center justify-center">
+        <svg className="spinner h-8 w-8 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" d="M12 2a10 10 0 0 1 10 10" />
+        </svg>
       </div>
     )
->>>>>>> main
   }
 
-  const counts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0 }
+  const counts: Record<Severity, number> = { High: 0, Medium: 0, Low: 0 }
   for (const f of findings) counts[f.severity]++
 
-<<<<<<< feat/results-og-meta
-  const title = `Soroban Guard — ${findings.length} finding${findings.length !== 1 ? 's' : ''} detected`
-  const description = `High: ${counts.High} · Medium: ${counts.Medium} · Low: ${counts.Low}`
-
-  return {
-    title,
-    description,
-    openGraph: { title, description },
-    twitter: { card: 'summary', title, description },
-  }
-=======
   const canCopy = typeof navigator !== 'undefined' && navigator.clipboard
 
   return (
@@ -139,24 +117,14 @@ export function generateMetadata({ searchParams }: Props): Metadata {
             {findings.length === 0
               ? 'No issues detected.'
               : `${findings.length} finding${findings.length !== 1 ? 's' : ''} detected across your contract.`}
-            {duration && (
-              <span className="ml-2 text-slate-600">Scanned in {duration}s</span>
-            )}
           </p>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <SummaryCard
               label="Total Findings"
               value={findings.length}
               color="text-white"
               bg="bg-[#1a1d27]"
-            />
-            <SummaryCard
-              label="Critical"
-              value={counts.Critical}
-              color="text-rose-400"
-              bg="bg-rose-500/5"
-              border="border-rose-500/20"
             />
             <SummaryCard
               label="High"
@@ -192,17 +160,17 @@ export function generateMetadata({ searchParams }: Props): Metadata {
                 Findings — click a row to expand details
               </h2>
               <div className="flex gap-2">
-                {(['Critical', 'High', 'Medium', 'Low'] as Severity[]).map(s =>
+                {(['High', 'Medium', 'Low'] as Severity[]).map(s =>
                   counts[s] > 0 ? (
                     <SeverityBadge key={s} severity={s} size="sm" />
                   ) : null,
                 )}
               </div>
             </div>
-            {/* Sort: Critical → High → Medium → Low */}
+            {/* Sort: High → Medium → Low */}
             <FindingsTable
               findings={[...findings].sort((a, b) => {
-                const order: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 }
+                const order: Record<Severity, number> = { High: 0, Medium: 1, Low: 2 }
                 return order[a.severity] - order[b.severity]
               })}
             />
@@ -215,9 +183,25 @@ export function generateMetadata({ searchParams }: Props): Metadata {
       </footer>
     </div>
   )
->>>>>>> main
 }
 
-export default function ResultsPage({ searchParams }: Props) {
-  return <ResultsClient />
+function SummaryCard({
+  label,
+  value,
+  color,
+  bg,
+  border = 'border-[var(--border)]',
+}: {
+  label: string
+  value: number
+  color: string
+  bg: string
+  border?: string
+}) {
+  return (
+    <div className={`rounded-xl border ${border} ${bg} px-5 py-4`}>
+      <p className="mb-1 text-xs text-slate-500">{label}</p>
+      <p className={`text-3xl font-bold ${color}`}>{value}</p>
+    </div>
+  )
 }
