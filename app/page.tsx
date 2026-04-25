@@ -356,6 +356,10 @@ function HomePage() {
             Veritas Vaults Network
           </a>{' '}
           · Open source · MIT License
+          {' '}·{' '}
+          <a href="/docs/api" className="text-slate-500 hover:text-slate-300">
+            API Docs
+          </a>
         </p>
       </footer>
     </div>
