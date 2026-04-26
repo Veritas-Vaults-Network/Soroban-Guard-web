@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { SAMPLE_CONTRACT } from '@/lib/sampleContract'
 import { isValidCid, fetchFromIpfs } from '@/lib/ipfs'
 import { requestPermission } from '@/lib/notifications'
+import { extractContractIdFromUrl } from '@/lib/stellar'
 
 const NOTIF_PREF_KEY = 'sg_notifications_enabled'
 
@@ -40,6 +41,7 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
   const [ipfsFetching, setIpfsFetching] = useState(false)
   const [ipfsError, setIpfsError] = useState<string | null>(null)
   const [normalized, setNormalized] = useState(false)
+  const [extractedFromUrl, setExtractedFromUrl] = useState(false)
   const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
     if (typeof window === 'undefined') return false
     return localStorage.getItem(NOTIF_PREF_KEY) === 'true'
@@ -52,6 +54,13 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
   const repoError = repoUrl.length > 0 && !repoValidation.valid ? repoValidation.error : undefined
 
   function handleContractIdChange(raw: string) {
+    setExtractedFromUrl(false)
+    const extracted = extractContractIdFromUrl(raw)
+    if (extracted) {
+      setContractId(extracted)
+      setExtractedFromUrl(true)
+      return
+    }
     const clean = raw.trim().toUpperCase()
     setContractId(clean)
     if (clean !== raw) {
@@ -250,6 +259,9 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
               </span>
             )}
           </div>
+          {extractedFromUrl && (
+            <p className="text-xs text-emerald-400">✓ Extracted from explorer URL</p>
+          )}
           <p className="text-xs text-slate-500">
             Enter a Soroban contract ID (C-address) deployed on Stellar. The scanner
             will fetch the WASM bytecode via Soroban RPC and analyze it.

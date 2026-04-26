@@ -23,6 +23,16 @@ export function isValidContractId(id: string): boolean {
   return C_ADDRESS_RE.test(id)
 }
 
+// Matches stellar.expert and stellarexpert.io contract explorer URLs
+const EXPLORER_CONTRACT_RE = /^https?:\/\/(?:stellar\.expert|stellarexpert\.io)\/explorer\/[^/]+\/contract\/([A-Z2-7]{56})(?:[/?#].*)?$/i
+
+export function extractContractIdFromUrl(url: string): string | null {
+  const match = url.trim().match(EXPLORER_CONTRACT_RE)
+  if (!match) return null
+  const id = match[1].toUpperCase()
+  return isValidContractId(id) ? id : null
+}
+
 // ── Horizon helpers ───────────────────────────────────────────────────────────
 
 /**
