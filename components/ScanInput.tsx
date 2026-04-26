@@ -3,6 +3,9 @@
 import { useState, useRef } from 'react'
 import { SAMPLE_CONTRACT } from '@/lib/sampleContract'
 import { isValidCid, fetchFromIpfs } from '@/lib/ipfs'
+import { requestPermission } from '@/lib/notifications'
+
+const NOTIF_PREF_KEY = 'sg_notifications_enabled'
 
 type InputMode = 'code' | 'github' | 'contractId' | 'ipfs'
 
@@ -37,6 +40,10 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
   const [ipfsFetching, setIpfsFetching] = useState(false)
   const [ipfsError, setIpfsError] = useState<string | null>(null)
   const [normalized, setNormalized] = useState(false)
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return localStorage.getItem(NOTIF_PREF_KEY) === 'true'
+  })
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const normalizedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -75,6 +82,18 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
       setIpfsError(err instanceof Error ? err.message : 'Failed to fetch from IPFS')
     } finally {
       setIpfsFetching(false)
+    }
+  }
+
+  async function toggleNotifications() {
+    if (!notificationsEnabled) {
+      const granted = await requestPermission()
+      if (!granted) return
+      setNotificationsEnabled(true)
+      localStorage.setItem(NOTIF_PREF_KEY, 'true')
+    } else {
+      setNotificationsEnabled(false)
+      localStorage.setItem(NOTIF_PREF_KEY, 'false')
     }
   }
 
@@ -310,10 +329,11 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
 
       {/* Submit */}
       <div className="space-y-2">
+        <div className="flex gap-2">
         <button
           type="submit"
           disabled={!canSubmit}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
         >
           {isRateLimited ? (
             <>
@@ -338,6 +358,27 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
             </>
           )}
         </button>
+        <button
+          type="button"
+          onClick={toggleNotifications}
+          title={notificationsEnabled ? 'Disable scan notifications' : 'Enable scan notifications'}
+          className={`flex items-center justify-center rounded-xl border px-3 py-3 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+            notificationsEnabled
+              ? 'border-indigo-500/60 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20'
+              : 'border-[#2a2d3a] bg-[#12151f] text-slate-500 hover:text-slate-300'
+          }`}
+        >
+          {notificationsEnabled ? (
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+          ) : (
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )}
+        </button>
+        </div>
         <p className="text-center text-xs text-slate-600">⌘↵ to scan</p>
       </div>
     </form>

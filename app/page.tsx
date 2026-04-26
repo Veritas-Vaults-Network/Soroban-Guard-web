@@ -18,6 +18,7 @@ import type { ContractScanRecord } from '@/types/stellar'
 import { NETWORKS } from '@/types/stellar'
 import { addRecord } from '@/lib/history'
 import { saveSourceCode } from '@/lib/codeStore'
+import { notify } from '@/lib/notifications'
 import { FEATURED_CONTRACTS } from '@/lib/featuredContracts'
 
 export default function Page() {
@@ -58,6 +59,7 @@ function HomePage() {
       // Store results in sessionStorage so the results page can read them
       sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
       sessionStorage.setItem('sg_duration', duration)
+      notify('Scan complete', `${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} detected`)
       router.push(`/results?r=${encoded}`)
     } catch (err) {
       if (err instanceof ApiError && err.status === 429 && err.retryAfter) {
