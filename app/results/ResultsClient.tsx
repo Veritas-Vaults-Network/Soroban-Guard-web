@@ -9,6 +9,7 @@ import { getAllScanHistory } from '@/lib/history'
 import { diffFindings } from '@/lib/diffFindings'
 import FindingsTable from '@/components/FindingsTable'
 import FindingsDiff from '@/components/FindingsDiff'
+import FindingsByFunction from '@/components/FindingsByFunction'
 import EmptyState from '@/components/EmptyState'
 import SeverityBadge from '@/components/SeverityBadge'
 import ThemeToggle from '@/components/ThemeToggle'
@@ -22,6 +23,7 @@ export default function ResultsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showDiff, setShowDiff] = useState(false)
   const [prevFindings, setPrevFindings] = useState<Finding[] | null>(null)
+  const [groupView, setGroupView] = useState<'flat' | 'function'>('flat')
 
   useEffect(() => {
     const encoded = searchParams.get('r')
@@ -210,6 +212,22 @@ export default function ResultsPage() {
                     {showDiff ? 'Hide diff' : 'Show diff from last scan'}
                   </button>
                 )}
+                {!showDiff && (
+                  <div className="flex rounded-lg border border-[var(--border)] overflow-hidden text-xs font-medium">
+                    <button
+                      onClick={() => setGroupView('flat')}
+                      className={`px-3 py-1.5 transition ${groupView === 'flat' ? 'bg-indigo-500/10 text-indigo-300' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      Flat
+                    </button>
+                    <button
+                      onClick={() => setGroupView('function')}
+                      className={`px-3 py-1.5 border-l border-[var(--border)] transition ${groupView === 'function' ? 'bg-indigo-500/10 text-indigo-300' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      Group by function
+                    </button>
+                  </div>
+                )}
                 {(['High', 'Medium', 'Low'] as Severity[]).map(s =>
                   counts[s] > 0 ? (
                     <SeverityBadge key={s} severity={s} size="sm" />
@@ -251,6 +269,8 @@ export default function ResultsPage() {
                 {/* Sort: High → Medium → Low */}
                 {filteredFindings.length === 0 ? (
                   <p className="py-10 text-center text-sm text-slate-500">No findings match your search.</p>
+                ) : groupView === 'function' ? (
+                  <FindingsByFunction findings={filteredFindings} />
                 ) : (
                   <FindingsTable
                     findings={[...filteredFindings].sort((a, b) => {
