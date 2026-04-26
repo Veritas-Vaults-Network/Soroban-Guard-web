@@ -50,7 +50,8 @@ export function addScanRecord(
   publicKey: string,
   contractId: string,
   network: string,
-  findings: Array<{ severity: string; check_name: string; description: string; function_name: string; file_path: string; line: number }>
+  findings: Array<{ severity: string; check_name: string; description: string; function_name: string; file_path: string; line: number }>,
+  score?: number
 ): void {
   if (typeof window === 'undefined') return
   try {
@@ -75,6 +76,7 @@ export function addScanRecord(
       mediumCount: counts.medium,
       lowCount: counts.low,
       findings,
+      score,
     }
 
     records.unshift(record)

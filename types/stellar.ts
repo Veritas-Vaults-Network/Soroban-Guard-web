@@ -45,6 +45,7 @@ export interface ContractScanRecord {
   lowCount: number
   id: string
   findings: Array<{ severity: string; check_name: string; description: string; function_name: string; file_path: string; line: number }>
+  score?: number
 }
 
 // Soroban contract metadata returned from Horizon
