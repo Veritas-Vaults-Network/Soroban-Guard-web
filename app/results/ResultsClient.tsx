@@ -5,7 +5,11 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import type { Finding, Severity } from '@/types/findings'
 import { decodeFindings } from '@/lib/share'
 import { exportEmail } from '@/lib/export'
+import { getAllScanHistory } from '@/lib/history'
+import { diffFindings } from '@/lib/diffFindings'
 import FindingsTable from '@/components/FindingsTable'
+import FindingsDiff from '@/components/FindingsDiff'
+import FindingsByFunction from '@/components/FindingsByFunction'
 import EmptyState from '@/components/EmptyState'
 import SeverityBadge from '@/components/SeverityBadge'
 import ThemeToggle from '@/components/ThemeToggle'
@@ -48,6 +52,18 @@ export default function ResultsPage() {
     }
     return () => {
       document.title = 'Soroban Guard — Smart Contract Security Scanner'
+    }
+  }, [findings])
+
+  useEffect(() => {
+    if (findings == null) return
+    const source = sessionStorage.getItem('sg_last_scan_source')
+    if (!source) return
+    const history = getAllScanHistory()
+    // Find the most recent previous scan for the same source (contractId)
+    const prev = history.find(r => r.contractId === source && r.findings.length > 0)
+    if (prev) {
+      setPrevFindings(prev.findings as Finding[])
     }
   }, [findings])
 
@@ -193,7 +209,35 @@ export default function ResultsPage() {
               <h2 className="text-sm font-semibold text-slate-400">
                 Findings — click a row to expand details
               </h2>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
+                {prevFindings && (
+                  <button
+                    onClick={() => setShowDiff(v => !v)}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                      showDiff
+                        ? 'border-indigo-500 bg-indigo-500/10 text-indigo-300'
+                        : 'border-[var(--border)] text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {showDiff ? 'Hide diff' : 'Show diff from last scan'}
+                  </button>
+                )}
+                {!showDiff && (
+                  <div className="flex rounded-lg border border-[var(--border)] overflow-hidden text-xs font-medium">
+                    <button
+                      onClick={() => setGroupView('flat')}
+                      className={`px-3 py-1.5 transition ${groupView === 'flat' ? 'bg-indigo-500/10 text-indigo-300' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      Flat
+                    </button>
+                    <button
+                      onClick={() => setGroupView('function')}
+                      className={`px-3 py-1.5 border-l border-[var(--border)] transition ${groupView === 'function' ? 'bg-indigo-500/10 text-indigo-300' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      Group by function
+                    </button>
+                  </div>
+                )}
                 {(['High', 'Medium', 'Low'] as Severity[]).map(s =>
                   counts[s] > 0 ? (
                     <SeverityBadge key={s} severity={s} size="sm" />
@@ -201,42 +245,51 @@ export default function ResultsPage() {
                 )}
               </div>
             </div>
-            {/* Search input */}
-            <div className="relative mb-4">
-              <label htmlFor="findings-search" className="sr-only">Search findings</label>
-              <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-              </svg>
-              <input
-                id="findings-search"
-                type="search"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search by check, function, file, or description…"
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] py-2 pl-9 pr-9 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  aria-label="Clear search"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
-            </div>
-            {/* Sort: High → Medium → Low */}
-            {filteredFindings.length === 0 ? (
-              <p className="py-10 text-center text-sm text-slate-500">No findings match your search.</p>
+
+            {showDiff && prevFindings ? (
+              <FindingsDiff diff={diffFindings(prevFindings, findings)} />
             ) : (
-              <FindingsTable
-                findings={[...filteredFindings].sort((a, b) => {
-                  const order: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 }
-                  return order[a.severity] - order[b.severity]
-                })}
-              />
+              <>
+                {/* Search input */}
+                <div className="relative mb-4">
+                  <label htmlFor="findings-search" className="sr-only">Search findings</label>
+                  <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+                  </svg>
+                  <input
+                    id="findings-search"
+                    type="search"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="Search by check, function, file, or description…"
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] py-2 pl-9 pr-9 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      aria-label="Clear search"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                {/* Sort: High → Medium → Low */}
+                {filteredFindings.length === 0 ? (
+                  <p className="py-10 text-center text-sm text-slate-500">No findings match your search.</p>
+                ) : groupView === 'function' ? (
+                  <FindingsByFunction findings={filteredFindings} />
+                ) : (
+                  <FindingsTable
+                    findings={[...filteredFindings].sort((a, b) => {
+                      const order: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 }
+                      return order[a.severity] - order[b.severity]
+                    })}
+                  />
+                )}
+              </>
             )}
           </div>
         )}
