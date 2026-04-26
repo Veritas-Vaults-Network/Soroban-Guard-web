@@ -3,6 +3,12 @@ import type { StellarNetwork } from '@/types/stellar'
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001').replace(/\/$/, '')
 
+export interface ScanQuota {
+  remaining: number
+  limit: number
+  resetAt: number // unix ms
+}
+
 export class ApiError extends Error {
   public retryAfter?: number
 
@@ -17,7 +23,11 @@ export class ApiError extends Error {
   }
 }
 
-export async function scanContract(source: string, network?: StellarNetwork): Promise<ScanResponse> {
+export interface ScanResult extends ScanResponse {
+  quota?: ScanQuota
+}
+
+export async function scanContract(source: string, network?: StellarNetwork): Promise<ScanResult> {
   const body: ScanRequest = { source }
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -36,16 +46,23 @@ export async function scanContract(source: string, network?: StellarNetwork): Pr
       throw new ApiError(429, 'Rate limited', retryAfter)
     }
     const text = await res.text().catch(() => 'Unknown error')
-    
-    // Handle rate limiting
-    if (res.status === 429) {
-      const retryAfter = res.headers.get('Retry-After')
-      const retrySeconds = retryAfter ? parseInt(retryAfter, 10) : undefined
-      throw new ApiError(res.status, text || `HTTP ${res.status}`, retrySeconds)
-    }
-    
     throw new ApiError(res.status, text || `HTTP ${res.status}`)
   }
 
-  return res.json() as Promise<ScanResponse>
+  const data = (await res.json()) as ScanResponse
+
+  const remaining = res.headers.get('X-RateLimit-Remaining')
+  const limit = res.headers.get('X-RateLimit-Limit')
+  const reset = res.headers.get('X-RateLimit-Reset')
+
+  const quota: ScanQuota | undefined =
+    remaining !== null && limit !== null && reset !== null
+      ? {
+          remaining: parseInt(remaining, 10),
+          limit: parseInt(limit, 10),
+          resetAt: parseInt(reset, 10) * 1000, // convert epoch seconds → ms
+        }
+      : undefined
+
+  return { ...data, quota }
 }
