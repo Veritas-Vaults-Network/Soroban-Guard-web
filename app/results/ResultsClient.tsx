@@ -5,16 +5,16 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import type { Finding, Severity } from '@/types/findings'
 import { decodeFindings } from '@/lib/share'
 import { exportEmail } from '@/lib/export'
-import { scanContract } from '@/lib/api'
+import { getAllScanHistory } from '@/lib/history'
+import { diffFindings } from '@/lib/diffFindings'
 import FindingsTable from '@/components/FindingsTable'
-import FindingsByFile from '@/components/FindingsByFile'
+import FindingsDiff from '@/components/FindingsDiff'
+import FindingsByFunction from '@/components/FindingsByFunction'
 import EmptyState from '@/components/EmptyState'
 import SeverityBadge from '@/components/SeverityBadge'
 import ThemeToggle from '@/components/ThemeToggle'
 import { useToast } from '@/lib/toast'
-import { calculateScore, getScoreColor, getScoreBg, getScoreBorder } from '@/lib/score'
-import { groupByFile } from '@/lib/groupFindings'
-import { isMuted } from '@/lib/mutedFindings'
+import GithubExportModal from '@/components/GithubExportModal'
 
 export default function ResultsPage() {
   const router = useRouter()
@@ -22,10 +22,7 @@ export default function ResultsPage() {
   const { show } = useToast()
   const [findings, setFindings] = useState<Finding[] | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [groupByFileMode, setGroupByFileMode] = useState(false)
-  const [showMuted, setShowMuted] = useState(false)
-  const [isRescanning, setIsRescanning] = useState(false)
-  const [muteRefresh, setMuteRefresh] = useState(0)
+  const [showGithubModal, setShowGithubModal] = useState(false)
 
   useEffect(() => {
     const encoded = searchParams.get('r')
@@ -55,6 +52,18 @@ export default function ResultsPage() {
     }
     return () => {
       document.title = 'Soroban Guard — Smart Contract Security Scanner'
+    }
+  }, [findings])
+
+  useEffect(() => {
+    if (findings == null) return
+    const source = sessionStorage.getItem('sg_last_scan_source')
+    if (!source) return
+    const history = getAllScanHistory()
+    // Find the most recent previous scan for the same source (contractId)
+    const prev = history.find(r => r.contractId === source && r.findings.length > 0)
+    if (prev) {
+      setPrevFindings(prev.findings as Finding[])
     }
   }, [findings])
 
@@ -159,6 +168,17 @@ export default function ResultsPage() {
             >
               Email summary
             </a>
+            {findings.length > 0 && (
+              <button
+                onClick={() => setShowGithubModal(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
+              >
+                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+                </svg>
+                Create GitHub Issues
+              </button>
+            )}
             <button
               onClick={handleScanAnother}
               className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-indigo-500"
@@ -239,7 +259,35 @@ export default function ResultsPage() {
               <h2 className="text-sm font-semibold text-slate-400">
                 Findings — click a row to expand details
               </h2>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
+                {prevFindings && (
+                  <button
+                    onClick={() => setShowDiff(v => !v)}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                      showDiff
+                        ? 'border-indigo-500 bg-indigo-500/10 text-indigo-300'
+                        : 'border-[var(--border)] text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {showDiff ? 'Hide diff' : 'Show diff from last scan'}
+                  </button>
+                )}
+                {!showDiff && (
+                  <div className="flex rounded-lg border border-[var(--border)] overflow-hidden text-xs font-medium">
+                    <button
+                      onClick={() => setGroupView('flat')}
+                      className={`px-3 py-1.5 transition ${groupView === 'flat' ? 'bg-indigo-500/10 text-indigo-300' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      Flat
+                    </button>
+                    <button
+                      onClick={() => setGroupView('function')}
+                      className={`px-3 py-1.5 border-l border-[var(--border)] transition ${groupView === 'function' ? 'bg-indigo-500/10 text-indigo-300' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      Group by function
+                    </button>
+                  </div>
+                )}
                 {(['High', 'Medium', 'Low'] as Severity[]).map(s =>
                   counts[s] > 0 ? (
                     <SeverityBadge key={s} severity={s} size="sm" />
@@ -247,74 +295,51 @@ export default function ResultsPage() {
                 )}
               </div>
             </div>
-            
-            {/* Controls row */}
-            <div className="mb-4 flex flex-wrap items-center gap-3">
-              {/* Search input */}
-              <div className="relative flex-1 min-w-[200px]">
-                <label htmlFor="findings-search" className="sr-only">Search findings</label>
-                <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-                </svg>
-                <input
-                  id="findings-search"
-                  type="search"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Search by check, function, file, or description…"
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] py-2 pl-9 pr-9 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    aria-label="Clear search"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                )}
-              </div>
 
-              {/* Toggle buttons */}
-              <button
-                onClick={() => setGroupByFileMode(!groupByFileMode)}
-                className={`rounded-lg border px-3 py-2 text-sm transition ${
-                  groupByFileMode
-                    ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400'
-                    : 'border-[var(--border)] text-slate-400 hover:text-white'
-                }`}
-              >
-                Group by file
-              </button>
-              
-              <button
-                onClick={() => setShowMuted(!showMuted)}
-                className={`rounded-lg border px-3 py-2 text-sm transition ${
-                  showMuted
-                    ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400'
-                    : 'border-[var(--border)] text-slate-400 hover:text-white'
-                }`}
-              >
-                Show muted
-              </button>
-            </div>
-
-            {/* Sort: High → Medium → Low */}
-            {filteredFindings.length === 0 ? (
-              <p className="py-10 text-center text-sm text-slate-500">No findings match your search.</p>
-            ) : groupByFileMode ? (
-              <FindingsByFile groupedFindings={groupedFindings} onMuteChange={handleMuteChange} />
+            {showDiff && prevFindings ? (
+              <FindingsDiff diff={diffFindings(prevFindings, findings)} />
             ) : (
-              <FindingsTable
-                key={muteRefresh}
-                findings={[...filteredFindings].sort((a, b) => {
-                  const order: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 }
-                  return order[a.severity] - order[b.severity]
-                })}
-                onMuteChange={handleMuteChange}
-              />
+              <>
+                {/* Search input */}
+                <div className="relative mb-4">
+                  <label htmlFor="findings-search" className="sr-only">Search findings</label>
+                  <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+                  </svg>
+                  <input
+                    id="findings-search"
+                    type="search"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="Search by check, function, file, or description…"
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] py-2 pl-9 pr-9 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      aria-label="Clear search"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                {/* Sort: High → Medium → Low */}
+                {filteredFindings.length === 0 ? (
+                  <p className="py-10 text-center text-sm text-slate-500">No findings match your search.</p>
+                ) : groupView === 'function' ? (
+                  <FindingsByFunction findings={filteredFindings} />
+                ) : (
+                  <FindingsTable
+                    findings={[...filteredFindings].sort((a, b) => {
+                      const order: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 }
+                      return order[a.severity] - order[b.severity]
+                    })}
+                  />
+                )}
+              </>
             )}
           </div>
         )}
@@ -323,6 +348,10 @@ export default function ResultsPage() {
       <footer className="border-t border-[var(--border)] py-6 text-center text-xs text-slate-600">
         Soroban Guard · Veritas Vaults Network
       </footer>
+
+      {showGithubModal && (
+        <GithubExportModal findings={findings} onClose={() => setShowGithubModal(false)} />
+      )}
     </div>
   )
 }

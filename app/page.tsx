@@ -9,6 +9,7 @@ import NetworkSelector, { getStoredNetwork } from '@/components/NetworkSelector'
 import NetworkHealthBanner from '@/components/NetworkHealthBanner'
 import ThemeToggle from '@/components/ThemeToggle'
 import { scanContract, ApiError } from '@/lib/api'
+import type { ScanQuota } from '@/lib/api'
 import { checkNetworkHealth } from '@/lib/stellar'
 import { useWallet } from '@/lib/WalletContext'
 import ContractIdBadge from '@/components/ContractIdBadge'
@@ -18,7 +19,9 @@ import type { ContractScanRecord } from '@/types/stellar'
 import { NETWORKS } from '@/types/stellar'
 import { addRecord } from '@/lib/history'
 import { saveSourceCode } from '@/lib/codeStore'
+import { notify } from '@/lib/notifications'
 import { FEATURED_CONTRACTS } from '@/lib/featuredContracts'
+import ScanQuotaIndicator from '@/components/ScanQuota'
 
 export default function Page() {
   return (
@@ -37,10 +40,11 @@ function HomePage() {
   const [statusMessage, setStatusMessage] = useState('')
   const [scanHistory] = useState<ContractScanRecord[]>([])
   const [manualNetwork, setManualNetwork] = useState(() => getStoredNetwork())
+  const [quota, setQuota] = useState<ScanQuota | null>(null)
 
   const activeNetwork = walletKey ? walletNetwork : manualNetwork
 
-  async function handleScan(source: string, mode: 'code' | 'github' | 'contractId' = 'code') {
+  async function handleScan(source: string, mode: 'code' | 'github' | 'contractId' | 'ipfs' = 'code') {
     setLoading(true)
     setError(null)
     setRateLimitCountdown(null)
@@ -54,11 +58,12 @@ function HomePage() {
       const t0 = Date.now()
       const data = await scanContract(source, activeNetwork)
       const duration = ((Date.now() - t0) / 1000).toFixed(1)
+      if (data.quota) setQuota(data.quota)
       setStatusMessage(`Scan complete. ${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} detected.`)
       // Store results in sessionStorage so the results page can read them
       sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
       sessionStorage.setItem('sg_duration', duration)
-      sessionStorage.setItem('sg_scan_source', source)
+      notify('Scan complete', `${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} detected`)
       router.push(`/results?r=${encoded}`)
     } catch (err) {
       if (err instanceof ApiError && err.status === 429 && err.retryAfter) {
@@ -190,6 +195,7 @@ function HomePage() {
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-6 text-left shadow-2xl">
             <ScanInput onScan={handleScan} loading={loading} countdown={countdown} initialValue={initialSource} />
             <ScanProgress loading={loading} />
+            {quota && <ScanQuotaIndicator quota={quota} />}
 
             {countdown > 0 && (
               <div className="mt-4 flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-400">

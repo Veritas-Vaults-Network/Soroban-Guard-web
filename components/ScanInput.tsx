@@ -2,14 +2,31 @@
 
 import { useState, useRef } from 'react'
 import { SAMPLE_CONTRACT } from '@/lib/sampleContract'
+import { isValidCid, fetchFromIpfs } from '@/lib/ipfs'
+import { requestPermission } from '@/lib/notifications'
+import { extractContractIdFromUrl } from '@/lib/stellar'
 
-type InputMode = 'code' | 'github' | 'contractId'
+const NOTIF_PREF_KEY = 'sg_notifications_enabled'
+
+type InputMode = 'code' | 'github' | 'contractId' | 'ipfs'
 
 interface Props {
   onScan: (source: string, mode: InputMode) => void
   loading: boolean
   countdown?: number
   initialValue?: string
+}
+
+function validateGithub(url: string): { valid: boolean; error?: string } {
+  try {
+    const u = new URL(url)
+    if (u.hostname !== 'github.com') return { valid: false, error: 'Must be a github.com URL' }
+    const parts = u.pathname.replace(/^\//, '').split('/')
+    if (parts.length < 2 || !parts[0] || !parts[1]) return { valid: false, error: 'Must be a repository URL (github.com/org/repo)' }
+    return { valid: true }
+  } catch {
+    return { valid: false, error: 'Invalid URL' }
+  }
 }
 
 export default function ScanInput({ onScan, loading, countdown = 0, initialValue = '' }: Props) {
@@ -19,11 +36,31 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
   const [code, setCode] = useState(initialValue.startsWith('C') && initialValue.length >= 56 ? '' : initialValue)
   const [repoUrl, setRepoUrl] = useState('')
   const [contractId, setContractId] = useState('')
+  const [cid, setCid] = useState('')
+  const [ipfsPreview, setIpfsPreview] = useState<string | null>(null)
+  const [ipfsFetching, setIpfsFetching] = useState(false)
+  const [ipfsError, setIpfsError] = useState<string | null>(null)
   const [normalized, setNormalized] = useState(false)
+  const [extractedFromUrl, setExtractedFromUrl] = useState(false)
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return localStorage.getItem(NOTIF_PREF_KEY) === 'true'
+  })
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const normalizedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const contractValid = contractId.length >= 56 && contractId.startsWith('C')
+  const repoValidation = validateGithub(repoUrl)
+  const repoError = repoUrl.length > 0 && !repoValidation.valid ? repoValidation.error : undefined
+
   function handleContractIdChange(raw: string) {
+    setExtractedFromUrl(false)
+    const extracted = extractContractIdFromUrl(raw)
+    if (extracted) {
+      setContractId(extracted)
+      setExtractedFromUrl(true)
+      return
+    }
     const clean = raw.trim().toUpperCase()
     setContractId(clean)
     if (clean !== raw) {
@@ -33,20 +70,48 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
     }
   }
 
-  useEffect(() => {
-    if (externalCode !== undefined) {
-      setCode(externalCode)
-      setMode('code')
-    }
-  }, [externalCode])
+  function handleCidChange(value: string) {
+    setCid(value)
+    setIpfsPreview(null)
+    setIpfsError(null)
+  }
 
-  function handleCodeChange(value: string) {
-    setCode(value)
-    onCodeChange?.(value)
+  async function handleFetchIpfs() {
+    if (!isValidCid(cid)) {
+      setIpfsError('Invalid CID — must start with Qm… or bafy…')
+      return
+    }
+    setIpfsFetching(true)
+    setIpfsError(null)
+    setIpfsPreview(null)
+    try {
+      const content = await fetchFromIpfs(cid)
+      setIpfsPreview(content)
+    } catch (err) {
+      setIpfsError(err instanceof Error ? err.message : 'Failed to fetch from IPFS')
+    } finally {
+      setIpfsFetching(false)
+    }
+  }
+
+  async function toggleNotifications() {
+    if (!notificationsEnabled) {
+      const granted = await requestPermission()
+      if (!granted) return
+      setNotificationsEnabled(true)
+      localStorage.setItem(NOTIF_PREF_KEY, 'true')
+    } else {
+      setNotificationsEnabled(false)
+      localStorage.setItem(NOTIF_PREF_KEY, 'false')
+    }
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (mode === 'ipfs') {
+      if (ipfsPreview) onScan(ipfsPreview, mode)
+      return
+    }
     const source =
       mode === 'code'
         ? code.trim()
@@ -60,9 +125,7 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
   function handleKeyDown(e: React.KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault()
-      if (canSubmit) {
-        handleSubmit(e as any)
-      }
+      if (canSubmit) handleSubmit(e as unknown as React.FormEvent)
     }
   }
 
@@ -74,8 +137,10 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
     (mode === 'code'
       ? code.trim().length > 0 && code.length <= 100000
       : mode === 'github'
-        ? repoUrl.trim().length > 0 && validateGithub(repoUrl).valid
-        : contractId.trim().length > 0 && contractValid)
+        ? repoUrl.trim().length > 0 && repoValidation.valid
+        : mode === 'contractId'
+          ? contractId.trim().length > 0 && contractValid
+          : ipfsPreview !== null)
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -114,15 +179,26 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
         >
           Contract ID
         </TabButton>
+        <TabButton
+          active={mode === 'ipfs'}
+          onClick={() => setMode('ipfs')}
+          icon={
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+          }
+        >
+          IPFS CID
+        </TabButton>
       </div>
 
       {/* Input area */}
-  {mode === 'code' ? (
+      {mode === 'code' ? (
         <div className="relative">
           <textarea
             ref={textareaRef}
             value={code}
-            onChange={e => handleCodeChange(e.target.value)}
+            onChange={e => setCode(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={`#![no_std]\nuse soroban_sdk::{contract, contractimpl, Env};\n\n#[contract]\npub struct MyContract;\n\n#[contractimpl]\nimpl MyContract {\n    pub fn hello(env: Env) -> String {\n        // paste your contract here...\n    }\n}`}
             rows={16}
@@ -164,29 +240,85 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
             </p>
           )}
         </div>
-      ) : (
+      ) : mode === 'contractId' ? (
         <div className="space-y-2">
           <div className="relative">
-          <input
-            type="text"
-            value={contractId}
-            onChange={e => handleContractIdChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
-            className="w-full rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 font-mono text-sm text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
-            disabled={loading}
-            spellCheck={false}
-          />
-          {normalized && (
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded bg-indigo-500/20 px-2 py-0.5 text-xs text-indigo-300 transition-opacity duration-500">
-              Normalized
-            </span>
-          )}
+            <input
+              type="text"
+              value={contractId}
+              onChange={e => handleContractIdChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
+              className="w-full rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 font-mono text-sm text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
+              disabled={loading}
+              spellCheck={false}
+            />
+            {normalized && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded bg-indigo-500/20 px-2 py-0.5 text-xs text-indigo-300 transition-opacity duration-500">
+                Normalized
+              </span>
+            )}
           </div>
+          {extractedFromUrl && (
+            <p className="text-xs text-emerald-400">✓ Extracted from explorer URL</p>
+          )}
           <p className="text-xs text-slate-500">
             Enter a Soroban contract ID (C-address) deployed on Stellar. The scanner
             will fetch the WASM bytecode via Soroban RPC and analyze it.
           </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={cid}
+              onChange={e => handleCidChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Qm… or bafy…"
+              className="flex-1 rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 font-mono text-sm text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
+              disabled={loading || ipfsFetching}
+              spellCheck={false}
+            />
+            <button
+              type="button"
+              onClick={handleFetchIpfs}
+              disabled={!cid.trim() || ipfsFetching || loading}
+              className="flex items-center gap-1.5 rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 text-sm text-slate-300 transition hover:border-indigo-500/50 hover:text-indigo-300 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {ipfsFetching ? (
+                <svg className="spinner h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" d="M12 2a10 10 0 0 1 10 10" />
+                </svg>
+              ) : (
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+              )}
+              Fetch
+            </button>
+          </div>
+          {ipfsError && <p className="text-xs text-rose-400">{ipfsError}</p>}
+          {!ipfsError && !ipfsPreview && (
+            <p className="text-xs text-slate-500">
+              Enter a CID (<code className="rounded bg-[#1a1d27] px-1 text-slate-400">Qm…</code> or{' '}
+              <code className="rounded bg-[#1a1d27] px-1 text-slate-400">bafy…</code>) and click Fetch to load the contract source.
+            </p>
+          )}
+          {ipfsPreview !== null && (
+            <div className="space-y-1">
+              <p className="text-xs text-emerald-400">
+                ✓ Fetched {ipfsPreview.length.toLocaleString()} chars — preview below
+              </p>
+              <textarea
+                readOnly
+                value={ipfsPreview}
+                rows={10}
+                className="code-textarea w-full resize-y rounded-xl border border-emerald-500/30 bg-[#12151f] px-4 py-3 text-sm text-slate-400 outline-none"
+                spellCheck={false}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -209,10 +341,11 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
 
       {/* Submit */}
       <div className="space-y-2">
+        <div className="flex gap-2">
         <button
           type="submit"
           disabled={!canSubmit}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
         >
           {isRateLimited ? (
             <>
@@ -228,13 +361,6 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
               </svg>
               Scanning…
             </>
-          ) : rateLimitCountdown ? (
-            <>
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Retry in {rateLimitCountdown}s
-            </>
           ) : (
             <>
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -244,6 +370,27 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
             </>
           )}
         </button>
+        <button
+          type="button"
+          onClick={toggleNotifications}
+          title={notificationsEnabled ? 'Disable scan notifications' : 'Enable scan notifications'}
+          className={`flex items-center justify-center rounded-xl border px-3 py-3 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+            notificationsEnabled
+              ? 'border-indigo-500/60 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20'
+              : 'border-[#2a2d3a] bg-[#12151f] text-slate-500 hover:text-slate-300'
+          }`}
+        >
+          {notificationsEnabled ? (
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+          ) : (
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )}
+        </button>
+        </div>
         <p className="text-center text-xs text-slate-600">⌘↵ to scan</p>
       </div>
     </form>
