@@ -6,14 +6,16 @@ import { isValidCid, fetchFromIpfs } from '@/lib/ipfs'
 import { isValidNpmPackage, fetchNpmSource } from '@/lib/npm'
 import { requestPermission } from '@/lib/notifications'
 import { extractContractIdFromUrl } from '@/lib/stellar'
+import { isValidGistUrl, fetchGistFiles, fetchGistFileContent, type GistFile } from '@/lib/gist'
 
 const NOTIF_PREF_KEY = 'sg_notifications_enabled'
-const NPM_PREVIEW_LIMIT = 5_000
+const TG_BOT_TOKEN_KEY = 'sg_tg_bot_token'
+const TG_CHAT_ID_KEY = 'sg_tg_chat_id'
 
-type InputMode = 'code' | 'github' | 'contractId' | 'ipfs' | 'npm'
+type InputMode = 'code' | 'github' | 'contractId' | 'ipfs' | 'gist'
 
 interface Props {
-  onScan: (source: string, mode: InputMode) => void
+  onScan: (source: string, mode: InputMode, telegramConfig?: { botToken: string; chatId: string }) => void
   loading: boolean
   countdown?: number
   initialValue?: string
@@ -50,10 +52,24 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
   const [npmPackageValid, setNpmPackageValid] = useState(false)
   const [normalized, setNormalized] = useState(false)
   const [extractedFromUrl, setExtractedFromUrl] = useState(false)
+  // Gist state
+  const [gistUrl, setGistUrl] = useState('')
+  const [gistFiles, setGistFiles] = useState<GistFile[]>([])
+  const [gistSelectedFile, setGistSelectedFile] = useState<string>('')
+  const [gistContent, setGistContent] = useState<string | null>(null)
+  const [gistFetching, setGistFetching] = useState(false)
+  const [gistError, setGistError] = useState<string | null>(null)
   const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
     if (typeof window === 'undefined') return false
     return localStorage.getItem(NOTIF_PREF_KEY) === 'true'
   })
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [tgBotToken, setTgBotToken] = useState(() =>
+    typeof window !== 'undefined' ? (localStorage.getItem(TG_BOT_TOKEN_KEY) ?? '') : ''
+  )
+  const [tgChatId, setTgChatId] = useState(() =>
+    typeof window !== 'undefined' ? (localStorage.getItem(TG_CHAT_ID_KEY) ?? '') : ''
+  )
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const normalizedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -102,29 +118,45 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
     }
   }
 
-  function handleNpmPackageChange(value: string) {
-    setPackageName(value)
-    setNpmPreview(null)
-    const valid = isValidNpmPackage(value)
-    setNpmPackageValid(valid)
-    setNpmError(value.trim() && !valid ? 'Invalid package name - use lowercase npm package format (e.g., @scope/package-name)' : null)
-  }
-
-  async function handleFetchNpm() {
-    if (!isValidNpmPackage(packageName)) {
-      setNpmError('Invalid package name - use lowercase npm package format (e.g., @scope/package-name)')
+  async function handleFetchGist() {
+    if (!isValidGistUrl(gistUrl)) {
+      setGistError('Invalid Gist URL. Expected: https://gist.github.com/{user}/{id}')
       return
     }
-    setNpmFetching(true)
-    setNpmError(null)
-    setNpmPreview(null)
+    setGistFetching(true)
+    setGistError(null)
+    setGistContent(null)
+    setGistFiles([])
+    setGistSelectedFile('')
     try {
-      const content = await fetchNpmSource(packageName, npmVersion || undefined)
-      setNpmPreview(content)
+      const data = await fetchGistFiles(gistUrl)
+      setGistFiles(data.files)
+      if (data.files.length === 1) {
+        const content = await fetchGistFileContent(data.files[0].raw_url)
+        setGistContent(content)
+        setGistSelectedFile(data.files[0].filename)
+      } else if (data.files.length > 1) {
+        setGistSelectedFile(data.files[0].filename)
+      }
     } catch (err) {
-      setNpmError(err instanceof Error ? err.message : 'Failed to fetch npm package')
+      setGistError(err instanceof Error ? err.message : 'Failed to fetch Gist')
     } finally {
-      setNpmFetching(false)
+      setGistFetching(false)
+    }
+  }
+
+  async function handleGistFileSelect(filename: string) {
+    setGistSelectedFile(filename)
+    const file = gistFiles.find(f => f.filename === filename)
+    if (!file) return
+    setGistFetching(true)
+    try {
+      const content = await fetchGistFileContent(file.raw_url)
+      setGistContent(content)
+    } catch (err) {
+      setGistError(err instanceof Error ? err.message : 'Failed to fetch file')
+    } finally {
+      setGistFetching(false)
     }
   }
 
@@ -143,7 +175,11 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (mode === 'ipfs') {
-      if (ipfsPreview) onScan(ipfsPreview, mode)
+      if (ipfsPreview) onScan(ipfsPreview, mode, tgBotToken && tgChatId ? { botToken: tgBotToken, chatId: tgChatId } : undefined)
+      return
+    }
+    if (mode === 'gist') {
+      if (gistContent) onScan(gistContent, 'code')
       return
     }
     if (mode === 'npm') {
@@ -157,7 +193,7 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
           ? repoUrl.trim()
           : contractId.trim()
     if (!source) return
-    onScan(source, mode)
+    onScan(source, mode, tgBotToken && tgChatId ? { botToken: tgBotToken, chatId: tgChatId } : undefined)
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -178,12 +214,9 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
         ? repoUrl.trim().length > 0 && repoValidation.valid
         : mode === 'contractId'
           ? contractId.trim().length > 0 && contractValid
-          : mode === 'ipfs'
-            ? ipfsPreview !== null
-            : npmPreview !== null)
-
-  const npmPreviewText = npmPreview ? npmPreview.slice(0, NPM_PREVIEW_LIMIT) : ''
-  const npmPreviewTruncated = !!npmPreview && npmPreview.length > NPM_PREVIEW_LIMIT
+          : mode === 'gist'
+            ? gistContent !== null
+            : ipfsPreview !== null)
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -234,15 +267,15 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
           IPFS CID
         </TabButton>
         <TabButton
-          active={mode === 'npm'}
-          onClick={() => setMode('npm')}
+          active={mode === 'gist'}
+          onClick={() => setMode('gist')}
           icon={
             <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M1 8h22v8H1zM7 12h3v4H7zm5 0h3v4h-3zm5 0h3v4h-3z" />
+              <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
             </svg>
           }
         >
-          npm Package
+          Gist URL
         </TabButton>
       </div>
 
@@ -375,39 +408,25 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
           )}
         </div>
       ) : (
+        /* Gist URL mode */
         <div className="space-y-2">
           <div className="flex gap-2">
             <input
-              type="text"
-              value={packageName}
-              onChange={e => handleNpmPackageChange(e.target.value)}
+              type="url"
+              value={gistUrl}
+              onChange={e => { setGistUrl(e.target.value); setGistError(null); setGistContent(null); setGistFiles([]) }}
               onKeyDown={handleKeyDown}
-              placeholder="@scope/package or package-name"
-              className={`flex-1 rounded-xl border bg-[#12151f] px-4 py-3 font-mono text-sm text-slate-300 placeholder-slate-600 outline-none transition focus:ring-1 ${
-                npmError
-                  ? 'border-rose-500/50 focus:border-rose-500 focus:ring-rose-500/30'
-                  : 'border-[#2a2d3a] focus:border-indigo-500/60 focus:ring-indigo-500/30'
-              }`}
-              disabled={loading || npmFetching}
-              spellCheck={false}
-            />
-            <input
-              type="text"
-              value={npmVersion}
-              onChange={e => setNpmVersion(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="version (optional)"
-              className="w-24 rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 font-mono text-sm text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
-              disabled={loading || npmFetching}
-              spellCheck={false}
+              placeholder="https://gist.github.com/user/abc123"
+              className="flex-1 rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
+              disabled={loading || gistFetching}
             />
             <button
               type="button"
-              onClick={handleFetchNpm}
-              disabled={!npmPackageValid || npmFetching || loading}
+              onClick={handleFetchGist}
+              disabled={!gistUrl.trim() || gistFetching || loading}
               className="flex items-center gap-1.5 rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 text-sm text-slate-300 transition hover:border-indigo-500/50 hover:text-indigo-300 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {npmFetching ? (
+              {gistFetching ? (
                 <svg className="spinner h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" d="M12 2a10 10 0 0 1 10 10" />
                 </svg>
@@ -419,31 +438,37 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
               Fetch
             </button>
           </div>
-          {npmError && <p className="text-xs text-rose-400">{npmError}</p>}
-          {!npmError && !npmPreview && packageName.length > 0 && (
+          {gistError && <p className="text-xs text-rose-400">{gistError}</p>}
+          {!gistError && gistFiles.length === 0 && (
             <p className="text-xs text-slate-500">
-              Enter an npm package name to fetch the main entry file from unpkg.com.
+              Paste a public Gist URL to fetch and scan its Rust source.
             </p>
           )}
-          {!npmError && !npmPreview && packageName.length === 0 && (
-            <p className="text-xs text-slate-500">
-              Enter a package name (e.g., <code className="rounded bg-[#1a1d27] px-1 text-slate-400">soroban-rs</code> or{' '}
-              <code className="rounded bg-[#1a1d27] px-1 text-slate-400">@scope/package</code>) and click Fetch.
-            </p>
+          {/* Multi-file selector */}
+          {gistFiles.length > 1 && (
+            <div className="space-y-1">
+              <label htmlFor="gist-file-select" className="text-xs text-slate-500">Select file:</label>
+              <select
+                id="gist-file-select"
+                value={gistSelectedFile}
+                onChange={e => handleGistFileSelect(e.target.value)}
+                className="w-full rounded-lg border border-[#2a2d3a] bg-[#12151f] px-3 py-2 text-sm text-slate-300 outline-none focus:border-indigo-500/60"
+                disabled={gistFetching}
+              >
+                {gistFiles.map(f => (
+                  <option key={f.filename} value={f.filename}>{f.filename}</option>
+                ))}
+              </select>
+            </div>
           )}
-          {npmPreview !== null && (
+          {gistContent !== null && (
             <div className="space-y-1">
               <p className="text-xs text-emerald-400">
-                ✓ Fetched {npmPreview.length.toLocaleString()} chars — preview below
+                ✓ Fetched {gistContent.length.toLocaleString()} chars — preview below
               </p>
-              {npmPreviewTruncated && (
-                <p className="text-xs text-slate-500">
-                  Showing the first {NPM_PREVIEW_LIMIT.toLocaleString()} chars. The full fetched file will be scanned.
-                </p>
-              )}
               <textarea
                 readOnly
-                value={npmPreviewText}
+                value={gistContent}
                 rows={10}
                 className="code-textarea w-full resize-y rounded-xl border border-emerald-500/30 bg-[#12151f] px-4 py-3 text-sm text-slate-400 outline-none"
                 spellCheck={false}
@@ -469,6 +494,55 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
           </button>
         </div>
       )}
+
+      {/* Advanced options */}
+      <div>
+        <button
+          type="button"
+          onClick={() => setShowAdvanced(v => !v)}
+          className="flex items-center gap-1.5 text-xs text-slate-500 transition hover:text-slate-300"
+        >
+          <svg
+            className={`h-3.5 w-3.5 transition-transform ${showAdvanced ? 'rotate-90' : ''}`}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+          Advanced options
+        </button>
+        {showAdvanced && (
+          <div className="mt-3 space-y-3 rounded-xl border border-[#2a2d3a] bg-[#12151f] p-4">
+            <p className="text-xs font-medium text-slate-400">Telegram notifications</p>
+            <div className="space-y-2">
+              <input
+                type="text"
+                value={tgBotToken}
+                onChange={e => {
+                  setTgBotToken(e.target.value)
+                  localStorage.setItem(TG_BOT_TOKEN_KEY, e.target.value)
+                }}
+                placeholder="Bot token (e.g. 123456:ABC-DEF…)"
+                className="w-full rounded-lg border border-[#2a2d3a] bg-[#0d0f17] px-3 py-2 text-xs text-slate-300 placeholder-slate-600 outline-none focus:border-indigo-500/60"
+                disabled={loading}
+              />
+              <input
+                type="text"
+                value={tgChatId}
+                onChange={e => {
+                  setTgChatId(e.target.value)
+                  localStorage.setItem(TG_CHAT_ID_KEY, e.target.value)
+                }}
+                placeholder="Chat ID (e.g. -1001234567890)"
+                className="w-full rounded-lg border border-[#2a2d3a] bg-[#0d0f17] px-3 py-2 text-xs text-slate-300 placeholder-slate-600 outline-none focus:border-indigo-500/60"
+                disabled={loading}
+              />
+              <p className="text-xs text-slate-600">
+                Results will be sent to your Telegram chat after a successful scan.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Submit */}
       <div className="space-y-2">
