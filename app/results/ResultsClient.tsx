@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import type { Finding, Severity } from '@/types/findings'
 import { decodeFindings } from '@/lib/share'
 import { exportEmail } from '@/lib/export'
+import { generatePdfReport } from '@/lib/pdfReport'
 import { getAllScanHistory } from '@/lib/history'
 import { diffFindings } from '@/lib/diffFindings'
 import FindingsTable from '@/components/FindingsTable'
@@ -102,6 +103,16 @@ export default function ResultsPage() {
     setMuteRefresh(prev => prev + 1)
   }
 
+  function handleDownloadPdf() {
+    if (!findings) return
+    const source = sessionStorage.getItem('sg_last_scan_source') ?? sessionStorage.getItem('sg_scan_source') ?? 'Unknown'
+    generatePdfReport(findings, {
+      source,
+      scannedAt: new Date().toISOString(),
+      score: calculateScore(findings),
+    })
+  }
+
   if (findings === null) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -168,6 +179,12 @@ export default function ResultsPage() {
             >
               Email summary
             </a>
+            <button
+              onClick={handleDownloadPdf}
+              className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
+            >
+              Download PDF
+            </button>
             {findings.length > 0 && (
               <button
                 onClick={() => setShowGithubModal(true)}
