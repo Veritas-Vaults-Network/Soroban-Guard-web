@@ -7,11 +7,13 @@ import { requestPermission } from '@/lib/notifications'
 import { extractContractIdFromUrl } from '@/lib/stellar'
 
 const NOTIF_PREF_KEY = 'sg_notifications_enabled'
+const TG_BOT_TOKEN_KEY = 'sg_tg_bot_token'
+const TG_CHAT_ID_KEY = 'sg_tg_chat_id'
 
 type InputMode = 'code' | 'github' | 'contractId' | 'ipfs'
 
 interface Props {
-  onScan: (source: string, mode: InputMode) => void
+  onScan: (source: string, mode: InputMode, telegramConfig?: { botToken: string; chatId: string }) => void
   loading: boolean
   countdown?: number
   initialValue?: string
@@ -46,6 +48,13 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
     if (typeof window === 'undefined') return false
     return localStorage.getItem(NOTIF_PREF_KEY) === 'true'
   })
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [tgBotToken, setTgBotToken] = useState(() =>
+    typeof window !== 'undefined' ? (localStorage.getItem(TG_BOT_TOKEN_KEY) ?? '') : ''
+  )
+  const [tgChatId, setTgChatId] = useState(() =>
+    typeof window !== 'undefined' ? (localStorage.getItem(TG_CHAT_ID_KEY) ?? '') : ''
+  )
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const normalizedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -109,7 +118,7 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (mode === 'ipfs') {
-      if (ipfsPreview) onScan(ipfsPreview, mode)
+      if (ipfsPreview) onScan(ipfsPreview, mode, tgBotToken && tgChatId ? { botToken: tgBotToken, chatId: tgChatId } : undefined)
       return
     }
     const source =
@@ -119,7 +128,7 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
           ? repoUrl.trim()
           : contractId.trim()
     if (!source) return
-    onScan(source, mode)
+    onScan(source, mode, tgBotToken && tgChatId ? { botToken: tgBotToken, chatId: tgChatId } : undefined)
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -338,6 +347,55 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
           </button>
         </div>
       )}
+
+      {/* Advanced options */}
+      <div>
+        <button
+          type="button"
+          onClick={() => setShowAdvanced(v => !v)}
+          className="flex items-center gap-1.5 text-xs text-slate-500 transition hover:text-slate-300"
+        >
+          <svg
+            className={`h-3.5 w-3.5 transition-transform ${showAdvanced ? 'rotate-90' : ''}`}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+          Advanced options
+        </button>
+        {showAdvanced && (
+          <div className="mt-3 space-y-3 rounded-xl border border-[#2a2d3a] bg-[#12151f] p-4">
+            <p className="text-xs font-medium text-slate-400">Telegram notifications</p>
+            <div className="space-y-2">
+              <input
+                type="text"
+                value={tgBotToken}
+                onChange={e => {
+                  setTgBotToken(e.target.value)
+                  localStorage.setItem(TG_BOT_TOKEN_KEY, e.target.value)
+                }}
+                placeholder="Bot token (e.g. 123456:ABC-DEF…)"
+                className="w-full rounded-lg border border-[#2a2d3a] bg-[#0d0f17] px-3 py-2 text-xs text-slate-300 placeholder-slate-600 outline-none focus:border-indigo-500/60"
+                disabled={loading}
+              />
+              <input
+                type="text"
+                value={tgChatId}
+                onChange={e => {
+                  setTgChatId(e.target.value)
+                  localStorage.setItem(TG_CHAT_ID_KEY, e.target.value)
+                }}
+                placeholder="Chat ID (e.g. -1001234567890)"
+                className="w-full rounded-lg border border-[#2a2d3a] bg-[#0d0f17] px-3 py-2 text-xs text-slate-300 placeholder-slate-600 outline-none focus:border-indigo-500/60"
+                disabled={loading}
+              />
+              <p className="text-xs text-slate-600">
+                Results will be sent to your Telegram chat after a successful scan.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Submit */}
       <div className="space-y-2">
