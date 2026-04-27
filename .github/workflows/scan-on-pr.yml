@@ -1,0 +1,116 @@
+name: Soroban Guard — Scan on PR
+
+on:
+  pull_request:
+    paths:
+      - '**.rs'
+
+permissions:
+  pull-requests: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Collect changed .rs files
+        id: changed
+        uses: tj-actions/changed-files@v44
+        with:
+          files: '**.rs'
+
+      - name: Scan changed contracts
+        id: scan
+        if: steps.changed.outputs.any_changed == 'true'
+        env:
+          SOROBAN_GUARD_API_URL: ${{ secrets.SOROBAN_GUARD_API_URL }}
+        run: |
+          FINDINGS_JSON="[]"
+          for file in ${{ steps.changed.outputs.all_changed_files }}; do
+            echo "Scanning $file"
+            SOURCE=$(cat "$file")
+            RESPONSE=$(curl -s -X POST "$SOROBAN_GUARD_API_URL/scan" \
+              -H "Content-Type: application/json" \
+              -d "{\"source\": $(echo "$SOURCE" | jq -Rs .)}")
+            FILE_FINDINGS=$(echo "$RESPONSE" | jq '.findings // []')
+            FINDINGS_JSON=$(echo "$FINDINGS_JSON $FILE_FINDINGS" | jq -s 'add')
+          done
+          echo "findings=$(echo "$FINDINGS_JSON" | jq -c .)" >> "$GITHUB_OUTPUT"
+
+      - name: Post PR comment
+        if: steps.changed.outputs.any_changed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const findings = JSON.parse('${{ steps.scan.outputs.findings }}' || '[]');
+
+            const counts = { Critical: 0, High: 0, Medium: 0, Low: 0 };
+            for (const f of findings) {
+              if (counts[f.severity] !== undefined) counts[f.severity]++;
+            }
+
+            const highFindings = findings.filter(f => f.severity === 'High').slice(0, 10);
+
+            const highTable = highFindings.length > 0
+              ? [
+                  '| Check | Function | File | Line |',
+                  '|-------|----------|------|------|',
+                  ...highFindings.map(f =>
+                    `| ${f.check_name} | \`${f.function_name}\` | \`${f.file_path}\` | ${f.line} |`
+                  )
+                ].join('\n')
+              : '_No High severity findings._';
+
+            const statusIcon = findings.length === 0 ? '✅' : counts.Critical > 0 || counts.High > 0 ? '🔴' : '🟡';
+
+            const body = [
+              `## ${statusIcon} Soroban Guard Scan Results`,
+              '',
+              '<details>',
+              '<summary>Severity Summary</summary>',
+              '',
+              '| Severity | Count |',
+              '|----------|-------|',
+              `| 🔴 Critical | ${counts.Critical} |`,
+              `| 🟠 High     | ${counts.High} |`,
+              `| 🟡 Medium   | ${counts.Medium} |`,
+              `| 🔵 Low      | ${counts.Low} |`,
+              `| **Total**   | **${findings.length}** |`,
+              '',
+              '</details>',
+              '',
+              '### High Severity Findings',
+              '',
+              highTable,
+              '',
+              `_Powered by [Soroban Guard](https://github.com/Veritas-Vaults-Network/soroban-guard-web)_`,
+            ].join('\n');
+
+            const marker = '<!-- soroban-guard-scan -->';
+            const fullBody = marker + '\n' + body;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find(c => c.body && c.body.startsWith(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: fullBody,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: fullBody,
+              });
+            }
