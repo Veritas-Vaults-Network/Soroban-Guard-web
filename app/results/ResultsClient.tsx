@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import type { Finding, Severity } from '@/types/findings'
 import { decodeFindings, encodeWorkspace } from '@/lib/share'
 import { exportEmail } from '@/lib/export'
+import { exportSarif } from '@/lib/sarif'
 import { getAllScanHistory } from '@/lib/history'
 import { diffFindings } from '@/lib/diffFindings'
 import FindingsTable from '@/components/FindingsTable'
@@ -107,6 +108,19 @@ export default function ResultsPage() {
     setMuteRefresh(prev => prev + 1)
   }
 
+  function handleDownloadSarif() {
+    const content = exportSarif(findings ?? [])
+    const blob = new Blob([content], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'soroban-guard.sarif'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
   if (findings === null) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -173,6 +187,12 @@ export default function ResultsPage() {
             >
               Email summary
             </a>
+            <button
+              onClick={handleDownloadSarif}
+              className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
+            >
+              Download SARIF
+            </button>
             {findings.length > 0 && (
               <button
                 onClick={() => setShowNotionModal(true)}
