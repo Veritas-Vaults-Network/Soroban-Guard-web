@@ -1,5 +1,60 @@
 import type { Finding } from '@/types/findings'
 
+export function exportMarkdown(
+  findings: Finding[],
+  metadata: { source: string; scannedAt: string },
+): string {
+  const counts: Record<string, number> = { Critical: 0, High: 0, Medium: 0, Low: 0 }
+  for (const f of findings) counts[f.severity] = (counts[f.severity] ?? 0) + 1
+
+  const lines: string[] = [
+    '# Soroban Guard Security Report',
+    '',
+    `**Source:** ${metadata.source}`,
+    `**Scanned at:** ${metadata.scannedAt}`,
+    '',
+    '## Summary',
+    '',
+    '| Severity | Count |',
+    '|----------|-------|',
+    `| Critical | ${counts.Critical ?? 0} |`,
+    `| High     | ${counts.High ?? 0} |`,
+    `| Medium   | ${counts.Medium ?? 0} |`,
+    `| Low      | ${counts.Low ?? 0} |`,
+    `| **Total**| **${findings.length}** |`,
+    '',
+  ]
+
+  if (findings.length === 0) {
+    lines.push('No vulnerabilities found.')
+  } else {
+    lines.push('## Findings', '')
+    for (const f of findings) {
+      lines.push(
+        `### [${f.severity}] ${f.check_name}`,
+        '',
+        `- **Function:** \`${f.function_name}\``,
+        `- **File:** \`${f.file_path}\` (line ${f.line})`,
+        `- **Description:** ${f.description}`,
+      )
+      if (f.remediation) lines.push(`- **Remediation:** ${f.remediation}`)
+      lines.push('')
+    }
+  }
+
+  return lines.join('\n')
+}
+
+export function downloadMarkdown(findings: Finding[], metadata: { source: string; scannedAt: string }) {
+  try {
+    const content = exportMarkdown(findings, metadata)
+    const blob = new Blob([content], { type: 'text/markdown' })
+    download('soroban-guard-report.md', blob)
+  } catch (err) {
+    console.error('downloadMarkdown failed', err)
+  }
+}
+
 function download(filename: string, data: Blob) {
   const url = URL.createObjectURL(data)
   const a = document.createElement('a')
