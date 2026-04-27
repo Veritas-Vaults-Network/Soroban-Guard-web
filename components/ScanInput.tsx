@@ -2,15 +2,35 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { SAMPLE_CONTRACT } from '@/lib/sampleContract'
-import { getRecent, truncateLabel, type RecentScan } from '@/lib/recentScans'
+import { isValidCid, fetchFromIpfs } from '@/lib/ipfs'
+import { isValidNpmPackage, fetchNpmSource } from '@/lib/npm'
+import { requestPermission } from '@/lib/notifications'
+import { extractContractIdFromUrl } from '@/lib/stellar'
+import { isValidGistUrl, fetchGistFiles, fetchGistFileContent, type GistFile } from '@/lib/gist'
 
-type InputMode = 'code' | 'github' | 'contractId'
+const NOTIF_PREF_KEY = 'sg_notifications_enabled'
+const TG_BOT_TOKEN_KEY = 'sg_tg_bot_token'
+const TG_CHAT_ID_KEY = 'sg_tg_chat_id'
+
+type InputMode = 'code' | 'github' | 'contractId' | 'ipfs' | 'gist'
 
 interface Props {
-  onScan: (source: string, mode: InputMode) => void
+  onScan: (source: string, mode: InputMode, telegramConfig?: { botToken: string; chatId: string }) => void
   loading: boolean
   countdown?: number
   initialValue?: string
+}
+
+function validateGithub(url: string): { valid: boolean; error?: string } {
+  try {
+    const u = new URL(url)
+    if (u.hostname !== 'github.com') return { valid: false, error: 'Must be a github.com URL' }
+    const parts = u.pathname.replace(/^\//, '').split('/')
+    if (parts.length < 2 || !parts[0] || !parts[1]) return { valid: false, error: 'Must be a repository URL (github.com/org/repo)' }
+    return { valid: true }
+  } catch {
+    return { valid: false, error: 'Invalid URL' }
+  }
 }
 
 export default function ScanInput({ onScan, loading, countdown = 0, initialValue = '' }: Props) {
@@ -20,16 +40,51 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
   const [code, setCode] = useState(initialValue.startsWith('C') && initialValue.length >= 56 ? '' : initialValue)
   const [repoUrl, setRepoUrl] = useState('')
   const [contractId, setContractId] = useState('')
+  const [cid, setCid] = useState('')
+  const [ipfsPreview, setIpfsPreview] = useState<string | null>(null)
+  const [ipfsFetching, setIpfsFetching] = useState(false)
+  const [ipfsError, setIpfsError] = useState<string | null>(null)
+  const [packageName, setPackageName] = useState('')
+  const [npmVersion, setNpmVersion] = useState('')
+  const [npmPreview, setNpmPreview] = useState<string | null>(null)
+  const [npmFetching, setNpmFetching] = useState(false)
+  const [npmError, setNpmError] = useState<string | null>(null)
+  const [npmPackageValid, setNpmPackageValid] = useState(false)
   const [normalized, setNormalized] = useState(false)
-  const [recents, setRecents] = useState<RecentScan[]>([])
+  const [extractedFromUrl, setExtractedFromUrl] = useState(false)
+  // Gist state
+  const [gistUrl, setGistUrl] = useState('')
+  const [gistFiles, setGistFiles] = useState<GistFile[]>([])
+  const [gistSelectedFile, setGistSelectedFile] = useState<string>('')
+  const [gistContent, setGistContent] = useState<string | null>(null)
+  const [gistFetching, setGistFetching] = useState(false)
+  const [gistError, setGistError] = useState<string | null>(null)
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return localStorage.getItem(NOTIF_PREF_KEY) === 'true'
+  })
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [tgBotToken, setTgBotToken] = useState(() =>
+    typeof window !== 'undefined' ? (localStorage.getItem(TG_BOT_TOKEN_KEY) ?? '') : ''
+  )
+  const [tgChatId, setTgChatId] = useState(() =>
+    typeof window !== 'undefined' ? (localStorage.getItem(TG_CHAT_ID_KEY) ?? '') : ''
+  )
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const normalizedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => {
-    setRecents(getRecent())
-  }, [])
+  const contractValid = contractId.length >= 56 && contractId.startsWith('C')
+  const repoValidation = validateGithub(repoUrl)
+  const repoError = repoUrl.length > 0 && !repoValidation.valid ? repoValidation.error : undefined
 
   function handleContractIdChange(raw: string) {
+    setExtractedFromUrl(false)
+    const extracted = extractContractIdFromUrl(raw)
+    if (extracted) {
+      setContractId(extracted)
+      setExtractedFromUrl(true)
+      return
+    }
     const clean = raw.trim().toUpperCase()
     setContractId(clean)
     if (clean !== raw) {
@@ -39,52 +94,98 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
     }
   }
 
-  function handleRecentClick(scan: RecentScan) {
-    setMode(scan.type)
-    if (scan.type === 'code') {
-      setCode(scan.value)
-    } else if (scan.type === 'github') {
-      setRepoUrl(scan.value)
-    } else {
-      setContractId(scan.value)
-    }
+  function handleCidChange(value: string) {
+    setCid(value)
+    setIpfsPreview(null)
+    setIpfsError(null)
   }
 
-  function validateGithub(url: string): { valid: boolean; error?: string } {
-    if (!url) return { valid: false }
+  async function handleFetchIpfs() {
+    if (!isValidCid(cid)) {
+      setIpfsError('Invalid CID — must start with Qm… or bafy…')
+      return
+    }
+    setIpfsFetching(true)
+    setIpfsError(null)
+    setIpfsPreview(null)
     try {
-      const parsed = new URL(url)
-      if (parsed.hostname !== 'github.com') {
-        return { valid: false, error: 'Must be a github.com URL' }
-      }
-      const parts = parsed.pathname.split('/').filter(Boolean)
-      if (parts.length < 2) {
-        return { valid: false, error: 'Invalid repository URL' }
-      }
-      return { valid: true }
-    } catch {
-      return { valid: false, error: 'Invalid URL' }
+      const content = await fetchFromIpfs(cid)
+      setIpfsPreview(content)
+    } catch (err) {
+      setIpfsError(err instanceof Error ? err.message : 'Failed to fetch from IPFS')
+    } finally {
+      setIpfsFetching(false)
     }
   }
 
-  const githubValidation = validateGithub(repoUrl)
-  const repoError = repoUrl && !githubValidation.valid ? githubValidation.error : null
-  const contractValid = contractId.length >= 56 && contractId.startsWith('C')
-
-  useEffect(() => {
-    if (externalCode !== undefined) {
-      setCode(externalCode)
-      setMode('code')
+  async function handleFetchGist() {
+    if (!isValidGistUrl(gistUrl)) {
+      setGistError('Invalid Gist URL. Expected: https://gist.github.com/{user}/{id}')
+      return
     }
-  }, [externalCode])
+    setGistFetching(true)
+    setGistError(null)
+    setGistContent(null)
+    setGistFiles([])
+    setGistSelectedFile('')
+    try {
+      const data = await fetchGistFiles(gistUrl)
+      setGistFiles(data.files)
+      if (data.files.length === 1) {
+        const content = await fetchGistFileContent(data.files[0].raw_url)
+        setGistContent(content)
+        setGistSelectedFile(data.files[0].filename)
+      } else if (data.files.length > 1) {
+        setGistSelectedFile(data.files[0].filename)
+      }
+    } catch (err) {
+      setGistError(err instanceof Error ? err.message : 'Failed to fetch Gist')
+    } finally {
+      setGistFetching(false)
+    }
+  }
 
-  function handleCodeChange(value: string) {
-    setCode(value)
-    onCodeChange?.(value)
+  async function handleGistFileSelect(filename: string) {
+    setGistSelectedFile(filename)
+    const file = gistFiles.find(f => f.filename === filename)
+    if (!file) return
+    setGistFetching(true)
+    try {
+      const content = await fetchGistFileContent(file.raw_url)
+      setGistContent(content)
+    } catch (err) {
+      setGistError(err instanceof Error ? err.message : 'Failed to fetch file')
+    } finally {
+      setGistFetching(false)
+    }
+  }
+
+  async function toggleNotifications() {
+    if (!notificationsEnabled) {
+      const granted = await requestPermission()
+      if (!granted) return
+      setNotificationsEnabled(true)
+      localStorage.setItem(NOTIF_PREF_KEY, 'true')
+    } else {
+      setNotificationsEnabled(false)
+      localStorage.setItem(NOTIF_PREF_KEY, 'false')
+    }
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (mode === 'ipfs') {
+      if (ipfsPreview) onScan(ipfsPreview, mode, tgBotToken && tgChatId ? { botToken: tgBotToken, chatId: tgChatId } : undefined)
+      return
+    }
+    if (mode === 'gist') {
+      if (gistContent) onScan(gistContent, 'code')
+      return
+    }
+    if (mode === 'npm') {
+      if (npmPreview) onScan(npmPreview, mode)
+      return
+    }
     const source =
       mode === 'code'
         ? code.trim()
@@ -92,15 +193,13 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
           ? repoUrl.trim()
           : contractId.trim()
     if (!source) return
-    onScan(source, mode)
+    onScan(source, mode, tgBotToken && tgChatId ? { botToken: tgBotToken, chatId: tgChatId } : undefined)
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault()
-      if (canSubmit) {
-        handleSubmit(e as any)
-      }
+      if (canSubmit) handleSubmit(e as unknown as React.FormEvent)
     }
   }
 
@@ -112,8 +211,12 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
     (mode === 'code'
       ? code.trim().length > 0 && code.length <= 100000
       : mode === 'github'
-        ? repoUrl.trim().length > 0 && githubValidation.valid
-        : contractId.trim().length > 0 && contractValid)
+        ? repoUrl.trim().length > 0 && repoValidation.valid
+        : mode === 'contractId'
+          ? contractId.trim().length > 0 && contractValid
+          : mode === 'gist'
+            ? gistContent !== null
+            : ipfsPreview !== null)
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -152,15 +255,37 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
         >
           Contract ID
         </TabButton>
+        <TabButton
+          active={mode === 'ipfs'}
+          onClick={() => setMode('ipfs')}
+          icon={
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+          }
+        >
+          IPFS CID
+        </TabButton>
+        <TabButton
+          active={mode === 'gist'}
+          onClick={() => setMode('gist')}
+          icon={
+            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+            </svg>
+          }
+        >
+          Gist URL
+        </TabButton>
       </div>
 
       {/* Input area */}
-  {mode === 'code' ? (
+      {mode === 'code' ? (
         <div className="relative">
           <textarea
             ref={textareaRef}
             value={code}
-            onChange={e => handleCodeChange(e.target.value)}
+            onChange={e => setCode(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={`#![no_std]\nuse soroban_sdk::{contract, contractimpl, Env};\n\n#[contract]\npub struct MyContract;\n\n#[contractimpl]\nimpl MyContract {\n    pub fn hello(env: Env) -> String {\n        // paste your contract here...\n    }\n}`}
             rows={16}
@@ -202,29 +327,154 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
             </p>
           )}
         </div>
-      ) : (
+      ) : mode === 'contractId' ? (
         <div className="space-y-2">
           <div className="relative">
-          <input
-            type="text"
-            value={contractId}
-            onChange={e => handleContractIdChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
-            className="w-full rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 font-mono text-sm text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
-            disabled={loading}
-            spellCheck={false}
-          />
-          {normalized && (
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded bg-indigo-500/20 px-2 py-0.5 text-xs text-indigo-300 transition-opacity duration-500">
-              Normalized
-            </span>
-          )}
+            <input
+              type="text"
+              value={contractId}
+              onChange={e => handleContractIdChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
+              className="w-full rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 font-mono text-sm text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
+              disabled={loading}
+              spellCheck={false}
+            />
+            {normalized && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded bg-indigo-500/20 px-2 py-0.5 text-xs text-indigo-300 transition-opacity duration-500">
+                Normalized
+              </span>
+            )}
           </div>
+          {extractedFromUrl && (
+            <p className="text-xs text-emerald-400">✓ Extracted from explorer URL</p>
+          )}
           <p className="text-xs text-slate-500">
             Enter a Soroban contract ID (C-address) deployed on Stellar. The scanner
             will fetch the WASM bytecode via Soroban RPC and analyze it.
           </p>
+        </div>
+      ) : mode === 'ipfs' ? (
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={cid}
+              onChange={e => handleCidChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Qm… or bafy…"
+              className="flex-1 rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 font-mono text-sm text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
+              disabled={loading || ipfsFetching}
+              spellCheck={false}
+            />
+            <button
+              type="button"
+              onClick={handleFetchIpfs}
+              disabled={!cid.trim() || ipfsFetching || loading}
+              className="flex items-center gap-1.5 rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 text-sm text-slate-300 transition hover:border-indigo-500/50 hover:text-indigo-300 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {ipfsFetching ? (
+                <svg className="spinner h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" d="M12 2a10 10 0 0 1 10 10" />
+                </svg>
+              ) : (
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+              )}
+              Fetch
+            </button>
+          </div>
+          {ipfsError && <p className="text-xs text-rose-400">{ipfsError}</p>}
+          {!ipfsError && !ipfsPreview && (
+            <p className="text-xs text-slate-500">
+              Enter a CID (<code className="rounded bg-[#1a1d27] px-1 text-slate-400">Qm…</code> or{' '}
+              <code className="rounded bg-[#1a1d27] px-1 text-slate-400">bafy…</code>) and click Fetch to load the contract source.
+            </p>
+          )}
+          {ipfsPreview !== null && (
+            <div className="space-y-1">
+              <p className="text-xs text-emerald-400">
+                ✓ Fetched {ipfsPreview.length.toLocaleString()} chars — preview below
+              </p>
+              <textarea
+                readOnly
+                value={ipfsPreview}
+                rows={10}
+                className="code-textarea w-full resize-y rounded-xl border border-emerald-500/30 bg-[#12151f] px-4 py-3 text-sm text-slate-400 outline-none"
+                spellCheck={false}
+              />
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Gist URL mode */
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <input
+              type="url"
+              value={gistUrl}
+              onChange={e => { setGistUrl(e.target.value); setGistError(null); setGistContent(null); setGistFiles([]) }}
+              onKeyDown={handleKeyDown}
+              placeholder="https://gist.github.com/user/abc123"
+              className="flex-1 rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
+              disabled={loading || gistFetching}
+            />
+            <button
+              type="button"
+              onClick={handleFetchGist}
+              disabled={!gistUrl.trim() || gistFetching || loading}
+              className="flex items-center gap-1.5 rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 text-sm text-slate-300 transition hover:border-indigo-500/50 hover:text-indigo-300 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {gistFetching ? (
+                <svg className="spinner h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" d="M12 2a10 10 0 0 1 10 10" />
+                </svg>
+              ) : (
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+              )}
+              Fetch
+            </button>
+          </div>
+          {gistError && <p className="text-xs text-rose-400">{gistError}</p>}
+          {!gistError && gistFiles.length === 0 && (
+            <p className="text-xs text-slate-500">
+              Paste a public Gist URL to fetch and scan its Rust source.
+            </p>
+          )}
+          {/* Multi-file selector */}
+          {gistFiles.length > 1 && (
+            <div className="space-y-1">
+              <label htmlFor="gist-file-select" className="text-xs text-slate-500">Select file:</label>
+              <select
+                id="gist-file-select"
+                value={gistSelectedFile}
+                onChange={e => handleGistFileSelect(e.target.value)}
+                className="w-full rounded-lg border border-[#2a2d3a] bg-[#12151f] px-3 py-2 text-sm text-slate-300 outline-none focus:border-indigo-500/60"
+                disabled={gistFetching}
+              >
+                {gistFiles.map(f => (
+                  <option key={f.filename} value={f.filename}>{f.filename}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          {gistContent !== null && (
+            <div className="space-y-1">
+              <p className="text-xs text-emerald-400">
+                ✓ Fetched {gistContent.length.toLocaleString()} chars — preview below
+              </p>
+              <textarea
+                readOnly
+                value={gistContent}
+                rows={10}
+                className="code-textarea w-full resize-y rounded-xl border border-emerald-500/30 bg-[#12151f] px-4 py-3 text-sm text-slate-400 outline-none"
+                spellCheck={false}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -245,47 +495,62 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
         </div>
       )}
 
-      {/* Recent scans */}
-      {recents.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-xs text-slate-500">Recent scans:</p>
-          <div className="flex flex-wrap gap-2">
-            {recents.map((scan, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => handleRecentClick(scan)}
+      {/* Advanced options */}
+      <div>
+        <button
+          type="button"
+          onClick={() => setShowAdvanced(v => !v)}
+          className="flex items-center gap-1.5 text-xs text-slate-500 transition hover:text-slate-300"
+        >
+          <svg
+            className={`h-3.5 w-3.5 transition-transform ${showAdvanced ? 'rotate-90' : ''}`}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+          Advanced options
+        </button>
+        {showAdvanced && (
+          <div className="mt-3 space-y-3 rounded-xl border border-[#2a2d3a] bg-[#12151f] p-4">
+            <p className="text-xs font-medium text-slate-400">Telegram notifications</p>
+            <div className="space-y-2">
+              <input
+                type="text"
+                value={tgBotToken}
+                onChange={e => {
+                  setTgBotToken(e.target.value)
+                  localStorage.setItem(TG_BOT_TOKEN_KEY, e.target.value)
+                }}
+                placeholder="Bot token (e.g. 123456:ABC-DEF…)"
+                className="w-full rounded-lg border border-[#2a2d3a] bg-[#0d0f17] px-3 py-2 text-xs text-slate-300 placeholder-slate-600 outline-none focus:border-indigo-500/60"
                 disabled={loading}
-                className="flex items-center gap-1.5 rounded-lg border border-[#2a2d3a] bg-[#12151f] px-3 py-1.5 text-xs text-slate-400 transition hover:border-indigo-500/50 hover:text-indigo-300 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {scan.type === 'code' && (
-                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                  </svg>
-                )}
-                {scan.type === 'github' && (
-                  <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
-                  </svg>
-                )}
-                {scan.type === 'contractId' && (
-                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                  </svg>
-                )}
-                <span className="max-w-[200px] truncate">{truncateLabel(scan)}</span>
-              </button>
-            ))}
+              />
+              <input
+                type="text"
+                value={tgChatId}
+                onChange={e => {
+                  setTgChatId(e.target.value)
+                  localStorage.setItem(TG_CHAT_ID_KEY, e.target.value)
+                }}
+                placeholder="Chat ID (e.g. -1001234567890)"
+                className="w-full rounded-lg border border-[#2a2d3a] bg-[#0d0f17] px-3 py-2 text-xs text-slate-300 placeholder-slate-600 outline-none focus:border-indigo-500/60"
+                disabled={loading}
+              />
+              <p className="text-xs text-slate-600">
+                Results will be sent to your Telegram chat after a successful scan.
+              </p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Submit */}
       <div className="space-y-2">
+        <div className="flex gap-2">
         <button
           type="submit"
           disabled={!canSubmit}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
         >
           {isRateLimited ? (
             <>
@@ -310,6 +575,27 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
             </>
           )}
         </button>
+        <button
+          type="button"
+          onClick={toggleNotifications}
+          title={notificationsEnabled ? 'Disable scan notifications' : 'Enable scan notifications'}
+          className={`flex items-center justify-center rounded-xl border px-3 py-3 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+            notificationsEnabled
+              ? 'border-indigo-500/60 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20'
+              : 'border-[#2a2d3a] bg-[#12151f] text-slate-500 hover:text-slate-300'
+          }`}
+        >
+          {notificationsEnabled ? (
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+          ) : (
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )}
+        </button>
+        </div>
         <p className="text-center text-xs text-slate-600">⌘↵ to scan</p>
       </div>
     </form>

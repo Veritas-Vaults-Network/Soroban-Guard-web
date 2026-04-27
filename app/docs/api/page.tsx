@@ -118,6 +118,43 @@ export default function ApiDocsPage() {
           to wait before retrying.
         </p>
       </Section>
+
+      {/* Webhook / CI integration */}
+      <Section title="CI Webhook">
+        <p className="mb-4 text-slate-400">
+          Push scan results from CI directly to the dashboard without manual copy-paste.
+          POST findings to the webhook endpoint and open the returned URL in a browser.
+        </p>
+
+        <SubHeading>POST /api/webhook</SubHeading>
+        <p className="mb-2 text-sm text-slate-500">Content-Type: application/json</p>
+        <Code>{`{
+  "findings": Finding[]   // same shape as POST /scan response
+}`}</Code>
+
+        <SubHeading>Response — 201 Created</SubHeading>
+        <Code>{`{ "token": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" }`}</Code>
+
+        <SubHeading>View results</SubHeading>
+        <p className="mb-2 text-slate-400">
+          Open <code className="text-indigo-400">/webhook/{'<token>'}</code> in a browser to view
+          the findings in the dashboard. Tokens expire after <strong className="text-slate-300">1 hour</strong>.
+          Expired or unknown tokens redirect to <code className="text-indigo-400">/</code>.
+        </p>
+
+        <SubHeading>curl example (CI step)</SubHeading>
+        <Code>{`# 1. Run the scanner and capture output
+RESULT=$(curl -s -X POST ${BASE_URL}/scan \\
+  -H "Content-Type: application/json" \\
+  -d '{"source": "'"$CONTRACT_SOURCE"'"}')
+
+# 2. Push findings to the dashboard webhook
+TOKEN=$(curl -s -X POST https://your-dashboard/api/webhook \\
+  -H "Content-Type: application/json" \\
+  -d "$RESULT" | jq -r .token)
+
+echo "View results: https://your-dashboard/webhook/$TOKEN"`}</Code>
+      </Section>
     </div>
   )
 }

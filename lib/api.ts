@@ -3,6 +3,12 @@ import type { StellarNetwork } from '@/types/stellar'
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001').replace(/\/$/, '')
 
+export interface ScanQuota {
+  remaining: number
+  limit: number
+  resetAt: number // unix ms
+}
+
 export class ApiError extends Error {
   public retryAfter?: number
 
@@ -17,14 +23,11 @@ export class ApiError extends Error {
   }
 }
 
-export class TimeoutError extends Error {
-  constructor(message: string = 'Request timed out') {
-    super(message)
-    this.name = 'TimeoutError'
-  }
+export interface ScanResult extends ScanResponse {
+  quota?: ScanQuota
 }
 
-export async function scanContract(source: string, network?: StellarNetwork): Promise<ScanResponse> {
+export async function scanContract(source: string, network?: StellarNetwork): Promise<ScanResult> {
   const body: ScanRequest = { source }
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -52,13 +55,24 @@ export async function scanContract(source: string, network?: StellarNetwork): Pr
       const text = await res.text().catch(() => 'Unknown error')
       throw new ApiError(res.status, text || `HTTP ${res.status}`)
     }
-
-    return res.json() as Promise<ScanResponse>
-  } catch (err) {
-    clearTimeout(timeoutId)
-    if (err instanceof Error && err.name === 'AbortError') {
-      throw new TimeoutError('Scan timed out after 30s')
-    }
-    throw err
+    const text = await res.text().catch(() => 'Unknown error')
+    throw new ApiError(res.status, text || `HTTP ${res.status}`)
   }
+
+  const data = (await res.json()) as ScanResponse
+
+  const remaining = res.headers.get('X-RateLimit-Remaining')
+  const limit = res.headers.get('X-RateLimit-Limit')
+  const reset = res.headers.get('X-RateLimit-Reset')
+
+  const quota: ScanQuota | undefined =
+    remaining !== null && limit !== null && reset !== null
+      ? {
+          remaining: parseInt(remaining, 10),
+          limit: parseInt(limit, 10),
+          resetAt: parseInt(reset, 10) * 1000, // convert epoch seconds → ms
+        }
+      : undefined
+
+  return { ...data, quota }
 }
