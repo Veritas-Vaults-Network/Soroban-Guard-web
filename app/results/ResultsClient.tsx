@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { Finding, Severity } from '@/types/findings'
-import { decodeFindings } from '@/lib/share'
+import { decodeFindings, encodeWorkspace } from '@/lib/share'
 import { exportEmail } from '@/lib/export'
 import { getAllScanHistory } from '@/lib/history'
 import { diffFindings } from '@/lib/diffFindings'
@@ -23,6 +23,10 @@ export default function ResultsPage() {
   const [findings, setFindings] = useState<Finding[] | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showGithubModal, setShowGithubModal] = useState(false)
+  const [prevFindings, setPrevFindings] = useState<Finding[] | null>(null)
+  const [showDiff, setShowDiff] = useState(false)
+  const [groupView, setGroupView] = useState<'flat' | 'function'>('flat')
+  const [navIndex, setNavIndex] = useState<number | null>(null)
 
   useEffect(() => {
     const encoded = searchParams.get('r')
@@ -179,6 +183,16 @@ export default function ResultsPage() {
                 Create GitHub Issues
               </button>
             )}
+            <button
+              onClick={handleShareWorkspace}
+              disabled={!canCopy}
+              className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white disabled:opacity-40"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+              Share workspace
+            </button>
             <button
               onClick={handleScanAnother}
               className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-indigo-500"
