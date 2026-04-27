@@ -45,7 +45,7 @@ function HomePage() {
 
   const activeNetwork = walletKey ? walletNetwork : manualNetwork
 
-  async function handleScan(source: string, mode: 'code' | 'github' | 'contractId' | 'ipfs' = 'code') {
+  async function handleScan(source: string, mode: 'code' | 'github' | 'contractId' | 'ipfs' | 'npm' = 'code') {
     setLoading(true)
     setError(null)
     setRateLimitCountdown(null)

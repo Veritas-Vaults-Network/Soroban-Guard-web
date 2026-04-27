@@ -3,12 +3,14 @@
 import { useState, useRef } from 'react'
 import { SAMPLE_CONTRACT } from '@/lib/sampleContract'
 import { isValidCid, fetchFromIpfs } from '@/lib/ipfs'
+import { isValidNpmPackage, fetchNpmSource } from '@/lib/npm'
 import { requestPermission } from '@/lib/notifications'
 import { extractContractIdFromUrl } from '@/lib/stellar'
 
 const NOTIF_PREF_KEY = 'sg_notifications_enabled'
+const NPM_PREVIEW_LIMIT = 5_000
 
-type InputMode = 'code' | 'github' | 'contractId' | 'ipfs'
+type InputMode = 'code' | 'github' | 'contractId' | 'ipfs' | 'npm'
 
 interface Props {
   onScan: (source: string, mode: InputMode) => void
@@ -40,6 +42,12 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
   const [ipfsPreview, setIpfsPreview] = useState<string | null>(null)
   const [ipfsFetching, setIpfsFetching] = useState(false)
   const [ipfsError, setIpfsError] = useState<string | null>(null)
+  const [packageName, setPackageName] = useState('')
+  const [npmVersion, setNpmVersion] = useState('')
+  const [npmPreview, setNpmPreview] = useState<string | null>(null)
+  const [npmFetching, setNpmFetching] = useState(false)
+  const [npmError, setNpmError] = useState<string | null>(null)
+  const [npmPackageValid, setNpmPackageValid] = useState(false)
   const [normalized, setNormalized] = useState(false)
   const [extractedFromUrl, setExtractedFromUrl] = useState(false)
   const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
@@ -94,6 +102,32 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
     }
   }
 
+  function handleNpmPackageChange(value: string) {
+    setPackageName(value)
+    setNpmPreview(null)
+    const valid = isValidNpmPackage(value)
+    setNpmPackageValid(valid)
+    setNpmError(value.trim() && !valid ? 'Invalid package name - use lowercase npm package format (e.g., @scope/package-name)' : null)
+  }
+
+  async function handleFetchNpm() {
+    if (!isValidNpmPackage(packageName)) {
+      setNpmError('Invalid package name - use lowercase npm package format (e.g., @scope/package-name)')
+      return
+    }
+    setNpmFetching(true)
+    setNpmError(null)
+    setNpmPreview(null)
+    try {
+      const content = await fetchNpmSource(packageName, npmVersion || undefined)
+      setNpmPreview(content)
+    } catch (err) {
+      setNpmError(err instanceof Error ? err.message : 'Failed to fetch npm package')
+    } finally {
+      setNpmFetching(false)
+    }
+  }
+
   async function toggleNotifications() {
     if (!notificationsEnabled) {
       const granted = await requestPermission()
@@ -110,6 +144,10 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
     e.preventDefault()
     if (mode === 'ipfs') {
       if (ipfsPreview) onScan(ipfsPreview, mode)
+      return
+    }
+    if (mode === 'npm') {
+      if (npmPreview) onScan(npmPreview, mode)
       return
     }
     const source =
@@ -140,7 +178,12 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
         ? repoUrl.trim().length > 0 && repoValidation.valid
         : mode === 'contractId'
           ? contractId.trim().length > 0 && contractValid
-          : ipfsPreview !== null)
+          : mode === 'ipfs'
+            ? ipfsPreview !== null
+            : npmPreview !== null)
+
+  const npmPreviewText = npmPreview ? npmPreview.slice(0, NPM_PREVIEW_LIMIT) : ''
+  const npmPreviewTruncated = !!npmPreview && npmPreview.length > NPM_PREVIEW_LIMIT
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -189,6 +232,17 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
           }
         >
           IPFS CID
+        </TabButton>
+        <TabButton
+          active={mode === 'npm'}
+          onClick={() => setMode('npm')}
+          icon={
+            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M1 8h22v8H1zM7 12h3v4H7zm5 0h3v4h-3zm5 0h3v4h-3z" />
+            </svg>
+          }
+        >
+          npm Package
         </TabButton>
       </div>
 
@@ -267,7 +321,7 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
             will fetch the WASM bytecode via Soroban RPC and analyze it.
           </p>
         </div>
-      ) : (
+      ) : mode === 'ipfs' ? (
         <div className="space-y-2">
           <div className="flex gap-2">
             <input
@@ -313,6 +367,83 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
               <textarea
                 readOnly
                 value={ipfsPreview}
+                rows={10}
+                className="code-textarea w-full resize-y rounded-xl border border-emerald-500/30 bg-[#12151f] px-4 py-3 text-sm text-slate-400 outline-none"
+                spellCheck={false}
+              />
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={packageName}
+              onChange={e => handleNpmPackageChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="@scope/package or package-name"
+              className={`flex-1 rounded-xl border bg-[#12151f] px-4 py-3 font-mono text-sm text-slate-300 placeholder-slate-600 outline-none transition focus:ring-1 ${
+                npmError
+                  ? 'border-rose-500/50 focus:border-rose-500 focus:ring-rose-500/30'
+                  : 'border-[#2a2d3a] focus:border-indigo-500/60 focus:ring-indigo-500/30'
+              }`}
+              disabled={loading || npmFetching}
+              spellCheck={false}
+            />
+            <input
+              type="text"
+              value={npmVersion}
+              onChange={e => setNpmVersion(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="version (optional)"
+              className="w-24 rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 font-mono text-sm text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
+              disabled={loading || npmFetching}
+              spellCheck={false}
+            />
+            <button
+              type="button"
+              onClick={handleFetchNpm}
+              disabled={!npmPackageValid || npmFetching || loading}
+              className="flex items-center gap-1.5 rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 text-sm text-slate-300 transition hover:border-indigo-500/50 hover:text-indigo-300 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {npmFetching ? (
+                <svg className="spinner h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" d="M12 2a10 10 0 0 1 10 10" />
+                </svg>
+              ) : (
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+              )}
+              Fetch
+            </button>
+          </div>
+          {npmError && <p className="text-xs text-rose-400">{npmError}</p>}
+          {!npmError && !npmPreview && packageName.length > 0 && (
+            <p className="text-xs text-slate-500">
+              Enter an npm package name to fetch the main entry file from unpkg.com.
+            </p>
+          )}
+          {!npmError && !npmPreview && packageName.length === 0 && (
+            <p className="text-xs text-slate-500">
+              Enter a package name (e.g., <code className="rounded bg-[#1a1d27] px-1 text-slate-400">soroban-rs</code> or{' '}
+              <code className="rounded bg-[#1a1d27] px-1 text-slate-400">@scope/package</code>) and click Fetch.
+            </p>
+          )}
+          {npmPreview !== null && (
+            <div className="space-y-1">
+              <p className="text-xs text-emerald-400">
+                ✓ Fetched {npmPreview.length.toLocaleString()} chars — preview below
+              </p>
+              {npmPreviewTruncated && (
+                <p className="text-xs text-slate-500">
+                  Showing the first {NPM_PREVIEW_LIMIT.toLocaleString()} chars. The full fetched file will be scanned.
+                </p>
+              )}
+              <textarea
+                readOnly
+                value={npmPreviewText}
                 rows={10}
                 className="code-textarea w-full resize-y rounded-xl border border-emerald-500/30 bg-[#12151f] px-4 py-3 text-sm text-slate-400 outline-none"
                 spellCheck={false}
