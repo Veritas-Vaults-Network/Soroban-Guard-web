@@ -23,6 +23,7 @@ export default function ResultsPage() {
   const [findings, setFindings] = useState<Finding[] | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showGithubModal, setShowGithubModal] = useState(false)
+  const [permalinkLoading, setPermalinkLoading] = useState(false)
 
   useEffect(() => {
     const encoded = searchParams.get('r')
@@ -102,6 +103,26 @@ export default function ResultsPage() {
     setMuteRefresh(prev => prev + 1)
   }
 
+  async function handleCreatePermalink() {
+    if (!findings) return
+    setPermalinkLoading(true)
+    try {
+      const res = await fetch('/api/results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ findings }),
+      })
+      const data = await res.json()
+      const url = `${window.location.origin}/results/${data.id}`
+      await navigator.clipboard.writeText(url)
+      show('Permalink copied!', 'success')
+    } catch {
+      show('Failed to create permalink', 'error')
+    } finally {
+      setPermalinkLoading(false)
+    }
+  }
+
   if (findings === null) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -168,6 +189,13 @@ export default function ResultsPage() {
             >
               Email summary
             </a>
+            <button
+              onClick={handleCreatePermalink}
+              disabled={permalinkLoading}
+              className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white disabled:opacity-50"
+            >
+              {permalinkLoading ? 'Creating…' : 'Create permalink'}
+            </button>
             {findings.length > 0 && (
               <button
                 onClick={() => setShowGithubModal(true)}
