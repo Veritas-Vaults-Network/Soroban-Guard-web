@@ -26,6 +26,7 @@ import { addScanRecord } from '@/lib/history'
 import { useToast } from '@/lib/toast'
 import { FEATURED_CONTRACTS } from '@/lib/featuredContracts'
 import ScanQuotaIndicator from '@/components/ScanQuota'
+import { postToTelegram } from '@/lib/telegram'
 
 export default function Page() {
   return (
@@ -91,6 +92,11 @@ function HomePage() {
       sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
       sessionStorage.setItem('sg_duration', duration)
       notify('Scan complete', `${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} detected`)
+      if (telegramConfig?.botToken && telegramConfig?.chatId) {
+        postToTelegram(telegramConfig.botToken, telegramConfig.chatId, data.findings, source).catch(err => {
+          console.warn('Telegram notification failed:', err)
+        })
+      }
       router.push(`/results?r=${encoded}`)
     } catch (err) {
       if (err instanceof ApiError && err.status === 429 && err.retryAfter) {
