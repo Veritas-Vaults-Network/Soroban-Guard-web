@@ -15,6 +15,7 @@ import SeverityBadge from '@/components/SeverityBadge'
 import ThemeToggle from '@/components/ThemeToggle'
 import { useToast } from '@/lib/toast'
 import GithubExportModal from '@/components/GithubExportModal'
+import { exportJson, exportCsv, downloadMarkdown } from '@/lib/export'
 
 export default function ResultsPage() {
   const router = useRouter()
@@ -23,6 +24,8 @@ export default function ResultsPage() {
   const [findings, setFindings] = useState<Finding[] | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showGithubModal, setShowGithubModal] = useState(false)
+  const [showEmbedModal, setShowEmbedModal] = useState(false)
+  const [embedCopied, setEmbedCopied] = useState(false)
 
   useEffect(() => {
     const encoded = searchParams.get('r')
@@ -76,6 +79,22 @@ export default function ResultsPage() {
     const url = window.location.href
     navigator.clipboard.writeText(url)
     show('Link copied!', 'success')
+  }
+
+  function getEmbedToken(): string {
+    return searchParams.get('r') ?? ''
+  }
+
+  function getEmbedSnippet(): string {
+    const token = getEmbedToken()
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    return `<iframe src="${origin}/embed/${token}" width="300" height="150" frameborder="0" style="border-radius:12px;overflow:hidden;" title="Soroban Guard Security Status"></iframe>`
+  }
+
+  function handleCopyEmbed() {
+    navigator.clipboard.writeText(getEmbedSnippet())
+    setEmbedCopied(true)
+    setTimeout(() => setEmbedCopied(false), 2000)
   }
 
   async function handleRescan() {
@@ -177,6 +196,17 @@ export default function ResultsPage() {
                   <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
                 </svg>
                 Create GitHub Issues
+              </button>
+            )}
+            {getEmbedToken() && (
+              <button
+                onClick={() => setShowEmbedModal(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+                Get embed code
               </button>
             )}
             <button
@@ -351,6 +381,38 @@ export default function ResultsPage() {
 
       {showGithubModal && (
         <GithubExportModal findings={findings} onClose={() => setShowGithubModal(false)} />
+      )}
+
+      {showEmbedModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowEmbedModal(false)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-6 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <h2 className="mb-1 text-base font-semibold text-white">Embed security status</h2>
+            <p className="mb-4 text-sm text-slate-400">Copy the snippet below and paste it into your README or website.</p>
+            <pre className="mb-4 overflow-x-auto rounded-lg bg-[#12151f] p-3 text-xs text-slate-300 whitespace-pre-wrap break-all">
+              {getEmbedSnippet()}
+            </pre>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowEmbedModal(false)}
+                className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm text-slate-400 transition hover:text-white"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleCopyEmbed}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500"
+              >
+                {embedCopied ? 'Copied!' : 'Copy snippet'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
