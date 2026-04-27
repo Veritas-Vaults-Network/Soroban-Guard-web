@@ -43,14 +43,22 @@ export default function HistoryPage() {
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">Scan History</h1>
-        {entries.length > 0 && (
-          <button
-            onClick={() => setShowConfirm(true)}
-            className="rounded-lg border border-red-500/30 px-4 py-2 text-sm text-red-400 transition hover:bg-red-500/10"
+        <div className="flex items-center gap-3">
+          <a
+            href="/analytics"
+            className="rounded-lg border border-[#2a2d3a] px-4 py-2 text-sm text-slate-400 transition hover:text-white"
           >
-            Clear history
-          </button>
-        )}
+            Analytics
+          </a>
+          {entries.length > 0 && (
+            <button
+              onClick={() => setShowConfirm(true)}
+              className="rounded-lg border border-red-500/30 px-4 py-2 text-sm text-red-400 transition hover:bg-red-500/10"
+            >
+              Clear history
+            </button>
+          )}
+        </div>
       </div>
 
       {entries.length === 0 ? (
