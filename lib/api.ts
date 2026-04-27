@@ -17,35 +17,48 @@ export class ApiError extends Error {
   }
 }
 
+export class TimeoutError extends Error {
+  constructor(message: string = 'Request timed out') {
+    super(message)
+    this.name = 'TimeoutError'
+  }
+}
+
 export async function scanContract(source: string, network?: StellarNetwork): Promise<ScanResponse> {
   const body: ScanRequest = { source }
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (network) headers['X-Network'] = network.name
 
-  const res = await fetch(`${API_BASE}/scan`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-  })
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 30000)
 
-  if (!res.ok) {
-    if (res.status === 429) {
-      const retryAfterHeader = res.headers.get('Retry-After')
-      const retryAfter = retryAfterHeader ? Math.ceil(parseFloat(retryAfterHeader)) : 60
-      throw new ApiError(429, 'Rate limited', retryAfter)
+  try {
+    const res = await fetch(`${API_BASE}/scan`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+
+    clearTimeout(timeoutId)
+
+    if (!res.ok) {
+      if (res.status === 429) {
+        const retryAfterHeader = res.headers.get('Retry-After')
+        const retryAfter = retryAfterHeader ? Math.ceil(parseFloat(retryAfterHeader)) : 60
+        throw new ApiError(429, 'Rate limited', retryAfter)
+      }
+      const text = await res.text().catch(() => 'Unknown error')
+      throw new ApiError(res.status, text || `HTTP ${res.status}`)
     }
-    const text = await res.text().catch(() => 'Unknown error')
-    
-    // Handle rate limiting
-    if (res.status === 429) {
-      const retryAfter = res.headers.get('Retry-After')
-      const retrySeconds = retryAfter ? parseInt(retryAfter, 10) : undefined
-      throw new ApiError(res.status, text || `HTTP ${res.status}`, retrySeconds)
+
+    return res.json() as Promise<ScanResponse>
+  } catch (err) {
+    clearTimeout(timeoutId)
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new TimeoutError('Scan timed out after 30s')
     }
-    
-    throw new ApiError(res.status, text || `HTTP ${res.status}`)
+    throw err
   }
-
-  return res.json() as Promise<ScanResponse>
 }

@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { SAMPLE_CONTRACT } from '@/lib/sampleContract'
+import { getRecent, truncateLabel, type RecentScan } from '@/lib/recentScans'
 
 type InputMode = 'code' | 'github' | 'contractId'
 
@@ -20,8 +21,13 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
   const [repoUrl, setRepoUrl] = useState('')
   const [contractId, setContractId] = useState('')
   const [normalized, setNormalized] = useState(false)
+  const [recents, setRecents] = useState<RecentScan[]>([])
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const normalizedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    setRecents(getRecent())
+  }, [])
 
   function handleContractIdChange(raw: string) {
     const clean = raw.trim().toUpperCase()
@@ -32,6 +38,38 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
       normalizedTimer.current = setTimeout(() => setNormalized(false), 1000)
     }
   }
+
+  function handleRecentClick(scan: RecentScan) {
+    setMode(scan.type)
+    if (scan.type === 'code') {
+      setCode(scan.value)
+    } else if (scan.type === 'github') {
+      setRepoUrl(scan.value)
+    } else {
+      setContractId(scan.value)
+    }
+  }
+
+  function validateGithub(url: string): { valid: boolean; error?: string } {
+    if (!url) return { valid: false }
+    try {
+      const parsed = new URL(url)
+      if (parsed.hostname !== 'github.com') {
+        return { valid: false, error: 'Must be a github.com URL' }
+      }
+      const parts = parsed.pathname.split('/').filter(Boolean)
+      if (parts.length < 2) {
+        return { valid: false, error: 'Invalid repository URL' }
+      }
+      return { valid: true }
+    } catch {
+      return { valid: false, error: 'Invalid URL' }
+    }
+  }
+
+  const githubValidation = validateGithub(repoUrl)
+  const repoError = repoUrl && !githubValidation.valid ? githubValidation.error : null
+  const contractValid = contractId.length >= 56 && contractId.startsWith('C')
 
   useEffect(() => {
     if (externalCode !== undefined) {
@@ -74,7 +112,7 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
     (mode === 'code'
       ? code.trim().length > 0 && code.length <= 100000
       : mode === 'github'
-        ? repoUrl.trim().length > 0 && validateGithub(repoUrl).valid
+        ? repoUrl.trim().length > 0 && githubValidation.valid
         : contractId.trim().length > 0 && contractValid)
 
   return (
@@ -207,6 +245,41 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
         </div>
       )}
 
+      {/* Recent scans */}
+      {recents.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs text-slate-500">Recent scans:</p>
+          <div className="flex flex-wrap gap-2">
+            {recents.map((scan, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => handleRecentClick(scan)}
+                disabled={loading}
+                className="flex items-center gap-1.5 rounded-lg border border-[#2a2d3a] bg-[#12151f] px-3 py-1.5 text-xs text-slate-400 transition hover:border-indigo-500/50 hover:text-indigo-300 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {scan.type === 'code' && (
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                  </svg>
+                )}
+                {scan.type === 'github' && (
+                  <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+                  </svg>
+                )}
+                {scan.type === 'contractId' && (
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                )}
+                <span className="max-w-[200px] truncate">{truncateLabel(scan)}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Submit */}
       <div className="space-y-2">
         <button
@@ -227,13 +300,6 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
                 <path strokeLinecap="round" d="M12 2a10 10 0 0 1 10 10" />
               </svg>
               Scanning…
-            </>
-          ) : rateLimitCountdown ? (
-            <>
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Retry in {rateLimitCountdown}s
             </>
           ) : (
             <>
