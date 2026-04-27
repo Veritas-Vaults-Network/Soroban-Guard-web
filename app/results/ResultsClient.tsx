@@ -15,6 +15,7 @@ import SeverityBadge from '@/components/SeverityBadge'
 import ThemeToggle from '@/components/ThemeToggle'
 import { useToast } from '@/lib/toast'
 import GithubExportModal from '@/components/GithubExportModal'
+import FindingsWordCloud from '@/components/FindingsWordCloud'
 
 export default function ResultsPage() {
   const router = useRouter()
@@ -23,6 +24,7 @@ export default function ResultsPage() {
   const [findings, setFindings] = useState<Finding[] | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showGithubModal, setShowGithubModal] = useState(false)
+  const [showWordCloud, setShowWordCloud] = useState(false)
 
   useEffect(() => {
     const encoded = searchParams.get('r')
@@ -255,8 +257,37 @@ export default function ResultsPage() {
           <EmptyState onScanAnother={handleScanAnother} />
         ) : (
           <div>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-400">
+            {/* Word cloud collapsible panel */}
+            <div className="mb-6">
+              <button
+                onClick={() => setShowWordCloud(v => !v)}
+                className="flex w-full items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] px-5 py-3 text-sm font-medium text-slate-300 transition hover:bg-[var(--bg-hover)]"
+                aria-expanded={showWordCloud}
+              >
+                <span className="flex items-center gap-2">
+                  <svg className="h-4 w-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                  </svg>
+                  Vulnerability themes
+                </span>
+                <svg
+                  className={`h-4 w-4 text-slate-500 transition-transform duration-200 ${showWordCloud ? 'rotate-180' : ''}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showWordCloud && (
+                <div className="mt-2">
+                  <FindingsWordCloud
+                    findings={findings}
+                    onTermClick={term => setSearchQuery(term)}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="mb-3 flex items-center justify-between">              <h2 className="text-sm font-semibold text-slate-400">
                 Findings — click a row to expand details
               </h2>
               <div className="flex items-center gap-2">
