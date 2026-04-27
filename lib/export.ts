@@ -63,3 +63,68 @@ export function exportCsv(findings: Finding[]) {
     console.error('exportCsv failed', err)
   }
 }
+
+function escapeXml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+export function exportXml(findings: Finding[]) {
+  try {
+    const timestamp = new Date().toISOString()
+    const totalFindings = findings.length
+    const severityCounts = findings.reduce((acc, finding) => {
+      acc[finding.severity] = (acc[finding.severity] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<scanReport>
+  <metadata>
+    <tool>Soroban Guard</tool>
+    <version>1.0.0</version>
+    <timestamp>${timestamp}</timestamp>
+    <totalFindings>${totalFindings}</totalFindings>
+    <severityCounts>
+      <critical count="${severityCounts.Critical || 0}" />
+      <high count="${severityCounts.High || 0}" />
+      <medium count="${severityCounts.Medium || 0}" />
+      <low count="${severityCounts.Low || 0}" />
+    </severityCounts>
+  </metadata>
+  <findings>`
+
+    if (findings.length === 0) {
+      xml += `
+    <finding>
+      <message>No vulnerabilities detected</message>
+    </finding>`
+    } else {
+      findings.forEach((finding, index) => {
+        xml += `
+    <finding id="${index + 1}">
+      <severity>${escapeXml(finding.severity)}</severity>
+      <checkName>${escapeXml(finding.check_name)}</checkName>
+      <functionName>${escapeXml(finding.function_name)}</functionName>
+      <filePath>${escapeXml(finding.file_path)}</filePath>
+      <line>${finding.line}</line>
+      <description>${escapeXml(finding.description)}</description>
+      ${finding.remediation ? `<remediation>${escapeXml(finding.remediation)}</remediation>` : ''}
+    </finding>`
+      })
+    }
+
+    xml += `
+  </findings>
+</scanReport>`
+
+    const blob = new Blob([xml], { type: 'application/xml' })
+    download('soroban-guard-scan-results.xml', blob)
+  } catch (err) {
+    console.error('exportXml failed', err)
+  }
+}

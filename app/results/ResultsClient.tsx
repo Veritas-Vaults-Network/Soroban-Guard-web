@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { Finding, Severity } from '@/types/findings'
 import { decodeFindings } from '@/lib/share'
-import { exportEmail } from '@/lib/export'
+import { exportEmail, exportXml } from '@/lib/export'
 import { getAllScanHistory } from '@/lib/history'
 import { diffFindings } from '@/lib/diffFindings'
 import FindingsTable from '@/components/FindingsTable'
@@ -168,6 +168,12 @@ export default function ResultsPage() {
             >
               Email summary
             </a>
+            <button
+              onClick={() => exportXml(findings)}
+              className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
+            >
+              Export XML
+            </button>
             {findings.length > 0 && (
               <button
                 onClick={() => setShowGithubModal(true)}
