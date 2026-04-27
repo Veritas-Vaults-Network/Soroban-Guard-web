@@ -78,6 +78,30 @@ export default function ResultsPage() {
     show('Link copied!', 'success')
   }
 
+  async function handleRescan() {
+    const source = sessionStorage.getItem('sg_scan_source')
+    if (!source) {
+      show('No scan source found', 'error')
+      return
+    }
+
+    setIsRescanning(true)
+    try {
+      const data = await scanContract(source)
+      setFindings(data.findings)
+      sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
+      show('Rescan complete!', 'success')
+    } catch (error) {
+      show('Rescan failed', 'error')
+    } finally {
+      setIsRescanning(false)
+    }
+  }
+
+  function handleMuteChange() {
+    setMuteRefresh(prev => prev + 1)
+  }
+
   if (findings === null) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -91,8 +115,11 @@ export default function ResultsPage() {
   const counts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0 }
   for (const f of findings) counts[f.severity]++
 
+  const score = calculateScore(findings)
+  const hasSource = !!sessionStorage.getItem('sg_scan_source')
+
   const q = searchQuery.toLowerCase()
-  const filteredFindings = q
+  let filteredFindings = q
     ? findings.filter(
         f =>
           f.check_name.toLowerCase().includes(q) ||
@@ -101,6 +128,13 @@ export default function ResultsPage() {
           f.description.toLowerCase().includes(q),
       )
     : findings
+
+  // Apply muted filter
+  if (!showMuted) {
+    filteredFindings = filteredFindings.filter(f => !isMuted(f))
+  }
+
+  const groupedFindings = groupByFile(filteredFindings)
 
   const canCopy = typeof navigator !== 'undefined' && navigator.clipboard
 
@@ -119,6 +153,15 @@ export default function ResultsPage() {
             Soroban Guard
           </button>
           <div className="flex items-center gap-3">
+            {hasSource && (
+              <button
+                onClick={handleRescan}
+                disabled={isRescanning}
+                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isRescanning ? 'Rescanning...' : 'Rescan'}
+              </button>
+            )}
             <a
               href={exportEmail(findings)}
               className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
@@ -169,7 +212,14 @@ export default function ResultsPage() {
               : `${findings.length} finding${findings.length !== 1 ? 's' : ''} detected across your contract.`}
           </p>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+            <SummaryCard
+              label="Security Score"
+              value={score}
+              color={getScoreColor(score)}
+              bg={getScoreBg(score)}
+              border={getScoreBorder(score)}
+            />
             <SummaryCard
               label="Total Findings"
               value={findings.length}

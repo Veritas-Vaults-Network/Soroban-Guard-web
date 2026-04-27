@@ -10,9 +10,10 @@ interface Props {
   findings: Finding[]
   pageSize?: number
   forceExpandedIndex?: number | null
+  onMuteChange?: () => void
 }
 
-export default function FindingsTable({ findings, pageSize = 20, forceExpandedIndex }: Props) {
+export default function FindingsTable({ findings, pageSize = 20, forceExpandedIndex, onMuteChange }: Props) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const [currentPage, setCurrentPage] = useState(0)
   const [isPrint, setIsPrint] = useState(false)
@@ -119,7 +120,7 @@ export default function FindingsTable({ findings, pageSize = 20, forceExpandedIn
               {/* Expanded detail */}
               {(expandedIndex === globalIndex || isPrint) && (
                 <div className="border-b border-[var(--border)] bg-[var(--bg-tertiary)] px-5 py-4 last:border-b-0">
-                  <FindingCard finding={finding} />
+                  <FindingCard finding={finding} onMuteChange={onMuteChange} />
                 </div>
               )}
             </div>
