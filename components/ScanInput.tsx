@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react'
 import { SAMPLE_CONTRACT } from '@/lib/sampleContract'
 import { isValidCid, fetchFromIpfs } from '@/lib/ipfs'
+import { isValidNpmPackage, fetchNpmSource } from '@/lib/npm'
 import { requestPermission } from '@/lib/notifications'
 import { extractContractIdFromUrl } from '@/lib/stellar'
 import { isValidGistUrl, fetchGistFiles, fetchGistFileContent, type GistFile } from '@/lib/gist'
@@ -43,6 +44,12 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
   const [ipfsPreview, setIpfsPreview] = useState<string | null>(null)
   const [ipfsFetching, setIpfsFetching] = useState(false)
   const [ipfsError, setIpfsError] = useState<string | null>(null)
+  const [packageName, setPackageName] = useState('')
+  const [npmVersion, setNpmVersion] = useState('')
+  const [npmPreview, setNpmPreview] = useState<string | null>(null)
+  const [npmFetching, setNpmFetching] = useState(false)
+  const [npmError, setNpmError] = useState<string | null>(null)
+  const [npmPackageValid, setNpmPackageValid] = useState(false)
   const [normalized, setNormalized] = useState(false)
   const [extractedFromUrl, setExtractedFromUrl] = useState(false)
   // Gist state
@@ -173,6 +180,10 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
     }
     if (mode === 'gist') {
       if (gistContent) onScan(gistContent, 'code')
+      return
+    }
+    if (mode === 'npm') {
+      if (npmPreview) onScan(npmPreview, mode)
       return
     }
     const source =
