@@ -22,6 +22,7 @@ export default function ResultsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { show } = useToast()
+  const { publicKey: walletKey, network: walletNetwork } = useWallet()
   const [findings, setFindings] = useState<Finding[] | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showGithubModal, setShowGithubModal] = useState(false)
@@ -179,6 +180,24 @@ export default function ResultsPage() {
                 className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isRescanning ? 'Rescanning...' : 'Rescan'}
+              </button>
+            )}
+            {findings !== null && findings.length === 0 && walletKey && (
+              <button
+                onClick={handleAttest}
+                disabled={isAttesting}
+                className="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-300 transition hover:bg-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isAttesting ? (
+                  <svg className="spinner h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" d="M12 2a10 10 0 0 1 10 10" />
+                  </svg>
+                ) : (
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                )}
+                Attest on Stellar
               </button>
             )}
             <a
