@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { Finding, Severity } from '@/types/findings'
-import { decodeFindings } from '@/lib/share'
+import { decodeFindings, encodeWorkspace } from '@/lib/share'
 import { exportEmail } from '@/lib/export'
+import { exportSarif } from '@/lib/sarif'
 import { getAllScanHistory } from '@/lib/history'
 import { diffFindings } from '@/lib/diffFindings'
 import FindingsTable from '@/components/FindingsTable'
@@ -15,8 +16,7 @@ import SeverityBadge from '@/components/SeverityBadge'
 import ThemeToggle from '@/components/ThemeToggle'
 import { useToast } from '@/lib/toast'
 import GithubExportModal from '@/components/GithubExportModal'
-import { useWallet } from '@/lib/WalletContext'
-import { attestScan } from '@/lib/attestation'
+import NotionExportModal from '@/components/NotionExportModal'
 
 export default function ResultsPage() {
   const router = useRouter()
@@ -26,7 +26,10 @@ export default function ResultsPage() {
   const [findings, setFindings] = useState<Finding[] | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showGithubModal, setShowGithubModal] = useState(false)
-  const [isAttesting, setIsAttesting] = useState(false)
+  const [prevFindings, setPrevFindings] = useState<Finding[] | null>(null)
+  const [showDiff, setShowDiff] = useState(false)
+  const [groupView, setGroupView] = useState<'flat' | 'function'>('flat')
+  const [navIndex, setNavIndex] = useState<number | null>(null)
 
   useEffect(() => {
     const encoded = searchParams.get('r')
@@ -106,28 +109,17 @@ export default function ResultsPage() {
     setMuteRefresh(prev => prev + 1)
   }
 
-  async function handleAttest() {
-    if (!walletKey || !findings) return
-    const contractId = sessionStorage.getItem('sg_scan_source') ?? 'unknown'
-    setIsAttesting(true)
-    try {
-      const { txHash, explorerUrl } = await attestScan(
-        walletKey,
-        contractId,
-        JSON.stringify(findings),
-        walletNetwork,
-      )
-      show(
-        `Attestation submitted! Tx: ${txHash.slice(0, 8)}…`,
-        'success',
-      )
-      // Open explorer in new tab
-      window.open(explorerUrl, '_blank', 'noopener,noreferrer')
-    } catch (err) {
-      show(err instanceof Error ? err.message : 'Attestation failed', 'error')
-    } finally {
-      setIsAttesting(false)
-    }
+  function handleDownloadSarif() {
+    const content = exportSarif(findings ?? [])
+    const blob = new Blob([content], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'soroban-guard.sarif'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
   }
 
   if (findings === null) {
@@ -214,6 +206,23 @@ export default function ResultsPage() {
             >
               Email summary
             </a>
+            <button
+              onClick={handleDownloadSarif}
+              className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
+            >
+              Download SARIF
+            </button>
+            {findings.length > 0 && (
+              <button
+                onClick={() => setShowNotionModal(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.968c-.42-.326-.981-.7-2.055-.607L3.01 2.295c-.466.046-.56.28-.374.466zm.793 3.08v13.904c0 .747.373 1.027 1.214.98l14.523-.84c.841-.046.935-.56.935-1.167V6.354c0-.606-.233-.933-.748-.887l-15.177.887c-.56.047-.747.327-.747.933zm14.337.745c.093.42 0 .84-.42.888l-.7.14v10.264c-.608.327-1.168.514-1.635.514-.748 0-.935-.234-1.495-.933l-4.577-7.186v6.952L12.21 19s0 .84-1.168.84l-3.222.186c-.093-.186 0-.653.327-.746l.84-.233V9.854L7.822 9.76c-.094-.42.14-1.026.793-1.073l3.456-.233 4.764 7.279v-6.44l-1.215-.14c-.093-.514.28-.887.747-.933zM1.936 1.035l13.31-.98c1.634-.14 2.055-.047 3.082.7l4.249 2.986c.7.513.934.653.934 1.213v16.378c0 1.026-.373 1.634-1.68 1.726l-15.458.934c-.98.047-1.448-.093-1.962-.747l-3.129-4.06c-.56-.747-.793-1.306-.793-1.96V2.667c0-.839.374-1.54 1.447-1.632z" />
+                </svg>
+                Export to Notion
+              </button>
+            )}
             {findings.length > 0 && (
               <button
                 onClick={() => setShowGithubModal(true)}
@@ -225,6 +234,16 @@ export default function ResultsPage() {
                 Create GitHub Issues
               </button>
             )}
+            <button
+              onClick={handleShareWorkspace}
+              disabled={!canCopy}
+              className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white disabled:opacity-40"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+              Share workspace
+            </button>
             <button
               onClick={handleScanAnother}
               className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-indigo-500"
@@ -397,6 +416,9 @@ export default function ResultsPage() {
 
       {showGithubModal && (
         <GithubExportModal findings={findings} onClose={() => setShowGithubModal(false)} />
+      )}
+      {showNotionModal && (
+        <NotionExportModal findings={findings} onClose={() => setShowNotionModal(false)} />
       )}
     </div>
   )
