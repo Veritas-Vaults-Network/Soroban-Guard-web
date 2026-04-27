@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { Finding, Severity } from '@/types/findings'
 import { decodeFindings } from '@/lib/share'
-import { exportEmail } from '@/lib/export'
+import { exportEmail, downloadMarkdown } from '@/lib/export'
 import { getAllScanHistory } from '@/lib/history'
 import { diffFindings } from '@/lib/diffFindings'
 import FindingsTable from '@/components/FindingsTable'
@@ -168,6 +168,18 @@ export default function ResultsPage() {
             >
               Email summary
             </a>
+            <button
+              onClick={() => downloadMarkdown(findings, {
+                source: sessionStorage.getItem('sg_last_scan_source') ?? 'unknown',
+                scannedAt: new Date().toISOString(),
+              })}
+              className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Download Markdown
+            </button>
             {findings.length > 0 && (
               <button
                 onClick={() => setShowGithubModal(true)}
