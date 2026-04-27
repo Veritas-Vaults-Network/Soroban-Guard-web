@@ -21,8 +21,12 @@ import { NETWORKS } from '@/types/stellar'
 import { addRecord } from '@/lib/history'
 import { saveSourceCode } from '@/lib/codeStore'
 import { notify } from '@/lib/notifications'
+import { getDueScans, markRan } from '@/lib/schedule'
+import { addScanRecord } from '@/lib/history'
+import { useToast } from '@/lib/toast'
 import { FEATURED_CONTRACTS } from '@/lib/featuredContracts'
 import ScanQuotaIndicator from '@/components/ScanQuota'
+import { postToTelegram } from '@/lib/telegram'
 
 export default function Page() {
   return (
@@ -35,6 +39,7 @@ export default function Page() {
 function HomePage() {
   const router = useRouter()
   const { publicKey: walletKey, network: walletNetwork } = useWallet()
+  const { show } = useToast()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [networkHealthy, setNetworkHealthy] = useState(true)
@@ -44,6 +49,28 @@ function HomePage() {
   const [quota, setQuota] = useState<ScanQuota | null>(null)
 
   const activeNetwork = walletKey ? walletNetwork : manualNetwork
+
+  // Run overdue scheduled scans on page load
+  useEffect(() => {
+    const due = getDueScans()
+    if (due.length === 0) return
+    ;(async () => {
+      for (const s of due) {
+        try {
+          const { NETWORKS } = await import('@/types/stellar')
+          const net = NETWORKS[s.network] ?? NETWORKS.testnet
+          const data = await scanContract(s.contractId, net)
+          markRan(s.contractId, s.network)
+          addScanRecord('scheduled', s.contractId, s.network, data.findings)
+          show(`Scheduled rescan of ${s.contractId.slice(0, 8)}… complete — ${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''}`, 'success')
+          notify('Scheduled rescan complete', `${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} for ${s.contractId.slice(0, 8)}…`)
+        } catch {
+          // Silently skip failed scheduled scans
+        }
+      }
+    })()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function handleScan(source: string, mode: 'code' | 'github' | 'contractId' | 'ipfs' = 'code') {
     setLoading(true)
@@ -65,6 +92,11 @@ function HomePage() {
       sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
       sessionStorage.setItem('sg_duration', duration)
       notify('Scan complete', `${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} detected`)
+      if (telegramConfig?.botToken && telegramConfig?.chatId) {
+        postToTelegram(telegramConfig.botToken, telegramConfig.chatId, data.findings, source).catch(err => {
+          console.warn('Telegram notification failed:', err)
+        })
+      }
       router.push(`/results?r=${encoded}`)
     } catch (err) {
       if (err instanceof ApiError && err.status === 429 && err.retryAfter) {
