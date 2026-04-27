@@ -132,6 +132,31 @@ export async function fetchContractCode(
   }
 }
 
+// ── Account contracts ─────────────────────────────────────────────────────────
+
+/**
+ * Fetch all contract IDs deployed by a given account using the Horizon
+ * /accounts/{id}/contracts endpoint.
+ */
+export async function fetchContractsByAccount(
+  publicKey: string,
+  network: StellarNetwork,
+): Promise<string[]> {
+  if (!isValidPublicKey(publicKey)) return []
+
+  const url = `${network.horizonUrl}/accounts/${publicKey}/contracts`
+  const res = await fetch(url, { headers: { Accept: 'application/json' } })
+
+  if (res.status === 404) return []
+  if (!res.ok) throw new Error(`Horizon error ${res.status}: ${await res.text()}`)
+
+  const data = (await res.json()) as any
+  const records: any[] = data._embedded?.records ?? data.records ?? []
+  return records
+    .map((r: any) => r.contract_id ?? r.id ?? '')
+    .filter((id: string) => isValidContractId(id))
+}
+
 // ── Network health ────────────────────────────────────────────────────────────
 
 export async function checkNetworkHealth(network: StellarNetwork): Promise<boolean> {

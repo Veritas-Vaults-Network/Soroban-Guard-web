@@ -8,6 +8,7 @@ import NetworkBadge from '@/components/NetworkBadge'
 import NetworkSelector, { getStoredNetwork } from '@/components/NetworkSelector'
 import NetworkHealthBanner from '@/components/NetworkHealthBanner'
 import ThemeToggle from '@/components/ThemeToggle'
+import BatchScanButton from '@/components/BatchScanButton'
 import { scanContract, ApiError } from '@/lib/api'
 import type { ScanQuota } from '@/lib/api'
 import { checkNetworkHealth } from '@/lib/stellar'
@@ -50,8 +51,8 @@ function HomePage() {
     setRateLimitCountdown(null)
     setStatusMessage('Scanning your contract…')
     
-    // Store the source for potential auto-retry
-    sessionStorage.setItem('sg_last_scan_source', source)
+    // Store the source for rescan feature
+    sessionStorage.setItem('sg_scan_source', source)
     if (mode === 'code') saveSourceCode(source)
     
     try {
@@ -86,12 +87,13 @@ function HomePage() {
     setError(null)
     setRateLimitCountdown(null)
     
-    // Store the source for potential auto-retry
-    sessionStorage.setItem('sg_last_scan_source', contractId)
+    // Store the source for rescan feature
+    sessionStorage.setItem('sg_scan_source', contractId)
     
     try {
       const data = await scanContract(contractId)
       sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
+      sessionStorage.setItem('sg_scan_source', contractId)
       sessionStorage.removeItem('sg_duration')
       router.push('/results')
     } catch (err) {
@@ -167,6 +169,7 @@ function HomePage() {
           {walletKey && (
             <div className="mb-3 flex flex-col items-center gap-3">
               <NetworkBadge network={walletNetwork} />
+              <BatchScanButton publicKey={walletKey} network={walletNetwork} />
               {walletNetwork.name === 'futurenet' && (
                 <div className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-4 py-2.5 text-sm text-violet-300">
                   <p className="flex items-start gap-2">

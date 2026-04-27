@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import type { Finding } from '@/types/findings'
 import ConfirmModal from '@/components/ConfirmModal'
 import SeverityTrendChart from '@/components/SeverityTrendChart'
+import ScanHeatmap from '@/components/ScanHeatmap'
 
 interface HistoryEntry {
   id: string
@@ -56,6 +57,11 @@ export default function HistoryPage() {
         <p className="text-sm text-slate-500">No scan history yet.</p>
       ) : (
         <>
+          {entries.length >= 7 && (
+            <div className="mb-6">
+              <ScanHeatmap entries={entries.map(e => ({ date: e.date }))} />
+            </div>
+          )}
           {entries.length >= 2 && (
             <div className="mb-6">
               <SeverityTrendChart

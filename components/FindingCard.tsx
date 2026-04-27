@@ -6,24 +6,44 @@ import SeverityBadge from './SeverityBadge'
 import CheckTooltip from './CheckTooltip'
 import CodeViewer from './CodeViewer'
 import { loadSourceCode } from '@/lib/codeStore'
+import { mute, unmute, isMuted } from '@/lib/mutedFindings'
 
 interface Props {
   finding: Finding
+  onMuteChange?: () => void
 }
 
-export default function FindingCard({ finding }: Props) {
+export default function FindingCard({ finding, onMuteChange }: Props) {
   const [showCode, setShowCode] = useState(false)
   const [source, setSource] = useState<string | null>(null)
+  const [muted, setMuted] = useState(false)
 
   useEffect(() => {
     setSource(loadSourceCode())
-  }, [])
+    setMuted(isMuted(finding))
+  }, [finding])
+
+  function handleMuteToggle() {
+    if (muted) {
+      unmute(finding)
+      setMuted(false)
+    } else {
+      mute(finding)
+      setMuted(true)
+    }
+    onMuteChange?.()
+  }
 
   return (
-    <div className="slide-down rounded-lg border border-[#2a2d3a] bg-[#12151f] p-5">
+    <div className={`slide-down rounded-lg border border-[#2a2d3a] bg-[#12151f] p-5 ${muted ? 'opacity-50' : ''}`}>
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <SeverityBadge severity={finding.severity} />
         <CheckTooltip checkName={finding.check_name} />
+        {muted && (
+          <span className="rounded-full bg-slate-500/10 px-2.5 py-0.5 text-xs font-semibold text-slate-400">
+            Muted
+          </span>
+        )}
       </div>
 
       <p className="mb-5 text-sm leading-relaxed text-slate-300">
@@ -69,7 +89,13 @@ export default function FindingCard({ finding }: Props) {
         </div>
       )}
 
-      <div className="mt-4 text-right">
+      <div className="mt-4 flex items-center justify-between">
+        <button
+          onClick={handleMuteToggle}
+          className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+        >
+          {muted ? 'Unmute this finding' : 'Mute this finding'}
+        </button>
         <a
           href={`https://github.com/Veritas-Vaults-Network/soroban-guard-core/issues/new?title=${encodeURIComponent(`False positive: ${finding.check_name}`)}&body=${encodeURIComponent(finding.description)}`}
           target="_blank"
