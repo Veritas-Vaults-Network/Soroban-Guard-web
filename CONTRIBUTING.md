@@ -1,57 +1,54 @@
 # Contributing to Soroban Guard Web
 
-Thanks for your interest in contributing. This document covers how to get set up and what to keep in mind when submitting changes.
-
 ## Prerequisites
 
 - Node.js 18+
-- npm 9+
-- A running instance of [soroban-guard-core](https://github.com/Veritas-Vaults-Network/soroban-guard-core) (or mock API)
+- npm
+- [Freighter](https://freighter.app) browser extension (for wallet features)
 
 ## Local Setup
 
 ```bash
-git clone https://github.com/Veritas-Vaults-Network/soroban-guard-web
-cd soroban-guard-web
+git clone https://github.com/Veritas-Vaults-Network/Soroban-Guard-web.git
+cd Soroban-Guard-web
 npm install
-cp .env.example .env.local   # set NEXT_PUBLIC_API_URL
+echo "NEXT_PUBLIC_API_URL=http://localhost:3001" > .env.local
+```
+
+`NEXT_PUBLIC_API_URL` should point to a running instance of [soroban-guard-core](https://github.com/Veritas-Vaults-Network/Soroban-Guard-Core).
+
+## Running the Dev Server
+
+```bash
 npm run dev
 ```
 
-## Code Style
+Open [http://localhost:3000](http://localhost:3000).
 
-- TypeScript strict mode — no `any` unless absolutely necessary
-- Tailwind for all styling — no inline styles, no CSS modules
-- Components are in `components/`, pages in `app/`
-- Keep components small and single-purpose
-- All user-facing strings must be in English
-
-## Commit Convention
-
-We follow [Conventional Commits](https://www.conventionalcommits.org/):
+## Project Structure
 
 ```
-feat: add severity filter to findings table
-fix: handle empty response from core API
-chore: update tailwind to 3.4
-docs: add API contract section to README
+app/          # Next.js App Router pages and layouts
+components/   # Reusable UI components
+lib/          # API client, Stellar/Soroban helpers, wallet integration
+types/        # Shared TypeScript types
 ```
 
-## Pull Request Process
+## Linting
 
-1. Fork the repo and create a branch from `main`
-2. Make your changes with clear, atomic commits
-3. Run `npm run lint` and fix any issues
-4. Open a PR with a description of what changed and why
-5. Link any related issues
+```bash
+npm run lint
+```
 
-## Reporting Issues
+Fix any reported issues before opening a PR.
 
-Use [GitHub Issues](https://github.com/Veritas-Vaults-Network/soroban-guard-web/issues). Include:
-- Steps to reproduce
-- Expected vs actual behavior
-- Browser and OS if it's a UI bug
+## PR Checklist
 
-## License
+- [ ] `npm run lint` passes with no errors
+- [ ] `npx tsc --noEmit` passes with no TypeScript errors
+- [ ] Include a screenshot for any UI changes
 
-By contributing you agree your changes will be licensed under the MIT License.
+## Sister Repos
+
+- [soroban-guard-core](https://github.com/Veritas-Vaults-Network/Soroban-Guard-Core) — Rust/Axum analysis engine
+- [soroban-guard-contracts](https://github.com/Veritas-Vaults-Network/soroban-guard-contracts) — Example contracts for testing
