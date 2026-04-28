@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import type { Finding, Severity } from '@/types/findings'
 import { decodeFindings, encodeWorkspace } from '@/lib/share'
 import { exportEmail } from '@/lib/export'
@@ -13,12 +13,13 @@ import FindingsDiff from '@/components/FindingsDiff'
 import FindingsByFunction from '@/components/FindingsByFunction'
 import EmptyState from '@/components/EmptyState'
 import SeverityBadge from '@/components/SeverityBadge'
+import SeverityDonut from '@/components/SeverityDonut'
 import ThemeToggle from '@/components/ThemeToggle'
 import { useToast } from '@/lib/toast'
 import GithubExportModal from '@/components/GithubExportModal'
 import NotionExportModal from '@/components/NotionExportModal'
 
-export default function ResultsPage() {
+export default function ResultsClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { show } = useToast()
@@ -32,15 +33,6 @@ export default function ResultsPage() {
   const [navIndex, setNavIndex] = useState<number | null>(null)
 
   useEffect(() => {
-    const encoded = searchParams.get('r')
-    if (encoded) {
-      const decoded = decodeFindings(encoded)
-      if (decoded.length > 0) {
-        setFindings(decoded)
-        return
-      }
-    }
-
     const raw = sessionStorage.getItem('sg_findings')
     if (!raw) {
       router.replace('/')
@@ -48,19 +40,35 @@ export default function ResultsPage() {
     }
     try {
       setFindings(JSON.parse(raw) as Finding[])
+      setDuration(sessionStorage.getItem('sg_duration'))
+      setScanSource(sessionStorage.getItem('sg_scan_source'))
     } catch {
       router.replace('/')
     }
-  }, [router, searchParams])
+  }, [router])
 
   useEffect(() => {
-    if (findings != null) {
-      document.title = `${findings.length} findings — Soroban Guard`
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (findings && (e.key === 'j' || e.key === 'k')) {
+        e.preventDefault()
+        const current = navIndex ?? -1
+        let next
+        if (e.key === 'j') {
+          next = Math.min(current + 1, findings.length - 1)
+        } else {
+          next = Math.max(current - 1, 0)
+        }
+        setNavIndex(next)
+        const element = document.querySelector(`[data-finding-index="${next}"]`)
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      }
     }
-    return () => {
-      document.title = 'Soroban Guard — Smart Contract Security Scanner'
-    }
-  }, [findings])
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [findings, navIndex])
 
   useEffect(() => {
     if (findings == null) return
@@ -121,8 +129,18 @@ export default function ResultsPage() {
     }
   }
 
-  function handleMuteChange() {
-    setMuteRefresh(prev => prev + 1)
+  function handleCopyCli() {
+    if (!scanSource) return
+    
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+    const truncatedSource = scanSource.length > 200 
+      ? `${scanSource.slice(0, 200)}...` 
+      : scanSource
+    
+    const command = `curl -X POST ${apiUrl}/scan -H 'Content-Type: application/json' -d '{"source":"${scanSource.replace(/"/g, '\\"').replace(/\n/g, '\\n')}"}'`
+    
+    navigator.clipboard.writeText(command)
+    toast.show('CLI command copied to clipboard', 'success')
   }
 
   function handleDownloadSarif() {
@@ -140,37 +158,14 @@ export default function ResultsPage() {
 
   if (findings === null) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <svg className="spinner h-8 w-8 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-          <path strokeLinecap="round" d="M12 2a10 10 0 0 1 10 10" />
-        </svg>
+      <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
+        <FindingsSkeleton />
       </div>
     )
   }
 
   const counts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0 }
   for (const f of findings) counts[f.severity]++
-
-  const score = calculateScore(findings)
-  const hasSource = !!sessionStorage.getItem('sg_scan_source')
-
-  const q = searchQuery.toLowerCase()
-  let filteredFindings = q
-    ? findings.filter(
-        f =>
-          f.check_name.toLowerCase().includes(q) ||
-          f.function_name.toLowerCase().includes(q) ||
-          f.file_path.toLowerCase().includes(q) ||
-          f.description.toLowerCase().includes(q),
-      )
-    : findings
-
-  // Apply muted filter
-  if (!showMuted) {
-    filteredFindings = filteredFindings.filter(f => !isMuted(f))
-  }
-
-  const groupedFindings = groupByFile(filteredFindings)
 
   const canCopy = typeof navigator !== 'undefined' && navigator.clipboard
 
@@ -282,11 +277,25 @@ export default function ResultsPage() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:px-6">
+      <main id="main-content" className="mx-auto w-full max-w-6xl flex-1 px-4 pb-24 pt-10 sm:pb-10 sm:px-6">
         {/* Summary bar */}
         <div className="mb-8">
-            <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex items-center justify-between">
             <h1 className="text-2xl font-bold text-white">Scan Results</h1>
+            <div className="flex items-center gap-2">
+              {scanSource && (
+                <button
+                  onClick={handleCopyCli}
+                  disabled={!canCopy}
+                  title="Copy CLI command"
+                  className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Copy CLI command
+                </button>
+              )}
               <button
                 onClick={handleCopyJson}
                 disabled={!canCopy}
@@ -297,48 +306,60 @@ export default function ResultsPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
               </button>
+              {copied && (
+                <div className="absolute right-0 top-full mt-2 whitespace-nowrap rounded-lg bg-green-600 px-3 py-1 text-xs text-white">
+                  Copied!
+                </div>
+              )}
             </div>
+          </div>
           <p className="mb-6 text-sm text-slate-500">
             {findings.length === 0
               ? 'No issues detected.'
               : `${findings.length} finding${findings.length !== 1 ? 's' : ''} detected across your contract.`}
+            {duration && (
+              <span className="ml-2 text-slate-600">Scanned in {duration}s</span>
+            )}
           </p>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-            <SummaryCard
-              label="Security Score"
-              value={score}
-              color={getScoreColor(score)}
-              bg={getScoreBg(score)}
-              border={getScoreBorder(score)}
-            />
-            <SummaryCard
-              label="Total Findings"
-              value={findings.length}
-              color="text-white"
-              bg="bg-[#1a1d27]"
-            />
-            <SummaryCard
-              label="High"
-              value={counts.High}
-              color="text-red-400"
-              bg="bg-red-500/5"
-              border="border-red-500/20"
-            />
-            <SummaryCard
-              label="Medium"
-              value={counts.Medium}
-              color="text-amber-400"
-              bg="bg-amber-500/5"
-              border="border-amber-500/20"
-            />
-            <SummaryCard
-              label="Low"
-              value={counts.Low}
-              color="text-sky-400"
-              bg="bg-sky-500/5"
-              border="border-sky-500/20"
-            />
+          <div className="flex gap-6">
+            <div className="flex-1">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <SummaryCard
+                  label="Critical"
+                  value={counts.Critical}
+                  color="text-rose-400"
+                  bg="bg-rose-500/5"
+                  border="border-rose-500/20"
+                />
+                <SummaryCard
+                  label="High"
+                  value={counts.High}
+                  color="text-red-400"
+                  bg="bg-red-500/5"
+                  border="border-red-500/20"
+                />
+                <SummaryCard
+                  label="Medium"
+                  value={counts.Medium}
+                  color="text-amber-400"
+                  bg="bg-amber-500/5"
+                  border="border-amber-500/20"
+                />
+                <SummaryCard
+                  label="Low"
+                  value={counts.Low}
+                  color="text-sky-400"
+                  bg="bg-sky-500/5"
+                  border="border-sky-500/20"
+                />
+              </div>
+            </div>
+            {findings.length > 0 && (
+              <div className="flex-shrink-0">
+                <SeverityDonut counts={counts} />
+              </div>
+            )}
           </div>
         </div>
 
@@ -466,6 +487,18 @@ export default function ResultsPage() {
         )}
       </main>
 
+      {/* Mobile FAB */}
+      <button
+        onClick={handleScanAnother}
+        aria-label="Scan another contract"
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-indigo-500 sm:hidden"
+      >
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+        New scan
+      </button>
+
       <footer className="border-t border-[var(--border)] py-6 text-center text-xs text-slate-600">
         Soroban Guard · Veritas Vaults Network
       </footer>
@@ -485,7 +518,7 @@ function SummaryCard({
   value,
   color,
   bg,
-  border = 'border-[var(--border)]',
+  border,
 }: {
   label: string
   value: number
@@ -494,9 +527,9 @@ function SummaryCard({
   border?: string
 }) {
   return (
-    <div className={`rounded-xl border ${border} ${bg} px-5 py-4`}>
+    <div className={`rounded-xl border ${border || 'border-[var(--border)]'} ${bg} p-4`}>
       <p className="mb-1 text-xs text-slate-500">{label}</p>
-      <p className={`text-3xl font-bold ${color}`}>{value}</p>
+      <p className={`text-2xl font-bold ${color}`}>{value}</p>
     </div>
   )
 }
