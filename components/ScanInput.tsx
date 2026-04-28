@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { SAMPLE_CONTRACT } from '@/lib/sampleContract'
 import { isValidCid, fetchFromIpfs } from '@/lib/ipfs'
 import { isValidNpmPackage, fetchNpmSource } from '@/lib/npm'
