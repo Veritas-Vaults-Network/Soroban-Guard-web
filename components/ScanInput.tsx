@@ -11,7 +11,7 @@ const NOTIF_PREF_KEY = 'sg_notifications_enabled'
 type InputMode = 'code' | 'github' | 'contractId' | 'ipfs'
 
 interface Props {
-  onScan: (source: string, mode: InputMode) => void
+  onScan: (source: string, mode: InputMode, options?: { discordWebhookUrl?: string }) => void
   loading: boolean
   countdown?: number
   initialValue?: string
@@ -45,6 +45,11 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
   const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
     if (typeof window === 'undefined') return false
     return localStorage.getItem(NOTIF_PREF_KEY) === 'true'
+  })
+  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [discordWebhookUrl, setDiscordWebhookUrl] = useState(() => {
+    if (typeof window === 'undefined') return ''
+    return localStorage.getItem('sg_discord_webhook') ?? ''
   })
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const normalizedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -108,8 +113,9 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    const options = { discordWebhookUrl: discordWebhookUrl.trim() || undefined }
     if (mode === 'ipfs') {
-      if (ipfsPreview) onScan(ipfsPreview, mode)
+      if (ipfsPreview) onScan(ipfsPreview, mode, options)
       return
     }
     const source =
@@ -119,7 +125,7 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
           ? repoUrl.trim()
           : contractId.trim()
     if (!source) return
-    onScan(source, mode)
+    onScan(source, mode, options)
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -338,6 +344,44 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
           </button>
         </div>
       )}
+
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={() => setAdvancedOpen(open => !open)}
+          className="flex items-center gap-2 text-sm text-slate-400 transition hover:text-slate-200"
+        >
+          <svg
+            className={`h-4 w-4 transition ${advancedOpen ? 'rotate-90' : ''}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+          Advanced options
+        </button>
+        {advancedOpen && (
+          <div className="rounded-lg border border-[#2a2d3a] bg-[#12151f] p-4">
+            <label htmlFor="discord-webhook-url" className="mb-1 block text-sm font-medium text-slate-300">
+              Discord webhook URL
+            </label>
+            <input
+              id="discord-webhook-url"
+              type="url"
+              value={discordWebhookUrl}
+              onChange={e => {
+                setDiscordWebhookUrl(e.target.value)
+                localStorage.setItem('sg_discord_webhook', e.target.value)
+              }}
+              placeholder="https://discord.com/api/webhooks/..."
+              disabled={loading}
+              className="w-full rounded-lg border border-[#2a2d3a] bg-[#0a0c0f] px-3 py-2 text-sm text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30 disabled:opacity-50"
+            />
+          </div>
+        )}
+      </div>
 
       {/* Submit */}
       <div className="space-y-2">

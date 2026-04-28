@@ -1,7 +1,7 @@
 'use client'
 
+import { Suspense, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useState } from 'react'
 import ScanInput from '@/components/ScanInput'
 import WalletConnect from '@/components/WalletConnect'
 import NetworkBadge from '@/components/NetworkBadge'
@@ -23,6 +23,14 @@ import { saveSourceCode } from '@/lib/codeStore'
 import { notify } from '@/lib/notifications'
 import { FEATURED_CONTRACTS } from '@/lib/featuredContracts'
 import ScanQuotaIndicator from '@/components/ScanQuota'
+import { encodeFindings } from '@/lib/share'
+import { postToDiscord } from '@/lib/discord'
+
+type InputMode = 'code' | 'github' | 'contractId' | 'ipfs'
+
+interface ScanOptions {
+  discordWebhookUrl?: string
+}
 
 export default function Page() {
   return (
@@ -34,6 +42,7 @@ export default function Page() {
 
 function HomePage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { publicKey: walletKey, network: walletNetwork } = useWallet()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -42,13 +51,16 @@ function HomePage() {
   const [scanHistory] = useState<ContractScanRecord[]>([])
   const [manualNetwork, setManualNetwork] = useState(() => getStoredNetwork())
   const [quota, setQuota] = useState<ScanQuota | null>(null)
+  const [countdown, setCountdown] = useState(0)
+  const pendingSourceRef = useRef<{ source: string; mode: InputMode; options?: ScanOptions } | null>(null)
 
   const activeNetwork = walletKey ? walletNetwork : manualNetwork
+  const initialSource = searchParams.get('source') ?? searchParams.get('contract') ?? ''
 
-  async function handleScan(source: string, mode: 'code' | 'github' | 'contractId' | 'ipfs' = 'code') {
+  async function handleScan(source: string, mode: InputMode = 'code', options?: ScanOptions) {
     setLoading(true)
     setError(null)
-    setRateLimitCountdown(null)
+    setCountdown(0)
     setStatusMessage('Scanning your contract…')
     
     // Store the source for rescan feature
@@ -59,16 +71,21 @@ function HomePage() {
       const t0 = Date.now()
       const data = await scanContract(source, activeNetwork)
       const duration = ((Date.now() - t0) / 1000).toFixed(1)
+      const encoded = encodeFindings(data.findings)
       if (data.quota) setQuota(data.quota)
       setStatusMessage(`Scan complete. ${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} detected.`)
       // Store results in sessionStorage so the results page can read them
       sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
       sessionStorage.setItem('sg_duration', duration)
+      sessionStorage.setItem('sg_results_url', `${window.location.origin}/results?r=${encoded}`)
+      if (options?.discordWebhookUrl) {
+        void postToDiscord(options.discordWebhookUrl, data.findings, source)
+      }
       notify('Scan complete', `${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} detected`)
       router.push(`/results?r=${encoded}`)
     } catch (err) {
       if (err instanceof ApiError && err.status === 429 && err.retryAfter) {
-        pendingSourceRef.current = source
+        pendingSourceRef.current = { source, mode, options }
         setCountdown(err.retryAfter)
         setError(null)
         setStatusMessage(`Rate limited. Retrying in ${err.retryAfter}s…`)
@@ -85,7 +102,7 @@ function HomePage() {
   async function handleHistoryClick(contractId: string) {
     setLoading(true)
     setError(null)
-    setRateLimitCountdown(null)
+    setCountdown(0)
     
     // Store the source for rescan feature
     sessionStorage.setItem('sg_scan_source', contractId)
@@ -100,7 +117,7 @@ function HomePage() {
       if (err instanceof ApiError && err.status === 429) {
         // Handle rate limiting
         const retrySeconds = err.retryAfter || 60 // Default to 60 seconds if no header
-        setRateLimitCountdown(retrySeconds)
+        setCountdown(retrySeconds)
         setError(null) // Clear generic error for rate limiting
       } else {
         const msg = err instanceof Error ? err.message : 'Unexpected error'
@@ -216,65 +233,8 @@ function HomePage() {
                 <span>{error}</span>
               </div>
             )}
-
-            {rateLimitCountdown !== null && (
-              <div className="mt-4 flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-400">
-                <svg className="mt-0.5 h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>
-                  Rate limited — retry in {rateLimitCountdown}s
-                </span>
-              </div>
-            )}
           </div>
 
-          {/* Recent scans */}
-          {walletKey && scanHistory.length > 0 && (
-            <div className="mt-8 rounded-2xl border border-[#2a2d3a] bg-[#1a1d27] p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-white">Your recent scans</h3>
-                {selectedScans.length === 2 && (
-                  <button
-                    onClick={handleCompare}
-                    className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-indigo-500"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <ContractIdBadge
-                          id={record.contractId}
-                          className="text-slate-300"
-                        />
-                        <p className="text-xs text-slate-500">
-                          {new Date(record.scannedAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <NetworkBadge network={NETWORKS[record.network]} />
-                        <div className="flex gap-1">
-                          {record.highCount > 0 && (
-                            <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs text-red-400">
-                              {record.highCount}H
-                            </span>
-                          )}
-                          {record.mediumCount > 0 && (
-                            <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-400">
-                              {record.mediumCount}M
-                            </span>
-                          )}
-                          {record.lowCount > 0 && (
-                            <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-xs text-sky-400">
-                              {record.lowCount}L
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </section>
 
         {/* Try a public contract */}
@@ -406,19 +366,6 @@ function HomePage() {
           </div>
         </section>
       </main>
-
-      {/* Drag overlay */}
-      {isDragging && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="rounded-lg bg-white p-8 text-center text-black shadow-2xl">
-            <svg className="mx-auto h-12 w-12 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-            </svg>
-            <h3 className="mt-4 text-lg font-semibold">Drop your .rs file here</h3>
-            <p className="mt-2 text-sm text-gray-600">Upload a Rust source file to scan for vulnerabilities</p>
-          </div>
-        </div>
-      )}
 
       <footer className="border-t border-[var(--border)] py-8 text-center text-sm text-slate-600">
         <p>
