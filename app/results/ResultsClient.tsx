@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { Finding, Severity } from '@/types/findings'
-import { decodeFindings } from '@/lib/share'
+import { decodeFindings, encodeWorkspace } from '@/lib/share'
 import { exportEmail } from '@/lib/export'
+import { exportSarif } from '@/lib/sarif'
 import { getAllScanHistory } from '@/lib/history'
 import { diffFindings } from '@/lib/diffFindings'
 import FindingsTable from '@/components/FindingsTable'
@@ -16,15 +17,21 @@ import ThemeToggle from '@/components/ThemeToggle'
 import { useToast } from '@/lib/toast'
 import GithubExportModal from '@/components/GithubExportModal'
 import JiraExportModal from '@/components/JiraExportModal'
+import NotionExportModal from '@/components/NotionExportModal'
 
 export default function ResultsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { show } = useToast()
+  const { publicKey: walletKey, network: walletNetwork } = useWallet()
   const [findings, setFindings] = useState<Finding[] | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showGithubModal, setShowGithubModal] = useState(false)
   const [showJiraModal, setShowJiraModal] = useState(false)
+  const [prevFindings, setPrevFindings] = useState<Finding[] | null>(null)
+  const [showDiff, setShowDiff] = useState(false)
+  const [groupView, setGroupView] = useState<'flat' | 'function'>('flat')
+  const [navIndex, setNavIndex] = useState<number | null>(null)
 
   useEffect(() => {
     const encoded = searchParams.get('r')
@@ -80,6 +87,22 @@ export default function ResultsPage() {
     show('Link copied!', 'success')
   }
 
+  function getEmbedToken(): string {
+    return searchParams.get('r') ?? ''
+  }
+
+  function getEmbedSnippet(): string {
+    const token = getEmbedToken()
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    return `<iframe src="${origin}/embed/${token}" width="300" height="150" frameborder="0" style="border-radius:12px;overflow:hidden;" title="Soroban Guard Security Status"></iframe>`
+  }
+
+  function handleCopyEmbed() {
+    navigator.clipboard.writeText(getEmbedSnippet())
+    setEmbedCopied(true)
+    setTimeout(() => setEmbedCopied(false), 2000)
+  }
+
   async function handleRescan() {
     const source = sessionStorage.getItem('sg_scan_source')
     if (!source) {
@@ -102,6 +125,19 @@ export default function ResultsPage() {
 
   function handleMuteChange() {
     setMuteRefresh(prev => prev + 1)
+  }
+
+  function handleDownloadSarif() {
+    const content = exportSarif(findings ?? [])
+    const blob = new Blob([content], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'soroban-guard.sarif'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
   }
 
   if (findings === null) {
@@ -164,12 +200,47 @@ export default function ResultsPage() {
                 {isRescanning ? 'Rescanning...' : 'Rescan'}
               </button>
             )}
+            {findings !== null && findings.length === 0 && walletKey && (
+              <button
+                onClick={handleAttest}
+                disabled={isAttesting}
+                className="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-300 transition hover:bg-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isAttesting ? (
+                  <svg className="spinner h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" d="M12 2a10 10 0 0 1 10 10" />
+                  </svg>
+                ) : (
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                )}
+                Attest on Stellar
+              </button>
+            )}
             <a
               href={exportEmail(findings)}
               className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
             >
               Email summary
             </a>
+            <button
+              onClick={handleDownloadSarif}
+              className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
+            >
+              Download SARIF
+            </button>
+            {findings.length > 0 && (
+              <button
+                onClick={() => setShowNotionModal(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.968c-.42-.326-.981-.7-2.055-.607L3.01 2.295c-.466.046-.56.28-.374.466zm.793 3.08v13.904c0 .747.373 1.027 1.214.98l14.523-.84c.841-.046.935-.56.935-1.167V6.354c0-.606-.233-.933-.748-.887l-15.177.887c-.56.047-.747.327-.747.933zm14.337.745c.093.42 0 .84-.42.888l-.7.14v10.264c-.608.327-1.168.514-1.635.514-.748 0-.935-.234-1.495-.933l-4.577-7.186v6.952L12.21 19s0 .84-1.168.84l-3.222.186c-.093-.186 0-.653.327-.746l.84-.233V9.854L7.822 9.76c-.094-.42.14-1.026.793-1.073l3.456-.233 4.764 7.279v-6.44l-1.215-.14c-.093-.514.28-.887.747-.933zM1.936 1.035l13.31-.98c1.634-.14 2.055-.047 3.082.7l4.249 2.986c.7.513.934.653.934 1.213v16.378c0 1.026-.373 1.634-1.68 1.726l-15.458.934c-.98.047-1.448-.093-1.962-.747l-3.129-4.06c-.56-.747-.793-1.306-.793-1.96V2.667c0-.839.374-1.54 1.447-1.632z" />
+                </svg>
+                Export to Notion
+              </button>
+            )}
             {findings.length > 0 && (
               <button
                 onClick={() => setShowGithubModal(true)}
@@ -189,6 +260,27 @@ export default function ResultsPage() {
                 Export to Jira
               </button>
             )}
+            {getEmbedToken() && (
+              <button
+                onClick={() => setShowEmbedModal(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+                Get embed code
+              </button>
+            )}
+            <button
+              onClick={handleShareWorkspace}
+              disabled={!canCopy}
+              className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white disabled:opacity-40"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+              Share workspace
+            </button>
             <button
               onClick={handleScanAnother}
               className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-indigo-500"
@@ -265,8 +357,37 @@ export default function ResultsPage() {
           <EmptyState onScanAnother={handleScanAnother} />
         ) : (
           <div>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-400">
+            {/* Word cloud collapsible panel */}
+            <div className="mb-6">
+              <button
+                onClick={() => setShowWordCloud(v => !v)}
+                className="flex w-full items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] px-5 py-3 text-sm font-medium text-slate-300 transition hover:bg-[var(--bg-hover)]"
+                aria-expanded={showWordCloud}
+              >
+                <span className="flex items-center gap-2">
+                  <svg className="h-4 w-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                  </svg>
+                  Vulnerability themes
+                </span>
+                <svg
+                  className={`h-4 w-4 text-slate-500 transition-transform duration-200 ${showWordCloud ? 'rotate-180' : ''}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showWordCloud && (
+                <div className="mt-2">
+                  <FindingsWordCloud
+                    findings={findings}
+                    onTermClick={term => setSearchQuery(term)}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="mb-3 flex items-center justify-between">              <h2 className="text-sm font-semibold text-slate-400">
                 Findings — click a row to expand details
               </h2>
               <div className="flex items-center gap-2">
@@ -364,6 +485,8 @@ export default function ResultsPage() {
       )}
       {showJiraModal && (
         <JiraExportModal findings={findings} onClose={() => setShowJiraModal(false)} />
+      {showNotionModal && (
+        <NotionExportModal findings={findings} onClose={() => setShowNotionModal(false)} />
       )}
     </div>
   )
