@@ -168,6 +168,10 @@ types/
 - [soroban-guard-core](https://github.com/Veritas-Vaults-Network/Soroban-Guard-Core) — Rust/Axum analysis engine
 - [soroban-guard-contracts](https://github.com/Veritas-Vaults-Network/soroban-guard-contracts) — Example contracts for testing
 
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup instructions, dev workflow, and the PR checklist.
+
 ## License
 
 MIT
