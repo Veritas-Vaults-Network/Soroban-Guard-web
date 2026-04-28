@@ -1,7 +1,7 @@
 'use client'
 
-import { Suspense, useRef, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
+import { useState, Suspense } from 'react'
 import ScanInput from '@/components/ScanInput'
 import WalletConnect from '@/components/WalletConnect'
 import NetworkBadge from '@/components/NetworkBadge'
@@ -27,12 +27,12 @@ import { useToast } from '@/lib/toast'
 import { FEATURED_CONTRACTS } from '@/lib/featuredContracts'
 import ScanQuotaIndicator from '@/components/ScanQuota'
 import { encodeFindings } from '@/lib/share'
-import { postToDiscord } from '@/lib/discord'
+import { postToSlack } from '@/lib/slack'
 
 type InputMode = 'code' | 'github' | 'contractId' | 'ipfs'
 
 interface ScanOptions {
-  discordWebhookUrl?: string
+  slackWebhookUrl?: string
 }
 import { postToTelegram } from '@/lib/telegram'
 
@@ -88,10 +88,8 @@ function HomePage() {
   async function handleScan(source: string, mode: 'code' | 'github' | 'contractId' | 'ipfs' = 'code') {
     setLoading(true)
     setError(null)
-    setCountdown(0)
     setStatusMessage('Scanning your contract…')
     
-    // Store the source for rescan feature
     sessionStorage.setItem('sg_scan_source', source)
     if (mode === 'code') saveSourceCode(source)
     
@@ -102,12 +100,12 @@ function HomePage() {
       const encoded = encodeFindings(data.findings)
       if (data.quota) setQuota(data.quota)
       setStatusMessage(`Scan complete. ${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} detected.`)
-      // Store results in sessionStorage so the results page can read them
+      
       sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
       sessionStorage.setItem('sg_duration', duration)
       sessionStorage.setItem('sg_results_url', `${window.location.origin}/results?r=${encoded}`)
-      if (options?.discordWebhookUrl) {
-        void postToDiscord(options.discordWebhookUrl, data.findings, source)
+      if (options?.slackWebhookUrl) {
+        void postToSlack(options.slackWebhookUrl, data.findings, source)
       }
       notify('Scan complete', `${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} detected`)
       if (telegramConfig?.botToken && telegramConfig?.chatId) {
@@ -117,9 +115,12 @@ function HomePage() {
       }
       router.push(`/results?r=${encoded}`)
     } catch (err) {
-      if (err instanceof ApiError && err.status === 429 && err.retryAfter) {
-        pendingSourceRef.current = { source, mode, options }
-        setCountdown(err.retryAfter)
+      if (err instanceof TimeoutError) {
+        setError(
+          'Scan timed out after 30s. Try a smaller contract or check the API status.'
+        )
+        setStatusMessage('')
+      } else if (err instanceof ApiError && err.status === 429 && err.retryAfter) {
         setError(null)
         setStatusMessage(`Rate limited. Retrying in ${err.retryAfter}s…`)
       } else {
@@ -135,9 +136,7 @@ function HomePage() {
   async function handleHistoryClick(contractId: string) {
     setLoading(true)
     setError(null)
-    setCountdown(0)
     
-    // Store the source for rescan feature
     sessionStorage.setItem('sg_scan_source', contractId)
     
     try {
@@ -147,13 +146,12 @@ function HomePage() {
       sessionStorage.removeItem('sg_duration')
       router.push('/results')
     } catch (err) {
-      if (err instanceof ApiError && err.status === 429) {
-        // Handle rate limiting
-        const retrySeconds = err.retryAfter || 60 // Default to 60 seconds if no header
-        setCountdown(retrySeconds)
-        setError(null) // Clear generic error for rate limiting
-      } else {
-        const msg = err instanceof Error ? err.message : 'Unexpected error'
+      const msg = err instanceof Error ? err.message : 'Unexpected error'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }
         setError(msg)
       }
     } finally {
@@ -245,25 +243,33 @@ function HomePage() {
 
           {/* Scan card */}
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-6 text-left shadow-2xl">
-            <ScanInput onScan={handleScan} loading={loading} countdown={countdown} initialValue={initialSource} />
+            <ScanInput onScan={handleScan} loading={loading} />
             <ScanProgress loading={loading} />
             {quota && <ScanQuotaIndicator quota={quota} />}
-
-            {countdown > 0 && (
-              <div className="mt-4 flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-400">
-                <svg className="mt-0.5 h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>Rate limited — retrying automatically in {countdown}s</span>
-              </div>
-            )}
 
             {error && (
               <div className="mt-4 flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
                 <svg className="mt-0.5 h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
-                <span>{error}</span>
+                <div>
+                  <span>{error}</span>
+                  {error.includes('timed out') && (
+                    <div className="mt-2">
+                      <a
+                        href="https://status.stellar.org"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-red-300 underline hover:text-red-200"
+                      >
+                        Check Stellar status
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </a>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>

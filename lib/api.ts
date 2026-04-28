@@ -33,17 +33,27 @@ export async function scanContract(source: string, network?: StellarNetwork): Pr
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (network) headers['X-Network'] = network.name
 
-  const res = await fetch(`${API_BASE}/scan`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-  })
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 30000)
 
-  if (!res.ok) {
-    if (res.status === 429) {
-      const retryAfterHeader = res.headers.get('Retry-After')
-      const retryAfter = retryAfterHeader ? Math.ceil(parseFloat(retryAfterHeader)) : 60
-      throw new ApiError(429, 'Rate limited', retryAfter)
+  try {
+    const res = await fetch(`${API_BASE}/scan`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+
+    clearTimeout(timeoutId)
+
+    if (!res.ok) {
+      if (res.status === 429) {
+        const retryAfterHeader = res.headers.get('Retry-After')
+        const retryAfter = retryAfterHeader ? Math.ceil(parseFloat(retryAfterHeader)) : 60
+        throw new ApiError(429, 'Rate limited', retryAfter)
+      }
+      const text = await res.text().catch(() => 'Unknown error')
+      throw new ApiError(res.status, text || `HTTP ${res.status}`)
     }
     const text = await res.text().catch(() => 'Unknown error')
     throw new ApiError(res.status, text || `HTTP ${res.status}`)

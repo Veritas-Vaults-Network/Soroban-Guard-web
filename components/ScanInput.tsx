@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { SAMPLE_CONTRACT } from '@/lib/sampleContract'
 import { isValidCid, fetchFromIpfs } from '@/lib/ipfs'
 import { isValidNpmPackage, fetchNpmSource } from '@/lib/npm'
@@ -15,7 +15,7 @@ const TG_CHAT_ID_KEY = 'sg_tg_chat_id'
 type InputMode = 'code' | 'github' | 'contractId' | 'ipfs' | 'gist'
 
 interface Props {
-  onScan: (source: string, mode: InputMode, options?: { discordWebhookUrl?: string }) => void
+  onScan: (source: string, mode: InputMode, options?: { slackWebhookUrl?: string }) => void
   onScan: (source: string, mode: InputMode, telegramConfig?: { botToken: string; chatId: string }) => void
   loading: boolean
   countdown?: number
@@ -65,9 +65,9 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
     return localStorage.getItem(NOTIF_PREF_KEY) === 'true'
   })
   const [advancedOpen, setAdvancedOpen] = useState(false)
-  const [discordWebhookUrl, setDiscordWebhookUrl] = useState(() => {
+  const [slackWebhookUrl, setSlackWebhookUrl] = useState(() => {
     if (typeof window === 'undefined') return ''
-    return localStorage.getItem('sg_discord_webhook') ?? ''
+    return localStorage.getItem('sg_slack_webhook') ?? ''
   })
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [tgBotToken, setTgBotToken] = useState(() =>
@@ -180,7 +180,7 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const options = { discordWebhookUrl: discordWebhookUrl.trim() || undefined }
+    const options = { slackWebhookUrl: slackWebhookUrl.trim() || undefined }
     if (mode === 'ipfs') {
       if (ipfsPreview) onScan(ipfsPreview, mode, options)
       if (ipfsPreview) onScan(ipfsPreview, mode, tgBotToken && tgChatId ? { botToken: tgBotToken, chatId: tgChatId } : undefined)
@@ -303,10 +303,10 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
             disabled={loading}
           />
           {code.length > 0 && (
-            <span className={`absolute bottom-3 right-3 text-xs ${
+            <span className={`absolute bottom-3 right-3 mr-2 text-xs ${
               code.length > 100000 ? 'text-red-400' : code.length > 50000 ? 'text-amber-400' : 'text-slate-600'
             }`}>
-              {code.length.toLocaleString()} chars
+              {code.split('\n').length.toLocaleString()} lines · {code.length.toLocaleString()} chars
             </span>
           )}
           {code.length > 100000 && (
@@ -533,18 +533,18 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
         </button>
         {advancedOpen && (
           <div className="rounded-lg border border-[#2a2d3a] bg-[#12151f] p-4">
-            <label htmlFor="discord-webhook-url" className="mb-1 block text-sm font-medium text-slate-300">
-              Discord webhook URL
+            <label htmlFor="slack-webhook-url" className="mb-1 block text-sm font-medium text-slate-300">
+              Slack webhook URL
             </label>
             <input
-              id="discord-webhook-url"
+              id="slack-webhook-url"
               type="url"
-              value={discordWebhookUrl}
+              value={slackWebhookUrl}
               onChange={e => {
-                setDiscordWebhookUrl(e.target.value)
-                localStorage.setItem('sg_discord_webhook', e.target.value)
+                setSlackWebhookUrl(e.target.value)
+                localStorage.setItem('sg_slack_webhook', e.target.value)
               }}
-              placeholder="https://discord.com/api/webhooks/..."
+              placeholder="https://hooks.slack.com/services/..."
               disabled={loading}
               className="w-full rounded-lg border border-[#2a2d3a] bg-[#0a0c0f] px-3 py-2 text-sm text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30 disabled:opacity-50"
             />
