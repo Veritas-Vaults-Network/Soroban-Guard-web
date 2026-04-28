@@ -167,6 +167,17 @@ export default function ResultsClient() {
   const counts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0 }
   for (const f of findings) counts[f.severity]++
 
+  const q = searchQuery.toLowerCase()
+  const filteredFindings = q
+    ? findings.filter(
+        f =>
+          f.check_name.toLowerCase().includes(q) ||
+          f.function_name.toLowerCase().includes(q) ||
+          f.file_path.toLowerCase().includes(q) ||
+          f.description.toLowerCase().includes(q),
+      )
+    : findings
+
   const canCopy = typeof navigator !== 'undefined' && navigator.clipboard
 
   return (
