@@ -43,7 +43,10 @@ export default function ResultsClient() {
     try {
       setFindings(JSON.parse(raw) as Finding[])
       setDuration(sessionStorage.getItem('sg_duration'))
-      setScanSource(sessionStorage.getItem('sg_scan_source'))
+      const src = sessionStorage.getItem('sg_scan_source')
+      setScanSource(src)
+      // Store under sg_source so the home page can pre-fill on Scan Again
+      if (src) sessionStorage.setItem('sg_source', src)
     } catch {
       router.replace('/')
     }
@@ -287,6 +290,14 @@ export default function ResultsClient() {
               </svg>
               Share workspace
             </button>
+            {scanSource && (
+              <button
+                onClick={() => router.push('/?scanAgain=1')}
+                className="rounded-lg border border-indigo-500/50 bg-indigo-500/10 px-4 py-1.5 text-sm font-medium text-indigo-300 transition hover:bg-indigo-500/20"
+              >
+                Scan Again
+              </button>
+            )}
             <button
               onClick={handleScanAnother}
               className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-indigo-500"

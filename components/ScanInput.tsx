@@ -20,6 +20,7 @@ interface Props {
   loading: boolean
   countdown?: number
   initialValue?: string
+  initialMode?: InputMode
 }
 
 function validateGithub(url: string): { valid: boolean; error?: string } {
@@ -34,13 +35,24 @@ function validateGithub(url: string): { valid: boolean; error?: string } {
   }
 }
 
-export default function ScanInput({ onScan, loading, countdown = 0, initialValue = '' }: Props) {
-  const [mode, setMode] = useState<InputMode>(() =>
-    initialValue.startsWith('C') && initialValue.length >= 56 ? 'contractId' : 'code'
+export default function ScanInput({ onScan, loading, countdown = 0, initialValue = '', initialMode }: Props) {
+  const [mode, setMode] = useState<InputMode>(() => {
+    if (initialMode) return initialMode
+    if (initialValue.startsWith('https://github.com')) return 'github'
+    if (initialValue.startsWith('C') && initialValue.length >= 56) return 'contractId'
+    return 'code'
+  })
+  const [code, setCode] = useState(() =>
+    (initialMode ?? (initialValue.startsWith('https://github.com') ? 'github' : initialValue.startsWith('C') && initialValue.length >= 56 ? 'contractId' : 'code')) === 'code'
+      ? initialValue
+      : ''
   )
-  const [code, setCode] = useState(initialValue.startsWith('C') && initialValue.length >= 56 ? '' : initialValue)
-  const [repoUrl, setRepoUrl] = useState('')
-  const [contractId, setContractId] = useState('')
+  const [repoUrl, setRepoUrl] = useState(() =>
+    (initialMode === 'github' || (!initialMode && initialValue.startsWith('https://github.com'))) ? initialValue : ''
+  )
+  const [contractId, setContractId] = useState(() =>
+    (initialMode === 'contractId' || (!initialMode && initialValue.startsWith('C') && initialValue.length >= 56)) ? initialValue : ''
+  )
   const [cid, setCid] = useState('')
   const [ipfsPreview, setIpfsPreview] = useState<string | null>(null)
   const [ipfsFetching, setIpfsFetching] = useState(false)
