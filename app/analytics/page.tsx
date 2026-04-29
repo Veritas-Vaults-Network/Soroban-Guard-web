@@ -2,20 +2,24 @@
 
 import { useEffect, useState } from 'react'
 import { getAllScanHistory } from '@/lib/history'
-import { computeAnalytics, type Analytics } from '@/lib/analytics'
+import { computeAnalytics, checkTrend, allCheckNames, type Analytics } from '@/lib/analytics'
 import type { ContractScanRecord } from '@/types/stellar'
 import ThemeToggle from '@/components/ThemeToggle'
+import CheckTrendChart from '@/components/CheckTrendChart'
 
 const MIN_RECORDS = 3
 
 export default function AnalyticsPage() {
   const [records, setRecords] = useState<ContractScanRecord[] | null>(null)
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
+  const [selectedCheck, setSelectedCheck] = useState<string>('')
 
   useEffect(() => {
     const all = getAllScanHistory()
     setRecords(all)
     setAnalytics(computeAnalytics(all))
+    const names = allCheckNames(all)
+    if (names.length > 0) setSelectedCheck(names[0])
   }, [])
 
   if (records === null || analytics === null) {
@@ -84,6 +88,34 @@ export default function AnalyticsPage() {
                 <TopChecksChart checks={analytics.topChecks} />
               )}
             </div>
+
+            {/* Per-check trend */}
+            {allCheckNames(records).length > 0 && (() => {
+              const names = allCheckNames(records)
+              const trendData = checkTrend(records, selectedCheck)
+              return (
+                <div className="mt-6 rounded-xl border border-[var(--border)] bg-[#12151f] p-6">
+                  <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                    <h2 className="text-sm font-semibold text-slate-300">Findings severity trend by check</h2>
+                    <select
+                      value={selectedCheck}
+                      onChange={e => setSelectedCheck(e.target.value)}
+                      className="rounded-lg border border-[#2a2d3a] bg-[#1a1d27] px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      aria-label="Select check name"
+                    >
+                      {names.map(name => (
+                        <option key={name} value={name}>{name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {trendData.length < 2 ? (
+                    <p className="text-sm text-slate-500">Not enough data points to show a trend for this check.</p>
+                  ) : (
+                    <CheckTrendChart data={trendData} checkName={selectedCheck} />
+                  )}
+                </div>
+              )
+            })()}
           </>
         )}
       </main>
