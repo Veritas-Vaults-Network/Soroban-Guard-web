@@ -61,6 +61,16 @@ function HomePage() {
 
   const activeNetwork = walletKey ? walletNetwork : manualNetwork
   const initialSource = searchParams.get('source') ?? searchParams.get('contract') ?? ''
+  const scanAgainSource = searchParams.get('scanAgain') === '1'
+    ? (typeof window !== 'undefined' ? sessionStorage.getItem('sg_source') ?? '' : '')
+    : ''
+  const prefillSource = scanAgainSource || initialSource
+
+  function getInitialMode(src: string): 'code' | 'github' | 'contractId' {
+    if (src.startsWith('https://github.com')) return 'github'
+    if (src.startsWith('C') && src.length >= 56) return 'contractId'
+    return 'code'
+  }
 
   useEffect(() => {
     const due = getDueScans()
@@ -102,6 +112,7 @@ function HomePage() {
       sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
       sessionStorage.setItem('sg_scan_duration', durationMs.toString())
       sessionStorage.setItem('sg_results_url', `${window.location.origin}/results?r=${encoded}`)
+      sessionStorage.removeItem('sg_source')
       if (options?.slackWebhookUrl) {
         void postToSlack(options.slackWebhookUrl, data.findings, source)
       }
@@ -235,7 +246,7 @@ function HomePage() {
 
           {/* Scan card */}
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-6 text-left shadow-2xl">
-            <ScanInput onScan={handleScan} loading={loading} />
+            <ScanInput onScan={handleScan} loading={loading} initialValue={prefillSource} initialMode={prefillSource ? getInitialMode(prefillSource) : undefined} />
             <ScanProgress loading={loading} />
             {quota && <ScanQuotaIndicator quota={quota} />}
 
