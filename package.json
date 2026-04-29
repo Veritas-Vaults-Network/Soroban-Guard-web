@@ -11,12 +11,14 @@
   },
   "dependencies": {
     "next": "14.2.35",
+    "qrcode.react": "^4.2.0",
     "react": "^18",
     "react-dom": "^18",
     "recharts": "^3.8.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.40.0",
+    "@tailwindcss/postcss": "^4.2.4",
     "@types/node": "^25",
     "@types/react": "^18",
     "@types/react-dom": "^18",
