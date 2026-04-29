@@ -11,11 +11,14 @@ import { diffFindings } from '@/lib/diffFindings'
 import FindingsTable from '@/components/FindingsTable'
 import FindingsDiff from '@/components/FindingsDiff'
 import FindingsByFunction from '@/components/FindingsByFunction'
+import FindingsWordCloud from '@/components/FindingsWordCloud'
 import EmptyState from '@/components/EmptyState'
 import SeverityBadge from '@/components/SeverityBadge'
 import SeverityDonut from '@/components/SeverityDonut'
+import FindingsSkeleton from '@/components/FindingsSkeleton'
 import ThemeToggle from '@/components/ThemeToggle'
 import { useToast } from '@/lib/toast'
+import { useWallet } from '@/lib/WalletContext'
 import GithubExportModal from '@/components/GithubExportModal'
 import JiraExportModal from '@/components/JiraExportModal'
 import NotionExportModal from '@/components/NotionExportModal'
@@ -29,10 +32,19 @@ export default function ResultsClient() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showGithubModal, setShowGithubModal] = useState(false)
   const [showJiraModal, setShowJiraModal] = useState(false)
+  const [showNotionModal, setShowNotionModal] = useState(false)
+  const [showEmbedModal, setShowEmbedModal] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [isRescanning, setIsRescanning] = useState(false)
+  const [isAttesting, setIsAttesting] = useState(false)
+  const [showWordCloud, setShowWordCloud] = useState(false)
+  const [duration, setDuration] = useState<string | null>(null)
+  const [scanSource, setScanSource] = useState<string | null>(null)
   const [prevFindings, setPrevFindings] = useState<Finding[] | null>(null)
   const [showDiff, setShowDiff] = useState(false)
   const [groupView, setGroupView] = useState<'flat' | 'function'>('flat')
   const [navIndex, setNavIndex] = useState<number | null>(null)
+  const hasSource = Boolean(scanSource)
 
   useEffect(() => {
     const raw = sessionStorage.getItem('sg_findings')
@@ -42,7 +54,13 @@ export default function ResultsClient() {
     }
     try {
       setFindings(JSON.parse(raw) as Finding[])
-      setDuration(sessionStorage.getItem('sg_duration'))
+      const rawDuration = sessionStorage.getItem('sg_scan_duration')
+      if (rawDuration) {
+        const ms = Number(rawDuration)
+        if (!Number.isNaN(ms)) {
+          setDuration((ms / 1000).toFixed(2))
+        }
+      }
       setScanSource(sessionStorage.getItem('sg_scan_source'))
     } catch {
       router.replace('/')
@@ -86,6 +104,7 @@ export default function ResultsClient() {
 
   function handleScanAnother() {
     sessionStorage.removeItem('sg_findings')
+    sessionStorage.removeItem('sg_scan_duration')
     router.push('/')
   }
 
@@ -107,8 +126,8 @@ export default function ResultsClient() {
 
   function handleCopyEmbed() {
     navigator.clipboard.writeText(getEmbedSnippet())
-    setEmbedCopied(true)
-    setTimeout(() => setEmbedCopied(false), 2000)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   async function handleRescan() {
@@ -142,7 +161,18 @@ export default function ResultsClient() {
     const command = `curl -X POST ${apiUrl}/scan -H 'Content-Type: application/json' -d '{"source":"${scanSource.replace(/"/g, '\\"').replace(/\n/g, '\\n')}"}'`
     
     navigator.clipboard.writeText(command)
-    toast.show('CLI command copied to clipboard', 'success')
+    show('CLI command copied to clipboard', 'success')
+  }
+
+  function handleShareWorkspace() {
+    if (!canCopy) return
+    const url = window.location.href
+    navigator.clipboard.writeText(url)
+    show('Link copied!', 'success')
+  }
+
+  function handleAttest() {
+    show('Attest feature is not enabled in this build.', 'info')
   }
 
   function handleDownloadSarif() {
@@ -345,7 +375,7 @@ export default function ResultsClient() {
 
           <div className="flex gap-6">
             <div className="flex-1">
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
                 <SummaryCard
                   label="Critical"
                   value={counts.Critical}
@@ -374,6 +404,15 @@ export default function ResultsClient() {
                   bg="bg-sky-500/5"
                   border="border-sky-500/20"
                 />
+                {duration && (
+                  <SummaryCard
+                    label="Scan Time"
+                    value={duration}
+                    color="text-indigo-400"
+                    bg="bg-indigo-500/5"
+                    border="border-indigo-500/20"
+                  />
+                )}
               </div>
             </div>
             {findings.length > 0 && (
@@ -500,6 +539,7 @@ export default function ResultsClient() {
                       const order: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 }
                       return order[a.severity] - order[b.severity]
                     })}
+                    searchQuery={searchQuery}
                   />
                 )}
               </>
@@ -529,6 +569,7 @@ export default function ResultsClient() {
       )}
       {showJiraModal && (
         <JiraExportModal findings={findings} onClose={() => setShowJiraModal(false)} />
+      )}
       {showNotionModal && (
         <NotionExportModal findings={findings} onClose={() => setShowNotionModal(false)} />
       )}
@@ -544,7 +585,7 @@ function SummaryCard({
   border,
 }: {
   label: string
-  value: number
+  value: number | string
   color: string
   bg: string
   border?: string
