@@ -1,7 +1,7 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import ScanInput from '@/components/ScanInput'
 import WalletConnect from '@/components/WalletConnect'
 import NetworkBadge from '@/components/NetworkBadge'
@@ -62,8 +62,6 @@ function HomePage() {
   const activeNetwork = walletKey ? walletNetwork : manualNetwork
   const initialSource = searchParams.get('source') ?? searchParams.get('contract') ?? ''
 
-  async function handleScan(source: string, mode: InputMode = 'code', options?: ScanOptions) {
-  // Run overdue scheduled scans on page load
   useEffect(() => {
     const due = getDueScans()
     if (due.length === 0) return
@@ -96,13 +94,13 @@ function HomePage() {
     try {
       const t0 = Date.now()
       const data = await scanContract(source, activeNetwork)
-      const duration = ((Date.now() - t0) / 1000).toFixed(1)
+      const durationMs = Date.now() - t0
       const encoded = encodeFindings(data.findings)
       if (data.quota) setQuota(data.quota)
       setStatusMessage(`Scan complete. ${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} detected.`)
       
       sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
-      sessionStorage.setItem('sg_duration', duration)
+      sessionStorage.setItem('sg_scan_duration', durationMs.toString())
       sessionStorage.setItem('sg_results_url', `${window.location.origin}/results?r=${encoded}`)
       if (options?.slackWebhookUrl) {
         void postToSlack(options.slackWebhookUrl, data.findings, source)
@@ -115,7 +113,7 @@ function HomePage() {
       }
       router.push(`/results?r=${encoded}`)
     } catch (err) {
-      if (err instanceof TimeoutError) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
         setError(
           'Scan timed out after 30s. Try a smaller contract or check the API status.'
         )
@@ -143,17 +141,11 @@ function HomePage() {
       const data = await scanContract(contractId)
       sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
       sessionStorage.setItem('sg_scan_source', contractId)
-      sessionStorage.removeItem('sg_duration')
+      sessionStorage.removeItem('sg_scan_duration')
       router.push('/results')
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unexpected error'
       setError(msg)
-    } finally {
-      setLoading(false)
-    }
-  }
-        setError(msg)
-      }
     } finally {
       setLoading(false)
     }

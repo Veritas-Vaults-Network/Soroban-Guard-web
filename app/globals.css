@@ -96,6 +96,15 @@ html[data-theme='light'] ::-webkit-scrollbar-thumb:hover {
   animation: slideDown 0.15s ease-out;
 }
 
+/* Bottom sheet slide-up animation */
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+.sheet-slide-up {
+  animation: slideUp 0.2s ease-out;
+}
+
 /* Colorblind accessibility mode (WCAG 1.4.1) */
 .colorblind-mode [role="status"] {
   border-width: 2px !important;
