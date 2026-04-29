@@ -152,18 +152,6 @@ function HomePage() {
       setLoading(false)
     }
   }
-        setError(msg)
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="flex min-h-screen flex-col">
-      {/* Aria-live region for screen readers */}
-      <div
-        aria-live="polite"
         aria-atomic="true"
         className="sr-only"
       >
