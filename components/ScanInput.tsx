@@ -315,9 +315,12 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
             disabled={loading}
           />
           {code.length > 0 && (
-            <span className={`absolute bottom-3 right-3 mr-2 text-xs ${
-              code.length > 100000 ? 'text-red-400' : code.length > 50000 ? 'text-amber-400' : 'text-slate-600'
-            }`}>
+            <span
+              aria-live="polite"
+              className={`absolute bottom-3 right-3 mr-2 text-xs ${
+                code.length > 100000 ? 'text-red-400' : code.length > 50000 ? 'text-amber-400' : 'text-slate-600'
+              }`}
+            >
               {code.split('\n').length.toLocaleString()} lines · {code.length.toLocaleString()} chars
             </span>
           )}
