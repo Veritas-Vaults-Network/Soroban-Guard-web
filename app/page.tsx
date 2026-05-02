@@ -1,142 +1,57 @@
 'use client'
 
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useState, useEffect, useRef, Suspense } from 'react'
+import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import ScanInput from '@/components/ScanInput'
 import WalletConnect from '@/components/WalletConnect'
 import NetworkBadge from '@/components/NetworkBadge'
-import NetworkSelector, { getStoredNetwork } from '@/components/NetworkSelector'
 import NetworkHealthBanner from '@/components/NetworkHealthBanner'
 import ThemeToggle from '@/components/ThemeToggle'
-import BatchScanButton from '@/components/BatchScanButton'
-import { scanContract, ApiError } from '@/lib/api'
-import type { ScanQuota } from '@/lib/api'
+import { scanContract } from '@/lib/api'
 import { checkNetworkHealth } from '@/lib/stellar'
-import { useWallet } from '@/lib/WalletContext'
-import ContractIdBadge from '@/components/ContractIdBadge'
-import ScanProgress from '@/components/ScanProgress'
-import type { Finding } from '@/types/findings'
-import type { ContractScanRecord } from '@/types/stellar'
-import { NETWORKS } from '@/types/stellar'
-import { addRecord } from '@/lib/history'
-import { saveSourceCode } from '@/lib/codeStore'
-import { notify } from '@/lib/notifications'
-import { getDueScans, markRan } from '@/lib/schedule'
-import { addScanRecord } from '@/lib/history'
-import { useToast } from '@/lib/toast'
-import { FEATURED_CONTRACTS } from '@/lib/featuredContracts'
-import ScanQuotaIndicator from '@/components/ScanQuota'
+import { getScanHistory } from '@/lib/history'
 import { encodeFindings } from '@/lib/share'
-import { postToSlack } from '@/lib/slack'
+import type { Finding } from '@/types/findings'
+import type { StellarNetwork, ContractScanRecord } from '@/types/stellar'
+import { NETWORKS } from '@/types/stellar'
 
-type InputMode = 'code' | 'github' | 'contractId' | 'ipfs'
-
-interface ScanOptions {
-  slackWebhookUrl?: string
-}
-import { postToTelegram } from '@/lib/telegram'
-
-export default function Page() {
-  return (
-    <Suspense>
-      <HomePage />
-    </Suspense>
-  )
-}
-
-function HomePage() {
+export default function HomePage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const { publicKey: walletKey, network: walletNetwork } = useWallet()
-  const { show } = useToast()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [walletKey, setWalletKey] = useState<string | null>(null)
+  const [walletNetwork, setWalletNetwork] = useState<StellarNetwork>(NETWORKS.testnet)
   const [networkHealthy, setNetworkHealthy] = useState(true)
   const [statusMessage, setStatusMessage] = useState('')
-  const [scanHistory] = useState<ContractScanRecord[]>([])
-  const [manualNetwork, setManualNetwork] = useState(() => getStoredNetwork())
-  const [quota, setQuota] = useState<ScanQuota | null>(null)
-  const [countdown, setCountdown] = useState(0)
-  const pendingSourceRef = useRef<{ source: string; mode: InputMode; options?: ScanOptions } | null>(null)
+  const [scanHistory, setScanHistory] = useState<ContractScanRecord[]>([])
 
-  const activeNetwork = walletKey ? walletNetwork : manualNetwork
-  const initialSource = searchParams.get('source') ?? searchParams.get('contract') ?? ''
-  const scanAgainSource = searchParams.get('scanAgain') === '1'
-    ? (typeof window !== 'undefined' ? sessionStorage.getItem('sg_source') ?? '' : '')
-    : ''
-  const prefillSource = scanAgainSource || initialSource
-
-  function getInitialMode(src: string): 'code' | 'github' | 'contractId' {
-    if (src.startsWith('https://github.com')) return 'github'
-    if (src.startsWith('C') && src.length >= 56) return 'contractId'
-    return 'code'
+  function handleWalletConnect(publicKey: string, network: StellarNetwork) {
+    setWalletKey(publicKey)
+    setWalletNetwork(network)
+    setNetworkHealthy(true)
+    setScanHistory(getScanHistory(publicKey))
+    
+    // Check network health
+    checkNetworkHealth(network).then(healthy => {
+      setNetworkHealthy(healthy)
+    })
   }
 
-  useEffect(() => {
-    const due = getDueScans()
-    if (due.length === 0) return
-    ;(async () => {
-      for (const s of due) {
-        try {
-          const { NETWORKS } = await import('@/types/stellar')
-          const net = NETWORKS[s.network] ?? NETWORKS.testnet
-          const data = await scanContract(s.contractId, net)
-          markRan(s.contractId, s.network)
-          addScanRecord('scheduled', s.contractId, s.network, data.findings)
-          show(`Scheduled rescan of ${s.contractId.slice(0, 8)}… complete — ${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''}`, 'success')
-          notify('Scheduled rescan complete', `${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} for ${s.contractId.slice(0, 8)}…`)
-        } catch {
-          // Silently skip failed scheduled scans
-        }
-      }
-    })()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  async function handleScan(source: string, mode: 'code' | 'github' | 'contractId' | 'ipfs' = 'code') {
+  async function handleScan(source: string) {
     setLoading(true)
     setError(null)
     setStatusMessage('Scanning your contract…')
-    
-    sessionStorage.setItem('sg_scan_source', source)
-    if (mode === 'code') saveSourceCode(source)
-    
     try {
-      const t0 = Date.now()
-      const data = await scanContract(source, activeNetwork)
-      const durationMs = Date.now() - t0
-      const encoded = encodeFindings(data.findings)
-      if (data.quota) setQuota(data.quota)
+      const data = await scanContract(source)
       setStatusMessage(`Scan complete. ${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} detected.`)
-      
+      // Store results in sessionStorage so the results page can read them
       sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
-      sessionStorage.setItem('sg_scan_duration', durationMs.toString())
-      sessionStorage.setItem('sg_results_url', `${window.location.origin}/results?r=${encoded}`)
-      sessionStorage.removeItem('sg_source')
-      if (options?.slackWebhookUrl) {
-        void postToSlack(options.slackWebhookUrl, data.findings, source)
-      }
-      notify('Scan complete', `${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} detected`)
-      if (telegramConfig?.botToken && telegramConfig?.chatId) {
-        postToTelegram(telegramConfig.botToken, telegramConfig.chatId, data.findings, source).catch(err => {
-          console.warn('Telegram notification failed:', err)
-        })
-      }
+      const encoded = encodeFindings(data.findings)
       router.push(`/results?r=${encoded}`)
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        setError(
-          'Scan timed out after 30s. Try a smaller contract or check the API status.'
-        )
-        setStatusMessage('')
-      } else if (err instanceof ApiError && err.status === 429 && err.retryAfter) {
-        setError(null)
-        setStatusMessage(`Rate limited. Retrying in ${err.retryAfter}s…`)
-      } else {
-        const msg = err instanceof Error ? err.message : 'Unexpected error'
-        setError(msg)
-        setStatusMessage('')
-      }
+      const msg = err instanceof Error ? err.message : 'Unexpected error'
+      setError(msg)
+      setStatusMessage('')
     } finally {
       setLoading(false)
     }
@@ -145,14 +60,9 @@ function HomePage() {
   async function handleHistoryClick(contractId: string) {
     setLoading(true)
     setError(null)
-    
-    sessionStorage.setItem('sg_scan_source', contractId)
-    
     try {
       const data = await scanContract(contractId)
       sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
-      sessionStorage.setItem('sg_scan_source', contractId)
-      sessionStorage.removeItem('sg_scan_duration')
       router.push('/results')
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unexpected error'
@@ -187,12 +97,6 @@ function HomePage() {
           <Logo />
           <div className="flex items-center gap-3">
             <a
-              href="/history"
-              className="rounded-lg px-3 py-1.5 text-sm text-slate-400 ring-1 ring-[var(--border)] transition hover:text-white"
-            >
-              History
-            </a>
-            <a
               href="https://github.com/Veritas-Vaults-Network"
               target="_blank"
               rel="noopener noreferrer"
@@ -202,15 +106,12 @@ function HomePage() {
               Veritas Vaults Network
             </a>
             <ThemeToggle />
-            {!walletKey && (
-              <NetworkSelector value={manualNetwork} onChange={setManualNetwork} />
-            )}
-            <WalletConnect />
+            <WalletConnect onConnect={handleWalletConnect} />
           </div>
         </div>
       </header>
 
-      <main id="main-content" className="flex-1">
+      <main className="flex-1">
         {/* Hero */}
         <section className="mx-auto max-w-3xl px-4 pb-12 pt-20 text-center sm:px-6">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-400">
@@ -220,7 +121,6 @@ function HomePage() {
           {walletKey && (
             <div className="mb-3 flex flex-col items-center gap-3">
               <NetworkBadge network={walletNetwork} />
-              <BatchScanButton publicKey={walletKey} network={walletNetwork} />
               {walletNetwork.name === 'futurenet' && (
                 <div className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-4 py-2.5 text-sm text-violet-300">
                   <p className="flex items-start gap-2">
@@ -246,98 +146,65 @@ function HomePage() {
 
           {/* Scan card */}
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-6 text-left shadow-2xl">
-            <ScanInput onScan={handleScan} loading={loading} initialValue={prefillSource} initialMode={prefillSource ? getInitialMode(prefillSource) : undefined} />
-            <ScanProgress loading={loading} />
-            {quota && <ScanQuotaIndicator quota={quota} />}
+            <ScanInput onScan={handleScan} loading={loading} />
 
             {error && (
               <div className="mt-4 flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
                 <svg className="mt-0.5 h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
-                <div>
-                  <span>{error}</span>
-                  {error.includes('timed out') && (
-                    <div className="mt-2">
-                      <a
-                        href="https://status.stellar.org"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-red-300 underline hover:text-red-200"
-                      >
-                        Check Stellar status
-                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                      </a>
-                    </div>
-                  )}
-                </div>
+                <span>{error}</span>
               </div>
             )}
           </div>
 
-        </section>
-
-        {/* Try a public contract */}
-        <FeaturedContracts onSelect={(contractId) => {
-          setManualNetwork(NETWORKS.testnet)
-          handleScan(contractId, 'contractId')
-        }} />
-
-        {/* What is Soroban? */}
-        <section className="border-t border-[var(--border)] py-12">
-          <div className="mx-auto max-w-3xl px-4 sm:px-6">
-            <div className="flex items-start gap-4 rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-6">
-              <div className="flex-shrink-0">
-                <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10" stroke="#6366f1" strokeWidth="1.5" />
-                  <path d="M8 12 C8 8 16 8 16 12 C16 16 8 16 8 12Z" fill="#6366f1" opacity="0.3" />
-                  <ellipse cx="12" cy="12" rx="4" ry="10" stroke="#6366f1" strokeWidth="1.5" />
-                  <line x1="2" y1="12" x2="22" y2="12" stroke="#6366f1" strokeWidth="1.5" />
-                </svg>
-              </div>
-              <div className="min-w-0">
-                <h2 className="mb-2 text-base font-semibold text-white">What is Soroban?</h2>
-                <p className="text-sm leading-relaxed text-slate-400">
-                  Soroban is the smart contract platform built into the{' '}
-                  <a
-                    href="https://stellar.org"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2"
+          {/* Recent scans */}
+          {walletKey && scanHistory.length > 0 && (
+            <div className="mt-8 rounded-2xl border border-[#2a2d3a] bg-[#1a1d27] p-6">
+              <h3 className="mb-4 text-lg font-semibold text-white">Your recent scans</h3>
+              <div className="space-y-2">
+                {scanHistory.slice(0, 5).map((record, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleHistoryClick(record.contractId)}
+                    disabled={loading}
+                    className="w-full rounded-lg border border-[#2a2d3a] bg-[#12151f] p-3 text-left transition hover:border-indigo-500/40 hover:bg-[#1a1d27] disabled:opacity-50"
                   >
-                    Stellar
-                  </a>{' '}
-                  blockchain. Contracts are written in Rust, compiled to WebAssembly, and executed on-chain with deterministic, low-cost transactions. Soroban Guard scans these contracts for security vulnerabilities before they are deployed.
-                </p>
-                <div className="mt-3 flex flex-wrap gap-3">
-                  <a
-                    href="https://soroban.stellar.org"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-                  >
-                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                    soroban.stellar.org
-                  </a>
-                  <a
-                    href="https://developers.stellar.org"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-                  >
-                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                    developers.stellar.org
-                  </a>
-                </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-mono text-sm text-slate-300">
+                          {record.contractId.slice(0, 12)}...{record.contractId.slice(-8)}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {new Date(record.scannedAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <NetworkBadge network={NETWORKS[record.network]} />
+                        <div className="flex gap-1">
+                          {record.highCount > 0 && (
+                            <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs text-red-400">
+                              {record.highCount}H
+                            </span>
+                          )}
+                          {record.mediumCount > 0 && (
+                            <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-400">
+                              {record.mediumCount}M
+                            </span>
+                          )}
+                          {record.lowCount > 0 && (
+                            <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-xs text-sky-400">
+                              {record.lowCount}L
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
-          </div>
+          )}
         </section>
 
         {/* How it works */}
@@ -421,10 +288,6 @@ function HomePage() {
             Veritas Vaults Network
           </a>{' '}
           · Open source · MIT License
-          {' '}·{' '}
-          <a href="/docs/api" className="text-slate-500 hover:text-slate-300">
-            API Docs
-          </a>
         </p>
       </footer>
     </div>
@@ -514,36 +377,5 @@ function RepoCard({
       </div>
       <p className="text-xs leading-relaxed text-slate-500">{description}</p>
     </a>
-  )
-}
-
-function FeaturedContracts({ onSelect }: { onSelect: (contractId: string) => void }) {
-  return (
-    <section className="border-t border-[var(--border)] py-12">
-      <div className="mx-auto max-w-3xl px-4 sm:px-6">
-        <div className="mb-4 flex items-center gap-2">
-          <h2 className="text-base font-semibold text-white">Try a public contract</h2>
-          <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-xs text-sky-400">
-            testnet
-          </span>
-        </div>
-        <p className="mb-4 text-sm text-slate-500">
-          Click any card to pre-fill the scanner with a real Soroban testnet contract.
-        </p>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {FEATURED_CONTRACTS.map(c => (
-            <button
-              key={c.contractId}
-              onClick={() => onSelect(c.contractId)}
-              className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4 text-left transition hover:border-indigo-500/40 hover:bg-[var(--bg-tertiary)]"
-            >
-              <p className="mb-1 text-sm font-medium text-slate-200">{c.name}</p>
-              <p className="mb-2 text-xs text-slate-500">{c.description}</p>
-              <p className="truncate font-mono text-xs text-slate-600">{c.contractId}</p>
-            </button>
-          ))}
-        </div>
-      </div>
-    </section>
   )
 }

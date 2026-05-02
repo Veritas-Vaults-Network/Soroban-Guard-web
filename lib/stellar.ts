@@ -23,16 +23,6 @@ export function isValidContractId(id: string): boolean {
   return C_ADDRESS_RE.test(id)
 }
 
-// Matches stellar.expert and stellarexpert.io contract explorer URLs
-const EXPLORER_CONTRACT_RE = /^https?:\/\/(?:stellar\.expert|stellarexpert\.io)\/explorer\/[^/]+\/contract\/([A-Z2-7]{56})(?:[/?#].*)?$/i
-
-export function extractContractIdFromUrl(url: string): string | null {
-  const match = url.trim().match(EXPLORER_CONTRACT_RE)
-  if (!match) return null
-  const id = match[1].toUpperCase()
-  return isValidContractId(id) ? id : null
-}
-
 // ── Horizon helpers ───────────────────────────────────────────────────────────
 
 /**
@@ -51,7 +41,7 @@ export async function fetchContractInfo(
   if (res.status === 404) return null
   if (!res.ok) throw new Error(`Horizon error ${res.status}: ${await res.text()}`)
 
-  const data = (await res.json()) as any
+  const data = (await res.json()) as Record<string, string | undefined>
   return {
     contractId,
     wasmHash: data.wasm_id ?? data.wasm_hash ?? '',
@@ -81,7 +71,7 @@ async function rpcCall<T>(
     body: JSON.stringify(body),
   })
   if (!res.ok) throw new Error(`RPC HTTP error ${res.status}`)
-  const json = (await res.json()) as any
+  const json = (await res.json()) as { error?: { message: string }; result?: unknown }
   if (json.error) throw new Error(`RPC error: ${json.error.message}`)
   return json.result as T
 }
@@ -130,31 +120,6 @@ export async function fetchContractCode(
   } catch {
     return null
   }
-}
-
-// ── Account contracts ─────────────────────────────────────────────────────────
-
-/**
- * Fetch all contract IDs deployed by a given account using the Horizon
- * /accounts/{id}/contracts endpoint.
- */
-export async function fetchContractsByAccount(
-  publicKey: string,
-  network: StellarNetwork,
-): Promise<string[]> {
-  if (!isValidPublicKey(publicKey)) return []
-
-  const url = `${network.horizonUrl}/accounts/${publicKey}/contracts`
-  const res = await fetch(url, { headers: { Accept: 'application/json' } })
-
-  if (res.status === 404) return []
-  if (!res.ok) throw new Error(`Horizon error ${res.status}: ${await res.text()}`)
-
-  const data = (await res.json()) as any
-  const records: any[] = data._embedded?.records ?? data.records ?? []
-  return records
-    .map((r: any) => r.contract_id ?? r.id ?? '')
-    .filter((id: string) => isValidContractId(id))
 }
 
 // ── Network health ────────────────────────────────────────────────────────────
