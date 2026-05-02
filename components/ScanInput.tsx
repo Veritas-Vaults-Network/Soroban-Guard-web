@@ -531,16 +531,6 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
             viewBox="0 0 24 24"
             stroke="currentColor"
             strokeWidth={2}
-      {/* Advanced options */}
-      <div>
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(v => !v)}
-          className="flex items-center gap-1.5 text-xs text-slate-500 transition hover:text-slate-300"
-        >
-          <svg
-            className={`h-3.5 w-3.5 transition-transform ${showAdvanced ? 'rotate-90' : ''}`}
-            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
           </svg>
@@ -563,10 +553,8 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
               disabled={loading}
               className="w-full rounded-lg border border-[#2a2d3a] bg-[#0a0c0f] px-3 py-2 text-sm text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30 disabled:opacity-50"
             />
-        {showAdvanced && (
-          <div className="mt-3 space-y-3 rounded-xl border border-[#2a2d3a] bg-[#12151f] p-4">
-            <p className="text-xs font-medium text-slate-400">Telegram notifications</p>
-            <div className="space-y-2">
+            <p className="text-xs font-medium text-slate-400 mt-3">Telegram notifications</p>
+            <div className="space-y-2 mt-2">
               <input
                 type="text"
                 value={tgBotToken}
