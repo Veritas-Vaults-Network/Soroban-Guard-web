@@ -38,3 +38,12 @@ playwright/.cache/
 
 # os
 Thumbs.db
+
+# local scripts & docs
+issues.md
+new-issues.md
+push-issues.sh
+push-new-issues.sh
+push-20-new-issues.sh
+push-30-issues.sh
+push-batch4-issues.sh
