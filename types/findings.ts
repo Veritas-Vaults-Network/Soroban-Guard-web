@@ -1,4 +1,4 @@
-export type Severity = 'Critical' | 'High' | 'Medium' | 'Low'
+export type Severity = 'Critical' | 'High' | 'Medium' | 'Low' | 'Info'
 
 export interface Finding {
   check_name: string

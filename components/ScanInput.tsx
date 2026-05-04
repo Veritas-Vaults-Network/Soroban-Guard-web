@@ -12,11 +12,10 @@ const NOTIF_PREF_KEY = 'sg_notifications_enabled'
 const TG_BOT_TOKEN_KEY = 'sg_tg_bot_token'
 const TG_CHAT_ID_KEY = 'sg_tg_chat_id'
 
-type InputMode = 'code' | 'github' | 'contractId' | 'ipfs' | 'gist'
+type InputMode = 'code' | 'github' | 'contractId' | 'ipfs' | 'gist' | 'npm'
 
 interface Props {
-  onScan: (source: string, mode: InputMode, options?: { slackWebhookUrl?: string }) => void
-  onScan: (source: string, mode: InputMode, telegramConfig?: { botToken: string; chatId: string }) => void
+  onScan: (source: string, mode: InputMode, options?: { slackWebhookUrl?: string; telegramConfig?: { botToken: string; chatId: string } }) => void
   loading: boolean
   countdown?: number
   initialValue?: string
@@ -192,10 +191,12 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const options = { slackWebhookUrl: slackWebhookUrl.trim() || undefined }
+    const options = {
+      slackWebhookUrl: slackWebhookUrl.trim() || undefined,
+      telegramConfig: tgBotToken && tgChatId ? { botToken: tgBotToken, chatId: tgChatId } : undefined,
+    }
     if (mode === 'ipfs') {
       if (ipfsPreview) onScan(ipfsPreview, mode, options)
-      if (ipfsPreview) onScan(ipfsPreview, mode, tgBotToken && tgChatId ? { botToken: tgBotToken, chatId: tgChatId } : undefined)
       return
     }
     if (mode === 'gist') {
@@ -214,7 +215,6 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
           : contractId.trim()
     if (!source) return
     onScan(source, mode, options)
-    onScan(source, mode, tgBotToken && tgChatId ? { botToken: tgBotToken, chatId: tgChatId } : undefined)
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {

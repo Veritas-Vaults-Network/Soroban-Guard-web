@@ -4,7 +4,8 @@ export function exportMarkdown(
   findings: Finding[],
   metadata: { source: string; scannedAt: string },
 ): string {
-  const counts: Record<string, number> = { Critical: 0, High: 0, Medium: 0, Low: 0 }
+  const counts: Record<string, number> = { Critical: 0, High: 0, Medium: 0, Low: 0, Info: 0,
+}
   for (const f of findings) counts[f.severity] = (counts[f.severity] ?? 0) + 1
 
   const lines: string[] = [

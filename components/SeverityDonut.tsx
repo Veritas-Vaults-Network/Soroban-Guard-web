@@ -12,6 +12,7 @@ const COLORS: Record<Severity, string> = {
   High: '#ef4444',
   Medium: '#f59e0b',
   Low: '#0ea5e9',
+  Info: '#94a3b8',
 }
 
 export default function SeverityDonut({ counts }: Props) {

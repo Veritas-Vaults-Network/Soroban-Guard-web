@@ -8,6 +8,7 @@ import { exportEmail } from '@/lib/export'
 import { exportSarif } from '@/lib/sarif'
 import { getAllScanHistory } from '@/lib/history'
 import { diffFindings } from '@/lib/diffFindings'
+import { scanContract } from '@/lib/api'
 import FindingsTable from '@/components/FindingsTable'
 import FindingsDiff from '@/components/FindingsDiff'
 import FindingsByFunction from '@/components/FindingsByFunction'
@@ -196,7 +197,8 @@ export default function ResultsClient() {
     )
   }
 
-  const counts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0 }
+  const counts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0, Info: 0,
+}
   for (const f of findings) counts[f.severity]++
 
   const q = searchQuery.toLowerCase()
@@ -544,7 +546,8 @@ export default function ResultsClient() {
                 ) : (
                   <FindingsTable
                     findings={[...filteredFindings].sort((a, b) => {
-                      const order: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 }
+                      const order: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3, Info: 4,
+}
                       return order[a.severity] - order[b.severity]
                     })}
                     searchQuery={searchQuery}

@@ -4,12 +4,14 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import type { Finding, Severity } from '@/types/findings'
 
-const SEVERITY_ORDER: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 }
+const SEVERITY_ORDER: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3, Info: 4,
+}
 const SEVERITY_COLOR: Record<Severity, string> = {
   Critical: '#f43f5e',
   High: '#ef4444',
   Medium: '#f59e0b',
   Low: '#38bdf8',
+  Info: '#94a3b8',
 }
 
 export default function ReportPage() {
@@ -37,7 +39,8 @@ export default function ReportPage() {
     }
   }, [findings, source])
 
-  const counts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0 }
+  const counts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0, Info: 0,
+}
   for (const f of findings) counts[f.severity as Severity]++
 
   const sorted = [...findings].sort((a, b) => SEVERITY_ORDER[a.severity as Severity] - SEVERITY_ORDER[b.severity as Severity])

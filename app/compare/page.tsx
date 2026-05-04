@@ -30,8 +30,8 @@ export default function ComparePage({}: Props) {
       return
     }
 
-    setScanA(recordA.findings)
-    setScanB(recordB.findings)
+    setScanA(recordA.findings as Finding[])
+    setScanB(recordB.findings as Finding[])
     setLoading(false)
   }, [router, searchParams])
 

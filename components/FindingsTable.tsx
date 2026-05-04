@@ -46,7 +46,8 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize = 2
 
   const q = searchQuery.trim().toLowerCase()
   const sorted = [...findings].sort((a, b) => {
-    const order: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 }
+    const order: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3, Info: 4,
+}
     return order[a.severity] - order[b.severity]
   })
 

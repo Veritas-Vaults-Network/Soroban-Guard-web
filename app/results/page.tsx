@@ -66,7 +66,8 @@ export default function ResultsPage() {
     )
   }
 
-  const counts: Record<Severity, number> = { High: 0, Medium: 0, Low: 0 }
+  const counts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0, Info: 0,
+}
   for (const f of findings) counts[f.severity]++
 
   const canCopy = typeof navigator !== 'undefined' && navigator.clipboard
@@ -177,7 +178,8 @@ export default function ResultsPage() {
             {/* Sort: High → Medium → Low */}
             <FindingsTable
               findings={[...findings].sort((a, b) => {
-                const order: Record<Severity, number> = { High: 0, Medium: 1, Low: 2 }
+                const order: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3, Info: 4,
+}
                 return order[a.severity] - order[b.severity]
               })}
             />

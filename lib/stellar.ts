@@ -23,6 +23,19 @@ export function isValidContractId(id: string): boolean {
   return C_ADDRESS_RE.test(id)
 }
 
+/**
+ * Extract a Soroban contract ID (C-address) from a URL or plain string.
+ * Handles URLs like https://stellar.expert/explorer/testnet/contract/CABC...
+ * Returns the contract ID if found, or null.
+ */
+export function extractContractIdFromUrl(input: string): string | null {
+  // Already a bare C-address
+  if (C_ADDRESS_RE.test(input.trim())) return input.trim()
+  // Try to extract from a URL path segment
+  const match = input.match(/\b(C[A-Z2-7]{55})\b/)
+  return match ? match[1] : null
+}
+
 // ── Horizon helpers ───────────────────────────────────────────────────────────
 
 /**
@@ -132,5 +145,32 @@ export async function checkNetworkHealth(network: StellarNetwork): Promise<boole
     return res.ok
   } catch {
     return false
+  }
+}
+
+// ── Account contract lookup ───────────────────────────────────────────────────
+
+/**
+ * Fetch a list of contract IDs associated with a Stellar account.
+ * Uses Horizon's /accounts/{id}/data endpoint to find contract references.
+ * Returns an empty array if none are found or on error.
+ */
+export async function fetchContractsByAccount(
+  accountId: string,
+  network: StellarNetwork,
+): Promise<string[]> {
+  if (!isValidPublicKey(accountId)) return []
+
+  try {
+    const url = `${network.horizonUrl}/accounts/${accountId}/data`
+    const res = await fetch(url, { headers: { Accept: 'application/json' } })
+    if (!res.ok) return []
+    const data = (await res.json()) as { _embedded?: { records?: Array<{ key: string; value: string }> } }
+    const records = data._embedded?.records ?? []
+    return records
+      .map(r => atob(r.value))
+      .filter(v => C_ADDRESS_RE.test(v))
+  } catch {
+    return []
   }
 }

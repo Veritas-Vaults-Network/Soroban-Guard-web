@@ -37,11 +37,13 @@ export default function WorkspacePage() {
     )
   }
 
-  const counts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0 }
+  const counts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0, Info: 0,
+}
   for (const f of findings) counts[f.severity]++
 
   const sorted = [...findings].sort((a, b) => {
-    const order: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 }
+    const order: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3, Info: 4,
+}
     return order[a.severity] - order[b.severity]
   })
 

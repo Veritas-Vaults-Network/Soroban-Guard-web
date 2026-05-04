@@ -11,31 +11,26 @@ import { scanContract } from '@/lib/api'
 import { checkNetworkHealth } from '@/lib/stellar'
 import { getScanHistory } from '@/lib/history'
 import { encodeFindings } from '@/lib/share'
-import type { Finding } from '@/types/findings'
-import type { StellarNetwork, ContractScanRecord } from '@/types/stellar'
+import { useWallet } from '@/lib/WalletContext'
+import type { ContractScanRecord } from '@/types/stellar'
 import { NETWORKS } from '@/types/stellar'
 
 export default function HomePage() {
   const router = useRouter()
+  const { publicKey: walletKey, network: walletNetwork } = useWallet()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [walletKey, setWalletKey] = useState<string | null>(null)
-  const [walletNetwork, setWalletNetwork] = useState<StellarNetwork>(NETWORKS.testnet)
   const [networkHealthy, setNetworkHealthy] = useState(true)
   const [statusMessage, setStatusMessage] = useState('')
   const [scanHistory, setScanHistory] = useState<ContractScanRecord[]>([])
 
-  function handleWalletConnect(publicKey: string, network: StellarNetwork) {
-    setWalletKey(publicKey)
-    setWalletNetwork(network)
-    setNetworkHealthy(true)
-    setScanHistory(getScanHistory(publicKey))
-    
-    // Check network health
-    checkNetworkHealth(network).then(healthy => {
+  useEffect(() => {
+    if (!walletKey) return
+    setScanHistory(getScanHistory(walletKey))
+    checkNetworkHealth(walletNetwork).then(healthy => {
       setNetworkHealthy(healthy)
     })
-  }
+  }, [walletKey, walletNetwork])
 
   async function handleScan(source: string) {
     setLoading(true)
@@ -106,7 +101,7 @@ export default function HomePage() {
               Veritas Vaults Network
             </a>
             <ThemeToggle />
-            <WalletConnect onConnect={handleWalletConnect} />
+            <WalletConnect />
           </div>
         </div>
       </header>
