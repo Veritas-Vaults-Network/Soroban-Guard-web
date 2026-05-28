@@ -18,6 +18,8 @@ import SeverityBadge from '@/components/SeverityBadge'
 import SeverityDonut from '@/components/SeverityDonut'
 import FindingsSkeleton from '@/components/FindingsSkeleton'
 import ThemeToggle from '@/components/ThemeToggle'
+import { generatePdfReport } from '@/lib/pdfReport'
+import { calculateScore } from '@/lib/score'
 import { useToast } from '@/lib/toast'
 import { useWallet } from '@/lib/WalletContext'
 import GithubExportModal from '@/components/GithubExportModal'
@@ -45,6 +47,7 @@ export default function ResultsClient() {
   const [showDiff, setShowDiff] = useState(false)
   const [groupView, setGroupView] = useState<'flat' | 'function'>('flat')
   const [navIndex, setNavIndex] = useState<number | null>(null)
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false)
   const hasSource = Boolean(scanSource)
 
   useEffect(() => {
@@ -71,6 +74,11 @@ export default function ResultsClient() {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (e.key === '?') {
+        e.preventDefault()
+        setShowShortcutsModal(v => !v)
+        return
+      }
       if (findings && (e.key === 'j' || e.key === 'k')) {
         e.preventDefault()
         const current = navIndex ?? -1
@@ -176,8 +184,15 @@ export default function ResultsClient() {
     show('Attest feature is not enabled in this build.', 'info')
   }
 
-  function handleDownloadSarif() {
-    const content = exportSarif(findings ?? [])
+  function handleDownloadPdf() {
+    generatePdfReport(findings ?? [], {
+      source: scanSource ?? 'Unknown',
+      scannedAt: new Date().toISOString(),
+      score: calculateScore(findings ?? []),
+    })
+  }
+
+  function handleDownloadSarif() {    const content = exportSarif(findings ?? [])
     const blob = new Blob([content], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -267,6 +282,12 @@ export default function ResultsClient() {
               className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
             >
               Download SARIF
+            </button>
+            <button
+              onClick={handleDownloadPdf}
+              className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
+            >
+              Download PDF
             </button>
             {findings.length > 0 && (
               <button
@@ -414,6 +435,13 @@ export default function ResultsClient() {
                   bg="bg-sky-500/5"
                   border="border-sky-500/20"
                 />
+                <SummaryCard
+                  label="Info"
+                  value={counts.Info}
+                  color="text-slate-400"
+                  bg="bg-slate-500/5"
+                  border="border-slate-500/20"
+                />
                 {duration && (
                   <SummaryCard
                     label="Scan Time"
@@ -500,7 +528,7 @@ export default function ResultsClient() {
                     </button>
                   </div>
                 )}
-                {(['High', 'Medium', 'Low'] as Severity[]).map(s =>
+                {(['Critical', 'High', 'Medium', 'Low', 'Info'] as Severity[]).map(s =>
                   counts[s] > 0 ? (
                     <SeverityBadge key={s} severity={s} size="sm" />
                   ) : null,
@@ -583,6 +611,51 @@ export default function ResultsClient() {
       )}
       {showNotionModal && (
         <NotionExportModal findings={findings} onClose={() => setShowNotionModal(false)} />
+      )}
+      {showShortcutsModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Keyboard shortcuts"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowShortcutsModal(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-6 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-white">Keyboard Shortcuts</h2>
+              <button
+                onClick={() => setShowShortcutsModal(false)}
+                aria-label="Close"
+                className="text-slate-400 hover:text-white"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <table className="w-full text-sm">
+              <tbody className="divide-y divide-[var(--border)]">
+                {[
+                  ['j', 'Next finding'],
+                  ['k', 'Previous finding'],
+                  ['?', 'Toggle this help'],
+                ].map(([key, desc]) => (
+                  <tr key={key}>
+                    <td className="py-2 pr-4">
+                      <kbd className="rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-0.5 font-mono text-xs text-slate-300">
+                        {key}
+                      </kbd>
+                    </td>
+                    <td className="py-2 text-slate-400">{desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
     </div>
   )
