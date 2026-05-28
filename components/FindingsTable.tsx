@@ -118,6 +118,7 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize = 2
                   isExpanded || isMobileOpen ? 'bg-[var(--bg-hover)]' : 'bg-[var(--bg)]'
                 }`}
                 aria-expanded={isExpanded || isMobileOpen}
+                aria-label={`${finding.severity} severity: ${finding.check_name} — ${isExpanded || isMobileOpen ? 'collapse' : 'expand'} details`}
               >
                 {/* Mobile layout */}
                 <div className="flex items-start justify-between gap-3 sm:hidden">
