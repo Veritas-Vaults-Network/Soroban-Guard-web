@@ -500,7 +500,7 @@ export default function ResultsClient() {
                     </button>
                   </div>
                 )}
-                {(['High', 'Medium', 'Low'] as Severity[]).map(s =>
+                {(['Critical', 'High', 'Medium', 'Low'] as Severity[]).map(s =>
                   counts[s] > 0 ? (
                     <SeverityBadge key={s} severity={s} size="sm" />
                   ) : null,
