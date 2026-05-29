@@ -83,6 +83,7 @@ export default function HomePage() {
         <NetworkHealthBanner
           network={walletNetwork.name}
           onDismiss={() => setNetworkHealthy(true)}
+          checkHealth={() => checkNetworkHealth(walletNetwork)}
         />
       )}
 
