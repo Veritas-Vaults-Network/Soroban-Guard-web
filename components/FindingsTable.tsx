@@ -2,6 +2,8 @@
 
 import { useEffect, useState, type KeyboardEvent } from 'react'
 import type { Finding, Severity } from '@/types/findings'
+import type { PageSize } from '@/lib/preferences'
+import { getPageSize, setPageSize, getNumericPageSize } from '@/lib/preferences'
 import BottomSheet from './BottomSheet'
 import SeverityBadge from './SeverityBadge'
 import FindingCard from './FindingCard'
@@ -15,12 +17,18 @@ interface Props {
   onMuteChange?: () => void
 }
 
-export default function FindingsTable({ findings, searchQuery = '', pageSize = 20, forceExpandedIndex, onMuteChange }: Props) {
+export default function FindingsTable({ findings, searchQuery = '', pageSize: propPageSize, forceExpandedIndex, onMuteChange }: Props) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const [mobileOpenIndex, setMobileOpenIndex] = useState<number | null>(null)
   const [currentPage, setCurrentPage] = useState(0)
   const [isPrint, setIsPrint] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [preferredPageSize, setPreferredPageSize] = useState<PageSize>(20)
+
+  useEffect(() => {
+    setPreferredPageSize(getPageSize())
+  }, [])
+
 
   useEffect(() => {
     if (forceExpandedIndex !== undefined) {
@@ -63,13 +71,24 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize = 2
 
   useEffect(() => {
     setCurrentPage(0)
-  }, [q])
+  }, [q, preferredPageSize])
 
+  // Determine effective page size: prop overrides preference, otherwise use preference
+  const numericPageSize = propPageSize ?? getNumericPageSize(preferredPageSize)
+  const showAll = numericPageSize === undefined
+  const pageSize = numericPageSize ?? filteredFindings.length
   const totalPages = Math.ceil(filteredFindings.length / pageSize)
   const start = currentPage * pageSize
   const end = start + pageSize
-  const paginatedFindings = filteredFindings.slice(start, end)
+  const paginatedFindings = showAll ? filteredFindings : filteredFindings.slice(start, end)
   const openFinding = mobileOpenIndex !== null ? paginatedFindings[mobileOpenIndex] : null
+
+  function handlePageSizeChange(newSize: PageSize) {
+    setPreferredPageSize(newSize)
+    setPageSize(newSize)
+    setCurrentPage(0)
+  }
+
 
   function handleRowClick(pageIndex: number, globalIndex: number) {
     if (isMobile) {
@@ -170,29 +189,49 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize = 2
         })}
       </div>
 
-      {totalPages > 1 && (
-        <div className="mt-6 flex items-center justify-between">
-          <p className="text-sm text-slate-500">
-            Showing {start + 1}–{Math.min(end, filteredFindings.length)} of {filteredFindings.length}
-          </p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
-              disabled={currentPage === 0}
-              className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm font-medium text-slate-400 transition disabled:opacity-50 hover:enabled:bg-[var(--bg-hover)] hover:enabled:text-white"
-            >
-              Previous
-            </button>
-            <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
-              disabled={currentPage === totalPages - 1}
-              className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm font-medium text-slate-400 transition disabled:opacity-50 hover:enabled:bg-[var(--bg-hover)] hover:enabled:text-white"
-            >
-              Next
-            </button>
-          </div>
+      <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        {/* Page size selector */}
+        <div className="flex items-center gap-2 text-sm text-slate-400">
+          <span>Show</span>
+          <select
+            value={preferredPageSize}
+            onChange={e => handlePageSizeChange(e.target.value as PageSize)}
+            className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-sm text-slate-300 transition hover:border-slate-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          >
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+            <option value={50}>50</option>
+            <option value="all">All</option>
+          </select>
+          <span>per page</span>
         </div>
-      )}
+
+        {/* Pagination controls */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between gap-4 sm:justify-end">
+            <p className="text-sm text-slate-500">
+              Showing {start + 1}–{Math.min(end, filteredFindings.length)} of {filteredFindings.length}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                disabled={currentPage === 0}
+                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm font-medium text-slate-400 transition disabled:opacity-50 hover:enabled:bg-[var(--bg-hover)] hover:enabled:text-white"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                disabled={currentPage === totalPages - 1}
+                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm font-medium text-slate-400 transition disabled:opacity-50 hover:enabled:bg-[var(--bg-hover)] hover:enabled:text-white"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
     </>)}
 
       {mobileOpenIndex !== null && paginatedFindings[mobileOpenIndex] && (
