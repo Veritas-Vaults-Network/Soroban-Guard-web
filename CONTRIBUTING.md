@@ -1,57 +1,72 @@
 # Contributing to Soroban Guard Web
 
-Thanks for your interest in contributing. This document covers how to get set up and what to keep in mind when submitting changes.
+This repo is the frontend dashboard for Soroban Guard — a smart contract security scanner for Soroban contracts on Stellar.
 
 ## Prerequisites
 
-- Node.js 18+
-- npm 9+
-- A running instance of [soroban-guard-core](https://github.com/Veritas-Vaults-Network/soroban-guard-core) (or mock API)
+- Node.js 18 or newer
+- npm
+- [Freighter](https://freighter.app) browser extension (recommended for wallet features)
+- A code editor such as VS Code
 
-## Local Setup
+## Local setup
 
 ```bash
-git clone https://github.com/Veritas-Vaults-Network/soroban-guard-web
-cd soroban-guard-web
+git clone https://github.com/Veritas-Vaults-Network/Soroban-Guard-web.git
+cd Soroban-Guard-web
 npm install
-cp .env.example .env.local   # set NEXT_PUBLIC_API_URL
+```
+
+Create an environment file for local API access:
+
+```bash
+echo "NEXT_PUBLIC_API_URL=http://localhost:3001" > .env.local
+```
+
+`NEXT_PUBLIC_API_URL` should point to a running `soroban-guard-core` instance.
+
+## Running the app
+
+Start the local development server:
+
+```bash
 npm run dev
 ```
 
-## Code Style
+Open [http://localhost:3000](http://localhost:3000).
 
-- TypeScript strict mode — no `any` unless absolutely necessary
-- Tailwind for all styling — no inline styles, no CSS modules
-- Components are in `components/`, pages in `app/`
-- Keep components small and single-purpose
-- All user-facing strings must be in English
+## Project structure
 
-## Commit Convention
+- `app/` — Next.js App Router pages, layouts, and routes
+- `components/` — reusable UI components
+- `lib/` — client-side helpers, API wrappers, wallet integration, and utilities
+- `types/` — shared TypeScript definitions
 
-We follow [Conventional Commits](https://www.conventionalcommits.org/):
+## Linting and type checking
 
-```
-feat: add severity filter to findings table
-fix: handle empty response from core API
-chore: update tailwind to 3.4
-docs: add API contract section to README
+Run the linter:
+
+```bash
+npm run lint
 ```
 
-## Pull Request Process
+Run TypeScript type checking:
 
-1. Fork the repo and create a branch from `main`
-2. Make your changes with clear, atomic commits
-3. Run `npm run lint` and fix any issues
-4. Open a PR with a description of what changed and why
-5. Link any related issues
+```bash
+npx tsc --noEmit
+```
 
-## Reporting Issues
+## PR checklist
 
-Use [GitHub Issues](https://github.com/Veritas-Vaults-Network/soroban-guard-web/issues). Include:
-- Steps to reproduce
-- Expected vs actual behavior
-- Browser and OS if it's a UI bug
+Before creating a pull request, make sure to:
 
-## License
+- [ ] Run `npm run lint` and fix any issues
+- [ ] Run `npx tsc --noEmit` and fix any TypeScript errors
+- [ ] Add or update tests for any behavior changes
+- [ ] Include a screenshot or recording for UI updates
+- [ ] Keep your PR focused and document any non-obvious changes
 
-By contributing you agree your changes will be licensed under the MIT License.
+## Sister repos
+
+- [soroban-guard-core](https://github.com/Veritas-Vaults-Network/Soroban-Guard-Core) — Rust/Axum analysis engine
+- [soroban-guard-contracts](https://github.com/Veritas-Vaults-Network/soroban-guard-contracts) — Example Soroban contracts for testing

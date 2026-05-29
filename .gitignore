@@ -24,3 +24,26 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+**/__snapshots__/
+
+# editor
+.idea/
+.vscode/settings.json
+
+# os
+Thumbs.db
+
+# local scripts & docs
+issues.md
+new-issues.md
+push-issues.sh
+push-new-issues.sh
+push-20-new-issues.sh
+push-30-issues.sh
+push-batch4-issues.sh

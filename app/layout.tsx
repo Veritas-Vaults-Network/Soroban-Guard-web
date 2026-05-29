@@ -1,5 +1,9 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { WalletProvider } from '@/lib/WalletContext'
+import { ToastProvider } from '@/lib/toast'
+import ToastContainer from '@/components/ToastContainer'
+import ErrorBoundary from '@/components/ErrorBoundary'
 
 export const metadata: Metadata = {
   title: 'Soroban Guard — Smart Contract Security Scanner',
@@ -33,7 +37,20 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-[var(--bg)] text-[var(--text)] antialiased">
-        {children}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-indigo-600 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:outline-none"
+        >
+          Skip to main content
+        </a>
+        <ErrorBoundary>
+          <WalletProvider>
+            <ToastProvider>
+              {children}
+              <ToastContainer />
+            </ToastProvider>
+          </WalletProvider>
+        </ErrorBoundary>
       </body>
     </html>
   )

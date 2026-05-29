@@ -22,8 +22,7 @@ interface FreighterAPI {
 
 function getFreighter(): FreighterAPI | null {
   if (typeof window === 'undefined') return null
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (window as any).freighter ?? null
+  return (window as Window & { freighter?: FreighterAPI }).freighter ?? null
 }
 
 export function isFreighterInstalled(): boolean {

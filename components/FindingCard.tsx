@@ -1,17 +1,49 @@
+'use client'
+
+import { useState, useEffect } from 'react'
 import type { Finding } from '@/types/findings'
 import SeverityBadge from './SeverityBadge'
 import CheckTooltip from './CheckTooltip'
+import CodeViewer from './CodeViewer'
+import { loadSourceCode } from '@/lib/codeStore'
+import { mute, unmute, isMuted } from '@/lib/mutedFindings'
 
 interface Props {
   finding: Finding
+  onMuteChange?: () => void
 }
 
-export default function FindingCard({ finding }: Props) {
+export default function FindingCard({ finding, onMuteChange }: Props) {
+  const [showCode, setShowCode] = useState(false)
+  const [source, setSource] = useState<string | null>(null)
+  const [muted, setMuted] = useState(false)
+
+  useEffect(() => {
+    setSource(loadSourceCode())
+    setMuted(isMuted(finding))
+  }, [finding])
+
+  function handleMuteToggle() {
+    if (muted) {
+      unmute(finding)
+      setMuted(false)
+    } else {
+      mute(finding)
+      setMuted(true)
+    }
+    onMuteChange?.()
+  }
+
   return (
-    <div className="slide-down rounded-lg border border-[#2a2d3a] bg-[#12151f] p-5">
+    <div className={`slide-down rounded-lg border border-[#2a2d3a] bg-[#12151f] p-5 ${muted ? 'opacity-50' : ''}`}>
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <SeverityBadge severity={finding.severity} />
         <CheckTooltip checkName={finding.check_name} />
+        {muted && (
+          <span className="rounded-full bg-slate-500/10 px-2.5 py-0.5 text-xs font-semibold text-slate-400">
+            Muted
+          </span>
+        )}
       </div>
 
       <p className="mb-5 text-sm leading-relaxed text-slate-300">
@@ -31,6 +63,47 @@ export default function FindingCard({ finding }: Props) {
         <Detail label="Function" value={finding.function_name} mono />
         <Detail label="File" value={finding.file_path} mono />
         <Detail label="Line" value={String(finding.line)} mono />
+      </div>
+
+      {source && (
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => setShowCode(v => !v)}
+            className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+            aria-expanded={showCode}
+          >
+            <svg
+              className={`h-3.5 w-3.5 transition-transform ${showCode ? 'rotate-90' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+              aria-hidden="true"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+            {showCode ? 'Hide code' : 'View in code'}
+          </button>
+          {showCode && <CodeViewer source={source} highlightLine={finding.line} />}
+        </div>
+      )}
+
+      <div className="mt-4 flex items-center justify-between">
+        <button
+          onClick={handleMuteToggle}
+          className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+        >
+          {muted ? 'Unmute this finding' : 'Mute this finding'}
+        </button>
+        <a
+          href={`https://github.com/Veritas-Vaults-Network/soroban-guard-core/issues/new?title=${encodeURIComponent(`False positive: ${finding.check_name}`)}&body=${encodeURIComponent(finding.description)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+        >
+          Report false positive
+        </a>
       </div>
     </div>
   )

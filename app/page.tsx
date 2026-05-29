@@ -9,29 +9,28 @@ import NetworkHealthBanner from '@/components/NetworkHealthBanner'
 import ThemeToggle from '@/components/ThemeToggle'
 import { scanContract } from '@/lib/api'
 import { checkNetworkHealth } from '@/lib/stellar'
-import type { Finding } from '@/types/findings'
-import type { StellarNetwork, ContractScanRecord } from '@/types/stellar'
+import { getScanHistory } from '@/lib/history'
+import { encodeFindings } from '@/lib/share'
+import { useWallet } from '@/lib/WalletContext'
+import type { ContractScanRecord } from '@/types/stellar'
 import { NETWORKS } from '@/types/stellar'
 
 export default function HomePage() {
   const router = useRouter()
+  const { publicKey: walletKey, network: walletNetwork } = useWallet()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [walletKey, setWalletKey] = useState<string | null>(null)
-  const [walletNetwork, setWalletNetwork] = useState<StellarNetwork>(NETWORKS.testnet)
   const [networkHealthy, setNetworkHealthy] = useState(true)
   const [statusMessage, setStatusMessage] = useState('')
+  const [scanHistory, setScanHistory] = useState<ContractScanRecord[]>([])
 
-  function handleWalletConnect(publicKey: string, network: StellarNetwork) {
-    setWalletKey(publicKey)
-    setWalletNetwork(network)
-    setNetworkHealthy(true)
-    
-    // Check network health
-    checkNetworkHealth(network).then(healthy => {
+  useEffect(() => {
+    if (!walletKey) return
+    setScanHistory(getScanHistory(walletKey))
+    checkNetworkHealth(walletNetwork).then(healthy => {
       setNetworkHealthy(healthy)
     })
-  }
+  }, [walletKey, walletNetwork])
 
   async function handleScan(source: string) {
     setLoading(true)
@@ -42,6 +41,7 @@ export default function HomePage() {
       setStatusMessage(`Scan complete. ${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} detected.`)
       // Store results in sessionStorage so the results page can read them
       sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
+      const encoded = encodeFindings(data.findings)
       router.push(`/results?r=${encoded}`)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unexpected error'
@@ -101,7 +101,7 @@ export default function HomePage() {
               Veritas Vaults Network
             </a>
             <ThemeToggle />
-            <WalletConnect onConnect={handleWalletConnect} />
+            <WalletConnect />
           </div>
         </div>
       </header>
