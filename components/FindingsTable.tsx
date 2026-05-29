@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState, type KeyboardEvent } from 'react'
+import { useEffect, useState } from 'react'
+
 import type { Finding, Severity } from '@/types/findings'
 import type { PageSize } from '@/lib/preferences'
 import { getPageSize, setPageSize, getNumericPageSize } from '@/lib/preferences'
@@ -81,9 +82,9 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize: pr
   const start = currentPage * pageSize
   const end = start + pageSize
   const paginatedFindings = showAll ? filteredFindings : filteredFindings.slice(start, end)
-  const openFinding = mobileOpenIndex !== null ? paginatedFindings[mobileOpenIndex] : null
 
   function handlePageSizeChange(newSize: PageSize) {
+
     setPreferredPageSize(newSize)
     setPageSize(newSize)
     setCurrentPage(0)
@@ -99,14 +100,8 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize: pr
     setExpandedIndex(prev => (prev === globalIndex ? null : globalIndex))
   }
 
-  function handleKeyDown(e: KeyboardEvent, globalIndex: number) {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      setExpandedIndex(prev => (prev === globalIndex ? null : globalIndex))
-    }
-  }
-
   return (
+
     <div>
       {filteredFindings.length === 0 ? (
         <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-tertiary)] px-5 py-10 text-center text-sm text-slate-500">
