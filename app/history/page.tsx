@@ -12,6 +12,7 @@ import {
   getSchedule,
   type ScheduleInterval,
 } from '@/lib/schedule'
+import { runScheduledScans } from '@/lib/runScheduledScans'
 
 interface HistoryEntry {
   id: string
@@ -34,19 +35,18 @@ export default function HistoryPage() {
   const router = useRouter()
   const [entries, setEntries] = useState<HistoryEntry[]>([])
   const [showConfirm, setShowConfirm] = useState(false)
-  // Track schedule state per entry id
   const [schedules, setSchedules] = useState<Record<string, ScheduleInterval | null>>({})
 
   useEffect(() => {
     const loaded = loadHistory()
     setEntries(loaded)
-    // Load existing schedules for each entry
     const initial: Record<string, ScheduleInterval | null> = {}
     for (const e of loaded) {
       const s = getSchedule(e.source, 'testnet')
       initial[e.id] = s?.interval ?? null
     }
     setSchedules(initial)
+    runScheduledScans()
   }, [])
 
   function clearHistory() {
@@ -123,7 +123,6 @@ export default function HistoryPage() {
                 <p className="mt-1 text-xs text-slate-500">
                   {e.findings.length} finding{e.findings.length !== 1 ? 's' : ''}
                 </p>
-                {/* Schedule rescan toggle */}
                 <div className="mt-3 flex items-center gap-2">
                   <svg className="h-3.5 w-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
