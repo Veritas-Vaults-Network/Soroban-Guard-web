@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { Finding, Severity } from '@/types/findings'
-import { decodeFindings, encodeWorkspace } from '@/lib/share'
+import { decodeFindingsParam, encodeWorkspace } from '@/lib/share'
 import { exportEmail } from '@/lib/export'
 import { exportSarif } from '@/lib/sarif'
 import { getAllScanHistory } from '@/lib/history'
@@ -50,20 +50,23 @@ export default function ResultsClient() {
     const storedFindings = sessionStorage.getItem('sg_findings')
     const sharedParam = searchParams.get('r')
 
-    if (storedFindings) {
+    if (sharedParam) {
+      const decoded = decodeFindingsParam(sharedParam)
+      if (decoded === null) {
+        router.replace('/')
+        return
+      }
+      setFindings(decoded)
+      const shareableUrl = new URL('/results', window.location.origin)
+      shareableUrl.searchParams.set('r', sharedParam)
+      setResultsUrl(shareableUrl.toString())
+    } else if (storedFindings) {
       try {
         setFindings(JSON.parse(storedFindings) as Finding[])
       } catch {
         router.replace('/')
         return
       }
-    } else if (sharedParam) {
-      const decoded = decodeFindings(sharedParam)
-      if (decoded.length === 0) {
-        router.replace('/')
-        return
-      }
-      setFindings(decoded)
     } else {
       router.replace('/')
       return
@@ -71,7 +74,9 @@ export default function ResultsClient() {
 
     setDuration(sessionStorage.getItem('sg_duration'))
     setScanSource(sessionStorage.getItem('sg_scan_source'))
-    setResultsUrl(sessionStorage.getItem('sg_results_url') ?? window.location.href)
+    if (!sharedParam) {
+      setResultsUrl(sessionStorage.getItem('sg_results_url') ?? '')
+    }
   }, [router, searchParams])
 
   useEffect(() => {
@@ -174,8 +179,7 @@ export default function ResultsClient() {
   }
 
   function handleOpenQrModal() {
-    const shareableUrl = sessionStorage.getItem('sg_results_url') ?? window.location.href
-    setResultsUrl(shareableUrl)
+    if (!resultsUrl) return
     setShowQrModal(true)
   }
 
@@ -305,16 +309,17 @@ export default function ResultsClient() {
               </svg>
               Share workspace
             </button>
-            <button
-              onClick={handleOpenQrModal}
-              disabled={!resultsUrl}
-              className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white disabled:opacity-40"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4h5v5H4V4zm11 0h5v5h-5V4zM4 15h5v5H4v-5zm9 0h2m2 0h3m-7 3h3m4-4v6" />
-              </svg>
-              QR code
-            </button>
+            {resultsUrl && (
+              <button
+                onClick={handleOpenQrModal}
+                className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4h5v5H4V4zm11 0h5v5h-5V4zM4 15h5v5H4v-5zm9 0h2m2 0h3m-7 3h3m4-4v6" />
+                </svg>
+                QR code
+              </button>
+            )}
             <button
               onClick={handleScanAnother}
               className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-indigo-500"
@@ -553,7 +558,7 @@ export default function ResultsClient() {
       {showNotionModal && (
         <NotionExportModal findings={findings} onClose={() => setShowNotionModal(false)} />
       )}
-      <ResultsQRCode url={resultsUrl} isOpen={showQrModal} onClose={() => setShowQrModal(false)} />
+      {resultsUrl && <ResultsQRCode url={resultsUrl} isOpen={showQrModal} onClose={() => setShowQrModal(false)} />}
     </div>
   )
 }
