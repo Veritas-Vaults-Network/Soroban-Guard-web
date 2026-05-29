@@ -27,6 +27,13 @@ export interface ScanResult extends ScanResponse {
   quota?: ScanQuota
 }
 
+/**
+ * Submit source code to the Soroban Guard API for scanning.
+ * @param source - Contract source code or identifier
+ * @param network - Optional Stellar network to target
+ * @returns Scan result including findings and optional quota info
+ * @throws {ApiError} On HTTP errors or rate limiting
+ */
 export async function scanContract(source: string, network?: StellarNetwork): Promise<ScanResult> {
   const body: ScanRequest = { source }
 

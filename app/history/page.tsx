@@ -12,6 +12,7 @@ import {
   getSchedule,
   type ScheduleInterval,
 } from '@/lib/schedule'
+import { exportCsv, exportJson } from '@/lib/export'
 
 interface HistoryEntry {
   id: string
@@ -55,6 +56,23 @@ export default function HistoryPage() {
     setShowConfirm(false)
   }
 
+  function exportHistoryCsv() {
+    const allFindings = entries.flatMap(e => e.findings)
+    exportCsv(allFindings)
+  }
+
+  function exportHistoryJson() {
+    const blob = new Blob([JSON.stringify(entries, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'soroban-guard-history.json'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
   function handleScheduleChange(entry: HistoryEntry, interval: ScheduleInterval | 'never') {
     if (interval === 'never') {
       removeSchedule(entry.source, 'testnet')
@@ -77,12 +95,26 @@ export default function HistoryPage() {
             Analytics
           </a>
           {entries.length > 0 && (
-            <button
-              onClick={() => setShowConfirm(true)}
-              className="rounded-lg border border-red-500/30 px-4 py-2 text-sm text-red-400 transition hover:bg-red-500/10"
-            >
-              Clear history
-            </button>
+            <>
+              <button
+                onClick={exportHistoryCsv}
+                className="rounded-lg border border-[#2a2d3a] px-4 py-2 text-sm text-slate-400 transition hover:text-white"
+              >
+                Export CSV
+              </button>
+              <button
+                onClick={exportHistoryJson}
+                className="rounded-lg border border-[#2a2d3a] px-4 py-2 text-sm text-slate-400 transition hover:text-white"
+              >
+                Export JSON
+              </button>
+              <button
+                onClick={() => setShowConfirm(true)}
+                className="rounded-lg border border-red-500/30 px-4 py-2 text-sm text-red-400 transition hover:bg-red-500/10"
+              >
+                Clear history
+              </button>
+            </>
           )}
         </div>
       </div>

@@ -25,10 +25,18 @@ function getFreighter(): FreighterAPI | null {
   return (window as Window & { freighter?: FreighterAPI }).freighter ?? null
 }
 
+/**
+ * Check whether the Freighter browser extension is installed.
+ * @returns True if the Freighter API is available on window
+ */
 export function isFreighterInstalled(): boolean {
   return getFreighter() !== null
 }
 
+/**
+ * Connect to Freighter and return the user's public key.
+ * @returns The connected public key, or null if unavailable/rejected
+ */
 export async function connectFreighter(): Promise<string | null> {
   const freighter = getFreighter()
   if (!freighter) return null
@@ -42,6 +50,10 @@ export async function connectFreighter(): Promise<string | null> {
   }
 }
 
+/**
+ * Get the currently selected Stellar network from Freighter.
+ * @returns The matching StellarNetwork, or null if unavailable
+ */
 export async function getFreighterNetwork(): Promise<StellarNetwork | null> {
   const freighter = getFreighter()
   if (!freighter) return null
@@ -59,6 +71,12 @@ export async function getFreighterNetwork(): Promise<StellarNetwork | null> {
   }
 }
 
+/**
+ * Sign a Stellar transaction XDR using Freighter.
+ * @param xdr - Base64-encoded transaction XDR
+ * @param network - The Stellar network to sign for
+ * @returns Signed XDR string, or null if rejected/unavailable
+ */
 export async function signTransaction(
   xdr: string,
   network: StellarNetwork,

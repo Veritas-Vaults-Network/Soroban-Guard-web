@@ -5,7 +5,7 @@ import { SAMPLE_CONTRACT } from '@/lib/sampleContract'
 import { isValidCid, fetchFromIpfs } from '@/lib/ipfs'
 import { isValidNpmPackage, fetchNpmSource } from '@/lib/npm'
 import { requestPermission } from '@/lib/notifications'
-import { extractContractIdFromUrl } from '@/lib/stellar'
+import { extractContractIdFromUrl, isValidContractId } from '@/lib/stellar'
 import { isValidGistUrl, fetchGistFiles, fetchGistFileContent, type GistFile } from '@/lib/gist'
 
 const NOTIF_PREF_KEY = 'sg_notifications_enabled'
@@ -90,7 +90,8 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const normalizedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const contractValid = contractId.length >= 56 && contractId.startsWith('C')
+  const contractValid = isValidContractId(contractId)
+  const contractIdError = contractId.length > 0 && !contractValid ? 'Invalid C-address — must be 56 characters starting with C (A–Z, 2–7)' : undefined
   const repoValidation = validateGithub(repoUrl)
   const repoError = repoUrl.length > 0 && !repoValidation.valid ? repoValidation.error : undefined
 
@@ -314,21 +315,19 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
             spellCheck={false}
             disabled={loading}
           />
-          {code.length > 0 && (
-            <span
-              aria-live="polite"
-              className={`absolute bottom-3 right-3 mr-2 text-xs ${
-                code.length > 100000 ? 'text-red-400' : code.length > 50000 ? 'text-amber-400' : 'text-slate-600'
-              }`}
-            >
-              {code.split('\n').length.toLocaleString()} lines · {code.length.toLocaleString()} chars
-            </span>
-          )}
+          <p
+            aria-live="polite"
+            className={`mt-1 text-right text-xs ${
+              code.length > 100000 ? 'text-red-400' : code.length > 50000 ? 'text-amber-400' : 'text-slate-600'
+            }`}
+          >
+            {code.split('\n').length.toLocaleString()} lines · {code.length.toLocaleString()} / 100,000 chars
+          </p>
           {code.length > 100000 && (
-            <p className="mt-1.5 text-xs text-red-400">Contract too large. Maximum 100,000 characters.</p>
+            <p className="mt-1 text-xs text-red-400">Contract too large. Maximum 100,000 characters.</p>
           )}
           {code.length > 50000 && code.length <= 100000 && (
-            <p className="mt-1.5 text-xs text-amber-400">Large contract — scan may be slow</p>
+            <p className="mt-1 text-xs text-amber-400">Large contract — scan may be slow</p>
           )}
         </div>
       ) : mode === 'github' ? (
@@ -373,10 +372,14 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
           {extractedFromUrl && (
             <p className="text-xs text-emerald-400">✓ Extracted from explorer URL</p>
           )}
-          <p className="text-xs text-slate-500">
-            Enter a Soroban contract ID (C-address) deployed on Stellar. The scanner
-            will fetch the WASM bytecode via Soroban RPC and analyze it.
-          </p>
+          {contractIdError ? (
+            <p className="text-xs text-rose-400">{contractIdError}</p>
+          ) : (
+            <p className="text-xs text-slate-500">
+              Enter a Soroban contract ID (C-address) deployed on Stellar. The scanner
+              will fetch the WASM bytecode via Soroban RPC and analyze it.
+            </p>
+          )}
         </div>
       ) : mode === 'ipfs' ? (
         <div className="space-y-2">
