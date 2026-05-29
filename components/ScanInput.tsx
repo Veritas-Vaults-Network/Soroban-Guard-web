@@ -7,6 +7,9 @@ import { isValidNpmPackage, fetchNpmSource } from '@/lib/npm'
 import { requestPermission } from '@/lib/notifications'
 import { extractContractIdFromUrl } from '@/lib/stellar'
 import { isValidGistUrl, fetchGistFiles, fetchGistFileContent, type GistFile } from '@/lib/gist'
+import { getFreighterNetworkPassphrase } from '@/lib/wallet'
+import { NETWORKS } from '@/types/stellar'
+import { useToast } from '@/lib/toast'
 
 const NOTIF_PREF_KEY = 'sg_notifications_enabled'
 const TG_BOT_TOKEN_KEY = 'sg_tg_bot_token'
@@ -35,12 +38,14 @@ function validateGithub(url: string): { valid: boolean; error?: string } {
 }
 
 export default function ScanInput({ onScan, loading, countdown = 0, initialValue = '', initialMode }: Props) {
+  const { show } = useToast()
   const [mode, setMode] = useState<InputMode>(() => {
     if (initialMode) return initialMode
     if (initialValue.startsWith('https://github.com')) return 'github'
     if (initialValue.startsWith('C') && initialValue.length >= 56) return 'contractId'
     return 'code'
   })
+  const [selectedNetwork, setSelectedNetwork] = useState(NETWORKS.testnet)
   const [code, setCode] = useState(() =>
     (initialMode ?? (initialValue.startsWith('https://github.com') ? 'github' : initialValue.startsWith('C') && initialValue.length >= 56 ? 'contractId' : 'code')) === 'code'
       ? initialValue
@@ -189,8 +194,16 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
     }
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+
+    // Validate network passphrase matches Freighter's connected network
+    const freighterPassphrase = await getFreighterNetworkPassphrase()
+    if (freighterPassphrase && freighterPassphrase !== selectedNetwork.networkPassphrase) {
+      show(`Network mismatch: Freighter is connected to ${Object.values(NETWORKS).find(n => n.networkPassphrase === freighterPassphrase)?.name ?? 'unknown'}, but you selected ${selectedNetwork.name}. Please switch networks in Freighter.`, 'error')
+      return
+    }
+
     const options = {
       slackWebhookUrl: slackWebhookUrl.trim() || undefined,
       telegramConfig: tgBotToken && tgChatId ? { botToken: tgBotToken, chatId: tgChatId } : undefined,
@@ -241,6 +254,26 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Network selector */}
+      <div className="flex items-center gap-2">
+        <label htmlFor="network-selector" className="text-xs text-slate-400">
+          Network
+        </label>
+        <select
+          id="network-selector"
+          value={selectedNetwork.name}
+          onChange={(e) => {
+            const network = NETWORKS[e.target.value]
+            if (network) setSelectedNetwork(network)
+          }}
+          className="rounded-lg border border-[#2a2d3a] bg-[#12151f] px-2 py-1 text-xs text-slate-300 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
+        >
+          <option value="mainnet">Mainnet</option>
+          <option value="testnet">Testnet</option>
+          <option value="futurenet">Futurenet</option>
+        </select>
+      </div>
+
       {/* Mode toggle */}
       <div className="flex rounded-lg bg-[#12151f] p-1 ring-1 ring-[#2a2d3a]">
         <TabButton

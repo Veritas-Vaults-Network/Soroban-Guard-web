@@ -23,6 +23,7 @@ import { useWallet } from '@/lib/WalletContext'
 import GithubExportModal from '@/components/GithubExportModal'
 import JiraExportModal from '@/components/JiraExportModal'
 import NotionExportModal from '@/components/NotionExportModal'
+import { attestScan } from '@/lib/attestation'
 
 export default function ResultsClient() {
   const router = useRouter()
@@ -45,6 +46,8 @@ export default function ResultsClient() {
   const [showDiff, setShowDiff] = useState(false)
   const [groupView, setGroupView] = useState<'flat' | 'function'>('flat')
   const [navIndex, setNavIndex] = useState<number | null>(null)
+  const [attestationTxHash, setAttestationTxHash] = useState<string | null>(null)
+  const [attestationExplorerUrl, setAttestationExplorerUrl] = useState<string | null>(null)
   const hasSource = Boolean(scanSource)
 
   useEffect(() => {
@@ -172,8 +175,25 @@ export default function ResultsClient() {
     show('Link copied!', 'success')
   }
 
-  function handleAttest() {
-    show('Attest feature is not enabled in this build.', 'info')
+  async function handleAttest() {
+    if (!walletKey || !scanSource || !findings) {
+      show('Missing wallet connection or scan data', 'error')
+      return
+    }
+
+    setIsAttesting(true)
+    try {
+      const findingsJson = JSON.stringify(findings)
+      const result = await attestScan(walletKey, scanSource, findingsJson, walletNetwork)
+      setAttestationTxHash(result.txHash)
+      setAttestationExplorerUrl(result.explorerUrl)
+      show('Attestation successful!', 'success')
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Attestation failed'
+      show(msg, 'error')
+    } finally {
+      setIsAttesting(false)
+    }
   }
 
   function handleDownloadSarif() {
@@ -238,7 +258,7 @@ export default function ResultsClient() {
                 {isRescanning ? 'Rescanning...' : 'Rescan'}
               </button>
             )}
-            {findings !== null && findings.length === 0 && walletKey && (
+            {findings !== null && findings.length === 0 && walletKey && !attestationTxHash && (
               <button
                 onClick={handleAttest}
                 disabled={isAttesting}
@@ -255,6 +275,21 @@ export default function ResultsClient() {
                 )}
                 Attest on Stellar
               </button>
+            )}
+            {attestationTxHash && attestationExplorerUrl && (
+              <div className="flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5">
+                <svg className="h-4 w-4 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                <a
+                  href={attestationExplorerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-emerald-300 hover:text-emerald-200 hover:underline"
+                >
+                  View attestation on Stellar.expert
+                </a>
+              </div>
             )}
             <a
               href={exportEmail(findings)}
