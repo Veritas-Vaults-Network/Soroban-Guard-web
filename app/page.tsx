@@ -7,7 +7,9 @@ import WalletConnect from '@/components/WalletConnect'
 import NetworkBadge from '@/components/NetworkBadge'
 import NetworkHealthBanner from '@/components/NetworkHealthBanner'
 import ThemeToggle from '@/components/ThemeToggle'
+import ScanQuotaIndicator from '@/components/ScanQuota'
 import { scanContract } from '@/lib/api'
+import type { ScanQuota } from '@/lib/api'
 import { checkNetworkHealth } from '@/lib/stellar'
 import { getScanHistory } from '@/lib/history'
 import { encodeFindings } from '@/lib/share'
@@ -23,6 +25,7 @@ export default function HomePage() {
   const [networkHealthy, setNetworkHealthy] = useState(true)
   const [statusMessage, setStatusMessage] = useState('')
   const [scanHistory, setScanHistory] = useState<ContractScanRecord[]>([])
+  const [quota, setQuota] = useState<ScanQuota | null>(null)
 
   useEffect(() => {
     if (!walletKey) return
@@ -39,6 +42,7 @@ export default function HomePage() {
     try {
       const data = await scanContract(source)
       setStatusMessage(`Scan complete. ${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} detected.`)
+      if (data.quota) setQuota(data.quota)
       // Store results in sessionStorage so the results page can read them
       sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
       const encoded = encodeFindings(data.findings)
@@ -69,6 +73,27 @@ export default function HomePage() {
 
   return (
     <div className="flex min-h-screen flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'SoftwareApplication',
+            name: 'Soroban Guard',
+            applicationCategory: 'DeveloperApplication',
+            operatingSystem: 'Web',
+            description:
+              'Automated security scanner for Soroban smart contracts on the Stellar blockchain. Detects integer overflows, unchecked auth, reentrancy risks, and more.',
+            url: 'https://soroban-guard.vercel.app',
+            author: {
+              '@type': 'Organization',
+              name: 'Veritas Vaults Network',
+              url: 'https://github.com/Veritas-Vaults-Network',
+            },
+            offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+          }),
+        }}
+      />
       {/* Aria-live region for screen readers */}
       <div
         aria-live="polite"
@@ -101,6 +126,7 @@ export default function HomePage() {
               Veritas Vaults Network
             </a>
             <ThemeToggle />
+            {quota && <ScanQuotaIndicator quota={quota} />}
             <WalletConnect />
           </div>
         </div>
