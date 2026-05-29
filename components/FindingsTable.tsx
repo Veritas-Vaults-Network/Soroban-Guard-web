@@ -7,7 +7,7 @@ import { getPageSize, setPageSize, getNumericPageSize } from '@/lib/preferences'
 import BottomSheet from './BottomSheet'
 import SeverityBadge from './SeverityBadge'
 import FindingCard from './FindingCard'
-import CheckTooltip from './CheckTooltip'
+
 
 interface Props {
   findings: Finding[]
