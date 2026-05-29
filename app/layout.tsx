@@ -3,6 +3,7 @@ import './globals.css'
 import { WalletProvider } from '@/lib/WalletContext'
 import { ToastProvider } from '@/lib/toast'
 import ToastContainer from '@/components/ToastContainer'
+import ErrorBoundary from '@/components/ErrorBoundary'
 
 export const metadata: Metadata = {
   title: 'Soroban Guard — Smart Contract Security Scanner',
@@ -42,12 +43,14 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        <WalletProvider>
-          <ToastProvider>
-            {children}
-            <ToastContainer />
-          </ToastProvider>
-        </WalletProvider>
+        <ErrorBoundary>
+          <WalletProvider>
+            <ToastProvider>
+              {children}
+              <ToastContainer />
+            </ToastProvider>
+          </WalletProvider>
+        </ErrorBoundary>
       </body>
     </html>
   )

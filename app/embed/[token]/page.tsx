@@ -19,7 +19,8 @@ function score(findings: Finding[]): number {
 
 export default function EmbedPage({ params }: Props) {
   const findings = decodeFindings(params.token)
-  const counts = { Critical: 0, High: 0, Medium: 0, Low: 0 }
+  const counts = { Critical: 0, High: 0, Medium: 0, Low: 0, Info: 0,
+}
   for (const f of findings) {
     if (f.severity in counts) counts[f.severity as keyof typeof counts]++
   }

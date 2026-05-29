@@ -12,14 +12,14 @@ const NOTIF_PREF_KEY = 'sg_notifications_enabled'
 const TG_BOT_TOKEN_KEY = 'sg_tg_bot_token'
 const TG_CHAT_ID_KEY = 'sg_tg_chat_id'
 
-type InputMode = 'code' | 'github' | 'contractId' | 'ipfs' | 'gist'
+type InputMode = 'code' | 'github' | 'contractId' | 'ipfs' | 'gist' | 'npm'
 
 interface Props {
-  onScan: (source: string, mode: InputMode, options?: { slackWebhookUrl?: string }) => void
-  onScan: (source: string, mode: InputMode, telegramConfig?: { botToken: string; chatId: string }) => void
+  onScan: (source: string, mode: InputMode, options?: { slackWebhookUrl?: string; telegramConfig?: { botToken: string; chatId: string } }) => void
   loading: boolean
   countdown?: number
   initialValue?: string
+  initialMode?: InputMode
 }
 
 function validateGithub(url: string): { valid: boolean; error?: string } {
@@ -34,13 +34,24 @@ function validateGithub(url: string): { valid: boolean; error?: string } {
   }
 }
 
-export default function ScanInput({ onScan, loading, countdown = 0, initialValue = '' }: Props) {
-  const [mode, setMode] = useState<InputMode>(() =>
-    initialValue.startsWith('C') && initialValue.length >= 56 ? 'contractId' : 'code'
+export default function ScanInput({ onScan, loading, countdown = 0, initialValue = '', initialMode }: Props) {
+  const [mode, setMode] = useState<InputMode>(() => {
+    if (initialMode) return initialMode
+    if (initialValue.startsWith('https://github.com')) return 'github'
+    if (initialValue.startsWith('C') && initialValue.length >= 56) return 'contractId'
+    return 'code'
+  })
+  const [code, setCode] = useState(() =>
+    (initialMode ?? (initialValue.startsWith('https://github.com') ? 'github' : initialValue.startsWith('C') && initialValue.length >= 56 ? 'contractId' : 'code')) === 'code'
+      ? initialValue
+      : ''
   )
-  const [code, setCode] = useState(initialValue.startsWith('C') && initialValue.length >= 56 ? '' : initialValue)
-  const [repoUrl, setRepoUrl] = useState('')
-  const [contractId, setContractId] = useState('')
+  const [repoUrl, setRepoUrl] = useState(() =>
+    (initialMode === 'github' || (!initialMode && initialValue.startsWith('https://github.com'))) ? initialValue : ''
+  )
+  const [contractId, setContractId] = useState(() =>
+    (initialMode === 'contractId' || (!initialMode && initialValue.startsWith('C') && initialValue.length >= 56)) ? initialValue : ''
+  )
   const [cid, setCid] = useState('')
   const [ipfsPreview, setIpfsPreview] = useState<string | null>(null)
   const [ipfsFetching, setIpfsFetching] = useState(false)
@@ -180,10 +191,12 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const options = { slackWebhookUrl: slackWebhookUrl.trim() || undefined }
+    const options = {
+      slackWebhookUrl: slackWebhookUrl.trim() || undefined,
+      telegramConfig: tgBotToken && tgChatId ? { botToken: tgBotToken, chatId: tgChatId } : undefined,
+    }
     if (mode === 'ipfs') {
       if (ipfsPreview) onScan(ipfsPreview, mode, options)
-      if (ipfsPreview) onScan(ipfsPreview, mode, tgBotToken && tgChatId ? { botToken: tgBotToken, chatId: tgChatId } : undefined)
       return
     }
     if (mode === 'gist') {
@@ -202,7 +215,6 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
           : contractId.trim()
     if (!source) return
     onScan(source, mode, options)
-    onScan(source, mode, tgBotToken && tgChatId ? { botToken: tgBotToken, chatId: tgChatId } : undefined)
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -303,9 +315,12 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
             disabled={loading}
           />
           {code.length > 0 && (
-            <span className={`absolute bottom-3 right-3 mr-2 text-xs ${
-              code.length > 100000 ? 'text-red-400' : code.length > 50000 ? 'text-amber-400' : 'text-slate-600'
-            }`}>
+            <span
+              aria-live="polite"
+              className={`absolute bottom-3 right-3 mr-2 text-xs ${
+                code.length > 100000 ? 'text-red-400' : code.length > 50000 ? 'text-amber-400' : 'text-slate-600'
+              }`}
+            >
               {code.split('\n').length.toLocaleString()} lines · {code.length.toLocaleString()} chars
             </span>
           )}
@@ -516,16 +531,6 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
             viewBox="0 0 24 24"
             stroke="currentColor"
             strokeWidth={2}
-      {/* Advanced options */}
-      <div>
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(v => !v)}
-          className="flex items-center gap-1.5 text-xs text-slate-500 transition hover:text-slate-300"
-        >
-          <svg
-            className={`h-3.5 w-3.5 transition-transform ${showAdvanced ? 'rotate-90' : ''}`}
-            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
           </svg>
@@ -548,10 +553,8 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
               disabled={loading}
               className="w-full rounded-lg border border-[#2a2d3a] bg-[#0a0c0f] px-3 py-2 text-sm text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30 disabled:opacity-50"
             />
-        {showAdvanced && (
-          <div className="mt-3 space-y-3 rounded-xl border border-[#2a2d3a] bg-[#12151f] p-4">
-            <p className="text-xs font-medium text-slate-400">Telegram notifications</p>
-            <div className="space-y-2">
+            <p className="text-xs font-medium text-slate-400 mt-3">Telegram notifications</p>
+            <div className="space-y-2 mt-2">
               <input
                 type="text"
                 value={tgBotToken}

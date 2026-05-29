@@ -22,7 +22,7 @@ interface FreighterAPI {
 
 function getFreighter(): FreighterAPI | null {
   if (typeof window === 'undefined') return null
-  return (window as any).freighter ?? null
+  return (window as Window & { freighter?: FreighterAPI }).freighter ?? null
 }
 
 export function isFreighterInstalled(): boolean {

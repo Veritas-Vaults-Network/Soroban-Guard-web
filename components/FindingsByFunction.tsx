@@ -6,7 +6,8 @@ import { groupByFunction } from '@/lib/groupFindings'
 import SeverityBadge from './SeverityBadge'
 import FindingsTable from './FindingsTable'
 
-const SEVERITY_ORDER: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3, Info: 4 }
+const SEVERITY_ORDER: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3, Info: 4,
+}
 
 function highestSeverity(findings: Finding[]): Severity {
   return findings.reduce<Severity>(

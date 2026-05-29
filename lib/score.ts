@@ -18,6 +18,7 @@ export function calculateScore(findings: Finding[]): number {
     High: 15,
     Medium: 7,
     Low: 2,
+    Info: 0,
   }
   
   let penalty = 0

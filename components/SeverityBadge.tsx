@@ -23,9 +23,11 @@ const dots: Record<Severity, string> = {
 }
 
 const icons: Record<Severity, string> = {
+  Critical: '!!!',
   High: '!!',
   Medium: '!',
   Low: 'ⓘ',
+  Info: 'ℹ',
 }
 
 export default function SeverityBadge({ severity, size = 'md', includeIcon = true }: Props) {

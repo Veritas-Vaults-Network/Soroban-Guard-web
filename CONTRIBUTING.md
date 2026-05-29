@@ -1,23 +1,33 @@
 # Contributing to Soroban Guard Web
 
+This repo is the frontend dashboard for Soroban Guard — a smart contract security scanner for Soroban contracts on Stellar.
+
 ## Prerequisites
 
-- Node.js 18+
+- Node.js 18 or newer
 - npm
-- [Freighter](https://freighter.app) browser extension (for wallet features)
+- [Freighter](https://freighter.app) browser extension (recommended for wallet features)
+- A code editor such as VS Code
 
-## Local Setup
+## Local setup
 
 ```bash
 git clone https://github.com/Veritas-Vaults-Network/Soroban-Guard-web.git
 cd Soroban-Guard-web
 npm install
+```
+
+Create an environment file for local API access:
+
+```bash
 echo "NEXT_PUBLIC_API_URL=http://localhost:3001" > .env.local
 ```
 
-`NEXT_PUBLIC_API_URL` should point to a running instance of [soroban-guard-core](https://github.com/Veritas-Vaults-Network/Soroban-Guard-Core).
+`NEXT_PUBLIC_API_URL` should point to a running `soroban-guard-core` instance.
 
-## Running the Dev Server
+## Running the app
+
+Start the local development server:
 
 ```bash
 npm run dev
@@ -25,30 +35,38 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-## Project Structure
+## Project structure
 
-```
-app/          # Next.js App Router pages and layouts
-components/   # Reusable UI components
-lib/          # API client, Stellar/Soroban helpers, wallet integration
-types/        # Shared TypeScript types
-```
+- `app/` — Next.js App Router pages, layouts, and routes
+- `components/` — reusable UI components
+- `lib/` — client-side helpers, API wrappers, wallet integration, and utilities
+- `types/` — shared TypeScript definitions
 
-## Linting
+## Linting and type checking
+
+Run the linter:
 
 ```bash
 npm run lint
 ```
 
-Fix any reported issues before opening a PR.
+Run TypeScript type checking:
 
-## PR Checklist
+```bash
+npx tsc --noEmit
+```
 
-- [ ] `npm run lint` passes with no errors
-- [ ] `npx tsc --noEmit` passes with no TypeScript errors
-- [ ] Include a screenshot for any UI changes
+## PR checklist
 
-## Sister Repos
+Before creating a pull request, make sure to:
+
+- [ ] Run `npm run lint` and fix any issues
+- [ ] Run `npx tsc --noEmit` and fix any TypeScript errors
+- [ ] Add or update tests for any behavior changes
+- [ ] Include a screenshot or recording for UI updates
+- [ ] Keep your PR focused and document any non-obvious changes
+
+## Sister repos
 
 - [soroban-guard-core](https://github.com/Veritas-Vaults-Network/Soroban-Guard-Core) — Rust/Axum analysis engine
-- [soroban-guard-contracts](https://github.com/Veritas-Vaults-Network/soroban-guard-contracts) — Example contracts for testing
+- [soroban-guard-contracts](https://github.com/Veritas-Vaults-Network/soroban-guard-contracts) — Example Soroban contracts for testing

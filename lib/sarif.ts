@@ -5,6 +5,7 @@ const LEVEL_MAP: Record<Severity, 'error' | 'warning' | 'note'> = {
   High: 'error',
   Medium: 'warning',
   Low: 'note',
+  Info: 'note',
 }
 
 export function exportSarif(findings: Finding[]): string {

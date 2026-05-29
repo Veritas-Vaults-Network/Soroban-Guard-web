@@ -5,6 +5,7 @@ const SEVERITY_ORDER: Record<Severity, number> = {
   High: 1,
   Medium: 2,
   Low: 3,
+  Info: 4,
 }
 
 function countBySeverity(findings: Finding[]): Record<Severity, number> {
@@ -13,7 +14,8 @@ function countBySeverity(findings: Finding[]): Record<Severity, number> {
       counts[finding.severity] += 1
       return counts
     },
-    { Critical: 0, High: 0, Medium: 0, Low: 0 },
+    { Critical: 0, High: 0, Medium: 0, Low: 0, Info: 0,
+},
   )
 }
 

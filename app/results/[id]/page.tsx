@@ -26,7 +26,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const findings = await getFindings(params.id)
   if (!findings) return { title: 'Soroban Guard — Results Not Found' }
 
-  const counts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0 }
+  const counts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0, Info: 0,
+}
   for (const f of findings) counts[f.severity]++
 
   const description = `${findings.length} finding${findings.length !== 1 ? 's' : ''} — Critical: ${counts.Critical}, High: ${counts.High}, Medium: ${counts.Medium}, Low: ${counts.Low}`
@@ -52,11 +53,13 @@ export default async function PermalinkPage({ params }: Props) {
   if (!findings) notFound()
 
   const list = findings as Finding[]
-  const counts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0 }
+  const counts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0, Info: 0,
+}
   for (const f of list) counts[f.severity]++
 
   const sorted = [...list].sort((a, b) => {
-    const order: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 }
+    const order: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3, Info: 4,
+}
     return order[a.severity] - order[b.severity]
   })
 

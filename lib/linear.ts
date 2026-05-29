@@ -17,6 +17,7 @@ const PRIORITY_BY_SEVERITY: Record<Severity, number> = {
   High: 1,
   Medium: 3,
   Low: 4,
+  Info: 4,
 }
 
 function findingDescription(finding: Finding): string {

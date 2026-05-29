@@ -19,6 +19,7 @@ import FindingsWordCloud from '@/components/FindingsWordCloud'
 import EmptyState from '@/components/EmptyState'
 import SeverityBadge from '@/components/SeverityBadge'
 import SeverityDonut from '@/components/SeverityDonut'
+import FindingsSkeleton from '@/components/FindingsSkeleton'
 import ThemeToggle from '@/components/ThemeToggle'
 import GithubExportModal from '@/components/GithubExportModal'
 import JiraExportModal from '@/components/JiraExportModal'
@@ -94,6 +95,7 @@ export default function ResultsClient() {
 
   function handleScanAnother() {
     sessionStorage.removeItem('sg_findings')
+    sessionStorage.removeItem('sg_scan_duration')
     router.push('/')
   }
 
@@ -375,7 +377,7 @@ export default function ResultsClient() {
 
           <div className="flex gap-6">
             <div className="flex-1">
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
                 <SummaryCard
                   label="Critical"
                   value={counts.Critical}
@@ -404,6 +406,15 @@ export default function ResultsClient() {
                   bg="bg-sky-500/5"
                   border="border-sky-500/20"
                 />
+                {duration && (
+                  <SummaryCard
+                    label="Scan Time"
+                    value={duration}
+                    color="text-indigo-400"
+                    bg="bg-indigo-500/5"
+                    border="border-indigo-500/20"
+                  />
+                )}
               </div>
             </div>
             {findings.length > 0 && (
@@ -523,9 +534,11 @@ export default function ResultsClient() {
                 ) : (
                   <FindingsTable
                     findings={[...filteredFindings].sort((a, b) => {
-                      const order: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 }
+                      const order: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3, Info: 4,
+}
                       return order[a.severity] - order[b.severity]
                     })}
+                    searchQuery={searchQuery}
                   />
                 )}
               </>
@@ -571,7 +584,7 @@ function SummaryCard({
   border,
 }: {
   label: string
-  value: number
+  value: number | string
   color: string
   bg: string
   border?: string
