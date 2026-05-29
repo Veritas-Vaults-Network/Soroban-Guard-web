@@ -44,7 +44,7 @@ test.describe('Soroban Guard E2E Smoke Tests', () => {
     await page.addInitScript(() => {
       const originalFetch = window.fetch
       window.fetch = async (input, init) => {
-        const url = typeof input === 'string' ? input : input.url
+        const url = typeof input === 'string' ? input : (input as Request).url
         if (url.includes('/scan') && init?.method === 'POST') {
           return new Response(JSON.stringify({ findings: mockFindings }), {
             status: 200,
@@ -83,7 +83,7 @@ test.describe('Soroban Guard E2E Smoke Tests', () => {
     await page.addInitScript(() => {
       const originalFetch = window.fetch
       window.fetch = async (input, init) => {
-        const url = typeof input === 'string' ? input : input.url
+        const url = typeof input === 'string' ? input : (input as Request).url
         if (url.includes('/scan') && init?.method === 'POST') {
           return new Response(JSON.stringify({ findings: mockFindings }), {
             status: 200,
@@ -118,7 +118,7 @@ test.describe('Soroban Guard E2E Smoke Tests', () => {
     await page.addInitScript(() => {
       const originalFetch = window.fetch
       window.fetch = async (input, init) => {
-        const url = typeof input === 'string' ? input : input.url
+        const url = typeof input === 'string' ? input : (input as Request).url
         if (url.includes('/scan') && init?.method === 'POST') {
           return new Response(JSON.stringify({ findings: mockFindings }), {
             status: 200,
@@ -150,7 +150,7 @@ test.describe('Soroban Guard E2E Smoke Tests', () => {
     await page.addInitScript(() => {
       const originalFetch = window.fetch
       window.fetch = async (input, init) => {
-        const url = typeof input === 'string' ? input : input.url
+        const url = typeof input === 'string' ? input : (input as Request).url
         if (url.includes('/scan') && init?.method === 'POST') {
           return new Response(JSON.stringify({ findings: mockFindings }), {
             status: 200,

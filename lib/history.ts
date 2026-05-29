@@ -2,6 +2,26 @@ import type { ContractScanRecord } from '@/types/stellar'
 
 const STORAGE_KEY = 'sg_scan_history'
 
+export function getAllScanHistory(): ContractScanRecord[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return []
+    return JSON.parse(raw) as ContractScanRecord[]
+  } catch {
+    return []
+  }
+}
+
+export function clearScanHistory(): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // Silently fail
+  }
+}
+
 export function getScanHistory(publicKey: string): ContractScanRecord[] {
   if (typeof window === 'undefined') return []
   try {
@@ -14,11 +34,24 @@ export function getScanHistory(publicKey: string): ContractScanRecord[] {
   }
 }
 
+export function getById(id: string): ContractScanRecord | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    const records = JSON.parse(raw) as ContractScanRecord[]
+    return records.find(r => r.id === id) || null
+  } catch {
+    return null
+  }
+}
+
 export function addScanRecord(
   publicKey: string,
   contractId: string,
   network: string,
-  findings: Array<{ severity: string }>
+  findings: Array<{ severity: string; check_name: string; description: string; function_name: string; file_path: string; line: number }>,
+  score?: number
 ): void {
   if (typeof window === 'undefined') return
   try {
@@ -33,6 +66,7 @@ export function addScanRecord(
     }
 
     const record: ContractScanRecord = {
+      id: Date.now().toString(),
       publicKey,
       contractId,
       network,
@@ -41,6 +75,8 @@ export function addScanRecord(
       highCount: counts.high,
       mediumCount: counts.medium,
       lowCount: counts.low,
+      findings,
+      score,
     }
 
     records.unshift(record)
