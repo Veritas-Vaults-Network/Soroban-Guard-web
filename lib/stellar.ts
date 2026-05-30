@@ -15,10 +15,20 @@ import type { ContractInfo, StellarNetwork } from '@/types/stellar'
 const G_ADDRESS_RE = /^G[A-Z2-7]{55}$/
 const C_ADDRESS_RE = /^C[A-Z2-7]{55}$/
 
+/**
+ * Check whether a string is a valid Stellar public key (G-address).
+ * @param key - String to validate
+ * @returns True if the key matches the G-address format
+ */
 export function isValidPublicKey(key: string): boolean {
   return G_ADDRESS_RE.test(key)
 }
 
+/**
+ * Check whether a string is a valid Soroban contract ID (C-address).
+ * @param id - String to validate
+ * @returns True if the id matches the C-address format
+ */
 export function isValidContractId(id: string): boolean {
   return C_ADDRESS_RE.test(id)
 }
@@ -137,6 +147,11 @@ export async function fetchContractCode(
 
 // ── Network health ────────────────────────────────────────────────────────────
 
+/**
+ * Check whether the Horizon API for a given network is reachable.
+ * @param network - The Stellar network to check
+ * @returns True if the network responded within 5 seconds
+ */
 export async function checkNetworkHealth(network: StellarNetwork): Promise<boolean> {
   try {
     const res = await fetch(`${network.horizonUrl}/`, {

@@ -3,11 +3,14 @@
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import ScanInput from '@/components/ScanInput'
+import ErrorBoundary from '@/components/ErrorBoundary'
 import WalletConnect from '@/components/WalletConnect'
 import NetworkBadge from '@/components/NetworkBadge'
 import NetworkHealthBanner from '@/components/NetworkHealthBanner'
 import ThemeToggle from '@/components/ThemeToggle'
+import ScanQuotaIndicator from '@/components/ScanQuota'
 import { scanContract } from '@/lib/api'
+import type { ScanQuota } from '@/lib/api'
 import { checkNetworkHealth } from '@/lib/stellar'
 import { getScanHistory } from '@/lib/history'
 import { encodeFindings } from '@/lib/share'
@@ -20,12 +23,12 @@ export default function HomePage() {
   const { publicKey: walletKey, network: walletNetwork } = useWallet()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isTimeout, setIsTimeout] = useState(false)
+  const [lastSource, setLastSource] = useState('')
   const [networkHealthy, setNetworkHealthy] = useState(true)
   const [statusMessage, setStatusMessage] = useState('')
   const [scanHistory, setScanHistory] = useState<ContractScanRecord[]>([])
-  const [contracts, setContracts] = useState<string[]>([])
-  const [contractsLoading, setContractsLoading] = useState(false)
-  const [contractsError, setContractsError] = useState<string | null>(null)
+  const [quota, setQuota] = useState<ScanQuota | null>(null)
 
   useEffect(() => {
     if (!walletKey) return
@@ -51,19 +54,26 @@ export default function HomePage() {
   }, [walletKey, walletNetwork])
 
   async function handleScan(source: string) {
+    setLastSource(source)
     setLoading(true)
     setError(null)
+    setIsTimeout(false)
     setStatusMessage('Scanning your contract…')
     try {
       const data = await scanContract(source)
       setStatusMessage(`Scan complete. ${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} detected.`)
+      if (data.quota) setQuota(data.quota)
       // Store results in sessionStorage so the results page can read them
       sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
       const encoded = encodeFindings(data.findings)
       router.push(`/results?r=${encoded}`)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unexpected error'
-      setError(msg)
+      if (err instanceof TimeoutError) {
+        setIsTimeout(true)
+        setError(err.message)
+      } else {
+        setError(err instanceof Error ? err.message : 'Unexpected error')
+      }
       setStatusMessage('')
     } finally {
       setLoading(false)
@@ -84,12 +94,6 @@ export default function HomePage() {
       setLoading(false)
     }
   }
-
-  return (
-    <div className="flex min-h-screen flex-col">
-      {/* Aria-live region for screen readers */}
-      <div
-        aria-live="polite"
         aria-atomic="true"
         className="sr-only"
       >
@@ -101,6 +105,7 @@ export default function HomePage() {
         <NetworkHealthBanner
           network={walletNetwork.name}
           onDismiss={() => setNetworkHealthy(true)}
+          checkHealth={() => checkNetworkHealth(walletNetwork)}
         />
       )}
 
@@ -119,12 +124,13 @@ export default function HomePage() {
               Veritas Vaults Network
             </a>
             <ThemeToggle />
+            {quota && <ScanQuotaIndicator quota={quota} />}
             <WalletConnect />
           </div>
         </div>
       </header>
 
-      <main className="flex-1">
+      <main id="main-content" className="flex-1">
         {/* Hero */}
         <section className="mx-auto max-w-3xl px-4 pb-12 pt-20 text-center sm:px-6">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-400">
@@ -189,7 +195,9 @@ export default function HomePage() {
            )}
            {/* Scan card */}
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-6 text-left shadow-2xl">
-            <ScanInput onScan={handleScan} loading={loading} />
+            <ErrorBoundary>
+              <ScanInput onScan={handleScan} loading={loading} />
+            </ErrorBoundary>
 
             {error && (
               <div className="mt-4 flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">

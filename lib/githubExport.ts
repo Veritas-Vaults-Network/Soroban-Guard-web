@@ -21,6 +21,15 @@ async function ensureLabel(owner: string, repo: string, token: string, severity:
   })
 }
 
+/**
+ * Create GitHub issues for each finding in the given repository.
+ * @param findings - Array of scan findings to export
+ * @param owner - GitHub repository owner
+ * @param repo - GitHub repository name
+ * @param token - GitHub personal access token
+ * @param onProgress - Callback invoked after each issue is created
+ * @returns Array of created issue HTML URLs
+ */
 export async function createIssuesForFindings(
   findings: Finding[],
   owner: string,

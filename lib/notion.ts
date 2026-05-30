@@ -2,6 +2,13 @@ import type { Finding } from '@/types/findings'
 
 const NOTION_API = 'https://api.notion.com/v1'
 
+/**
+ * Create a Notion database page containing a findings table.
+ * @param token - Notion integration token
+ * @param databaseId - Target Notion database ID
+ * @param findings - Array of scan findings
+ * @returns URL of the created Notion page
+ */
 export async function createNotionPage(
   token: string,
   databaseId: string,

@@ -14,13 +14,19 @@ export default defineConfig({
 
   projects: [
     {
+      name: 'unit',
+      testDir: './lib',
+      testMatch: '**/*.test.ts',
+      use: {},
+    },
+    {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
   ],
 
   webServer: {
-    command: 'npm run dev',
+    command: process.env.CI ? 'npm run start' : 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
   },
