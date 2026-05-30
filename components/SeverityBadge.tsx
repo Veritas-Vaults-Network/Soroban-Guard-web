@@ -6,6 +6,7 @@ interface Props {
   includeIcon?: boolean
 }
 
+// Badge style definitions for each severity level (supporting Critical above High)
 const styles: Record<Severity, string> = {
   Critical: 'bg-rose-500/15 text-rose-400 border border-rose-500/30',
   High: 'bg-red-500/15 text-red-400 border border-red-500/30',
