@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useWallet } from '@/lib/WalletContext'
 import { SAMPLE_CONTRACT } from '@/lib/sampleContract'
 import { isValidCid, fetchFromIpfs } from '@/lib/ipfs'
 import { isValidNpmPackage, fetchNpmSource } from '@/lib/npm'
 import { requestPermission } from '@/lib/notifications'
-import { extractContractIdFromUrl } from '@/lib/stellar'
+import { extractContractIdFromUrl, fetchContractMetadata } from '@/lib/stellar'
 import { isValidGistUrl, fetchGistFiles, fetchGistFileContent, type GistFile } from '@/lib/gist'
 
 const NOTIF_PREF_KEY = 'sg_notifications_enabled'
@@ -35,7 +36,8 @@ function validateGithub(url: string): { valid: boolean; error?: string } {
 }
 
 export default function ScanInput({ onScan, loading, countdown = 0, initialValue = '', initialMode }: Props) {
-  const [mode, setMode] = useState<InputMode>(() => {
+   const { publicKey: walletKey, network: walletNetwork } = useWallet()
+   const [mode, setMode] = useState<InputMode>(() => {
     if (initialMode) return initialMode
     if (initialValue.startsWith('https://github.com')) return 'github'
     if (initialValue.startsWith('C') && initialValue.length >= 56) return 'contractId'
@@ -84,13 +86,37 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
   const [tgBotToken, setTgBotToken] = useState(() =>
     typeof window !== 'undefined' ? (localStorage.getItem(TG_BOT_TOKEN_KEY) ?? '') : ''
   )
-  const [tgChatId, setTgChatId] = useState(() =>
-    typeof window !== 'undefined' ? (localStorage.getItem(TG_CHAT_ID_KEY) ?? '') : ''
-  )
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const normalizedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+   const [tgChatId, setTgChatId] = useState(() =>
+     typeof window !== 'undefined' ? (localStorage.getItem(TG_CHAT_ID_KEY) ?? '') : ''
+   )
+   const [metadata, setMetadata] = useState<{ wasmHash: string; createdAt: string | null; creator: string | null } | null>(null);
+   const [metadataLoading, setMetadataLoading] = useState(false);
+   const textareaRef = useRef<HTMLTextAreaElement>(null)
+   const normalizedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const contractValid = contractId.length >= 56 && contractId.startsWith('C')
+   // Fetch contract metadata when contractId, wallet, or network changes
+   useEffect(() => {
+     if (!walletKey || !walletNetwork || !contractId || contractId.length < 56 || !contractId.startsWith('C')) {
+       // Reset metadata if conditions are not met
+       setMetadata(null)
+       setMetadataLoading(false)
+       return
+     }
+     setMetadataLoading(true)
+     fetchContractMetadata(contractId, walletNetwork)
+       .then(metadata => {
+         setMetadata(metadata)
+       })
+       .catch(err => {
+         console.error('Failed to fetch contract metadata:', err)
+         setMetadata(null)
+       })
+       .finally(() => {
+         setMetadataLoading(false)
+       })
+   }, [contractId, walletKey, walletNetwork])
+
+   const contractValid = contractId.length >= 56 && contractId.startsWith('C')
   const repoValidation = validateGithub(repoUrl)
   const repoError = repoUrl.length > 0 && !repoValidation.valid ? repoValidation.error : undefined
 
@@ -351,157 +377,59 @@ export default function ScanInput({ onScan, loading, countdown = 0, initialValue
             </p>
           )}
         </div>
-      ) : mode === 'contractId' ? (
-        <div className="space-y-2">
-          <div className="relative">
-            <input
-              type="text"
-              value={contractId}
-              onChange={e => handleContractIdChange(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
-              className="w-full rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 font-mono text-sm text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
-              disabled={loading}
-              spellCheck={false}
-            />
-            {normalized && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded bg-indigo-500/20 px-2 py-0.5 text-xs text-indigo-300 transition-opacity duration-500">
-                Normalized
-              </span>
-            )}
-          </div>
-          {extractedFromUrl && (
-            <p className="text-xs text-emerald-400">✓ Extracted from explorer URL</p>
-          )}
-          <p className="text-xs text-slate-500">
-            Enter a Soroban contract ID (C-address) deployed on Stellar. The scanner
-            will fetch the WASM bytecode via Soroban RPC and analyze it.
-          </p>
-        </div>
-      ) : mode === 'ipfs' ? (
-        <div className="space-y-2">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={cid}
-              onChange={e => handleCidChange(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Qm… or bafy…"
-              className="flex-1 rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 font-mono text-sm text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
-              disabled={loading || ipfsFetching}
-              spellCheck={false}
-            />
-            <button
-              type="button"
-              onClick={handleFetchIpfs}
-              disabled={!cid.trim() || ipfsFetching || loading}
-              className="flex items-center gap-1.5 rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 text-sm text-slate-300 transition hover:border-indigo-500/50 hover:text-indigo-300 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {ipfsFetching ? (
-                <svg className="spinner h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" d="M12 2a10 10 0 0 1 10 10" />
-                </svg>
-              ) : (
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                </svg>
-              )}
-              Fetch
-            </button>
-          </div>
-          {ipfsError && <p className="text-xs text-rose-400">{ipfsError}</p>}
-          {!ipfsError && !ipfsPreview && (
-            <p className="text-xs text-slate-500">
-              Enter a CID (<code className="rounded bg-[#1a1d27] px-1 text-slate-400">Qm…</code> or{' '}
-              <code className="rounded bg-[#1a1d27] px-1 text-slate-400">bafy…</code>) and click Fetch to load the contract source.
-            </p>
-          )}
-          {ipfsPreview !== null && (
-            <div className="space-y-1">
-              <p className="text-xs text-emerald-400">
-                ✓ Fetched {ipfsPreview.length.toLocaleString()} chars — preview below
-              </p>
-              <textarea
-                readOnly
-                value={ipfsPreview}
-                rows={10}
-                className="code-textarea w-full resize-y rounded-xl border border-emerald-500/30 bg-[#12151f] px-4 py-3 text-sm text-slate-400 outline-none"
-                spellCheck={false}
-              />
-            </div>
-          )}
-        </div>
-      ) : (
-        /* Gist URL mode */
-        <div className="space-y-2">
-          <div className="flex gap-2">
-            <input
-              type="url"
-              value={gistUrl}
-              onChange={e => { setGistUrl(e.target.value); setGistError(null); setGistContent(null); setGistFiles([]) }}
-              onKeyDown={handleKeyDown}
-              placeholder="https://gist.github.com/user/abc123"
-              className="flex-1 rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
-              disabled={loading || gistFetching}
-            />
-            <button
-              type="button"
-              onClick={handleFetchGist}
-              disabled={!gistUrl.trim() || gistFetching || loading}
-              className="flex items-center gap-1.5 rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 text-sm text-slate-300 transition hover:border-indigo-500/50 hover:text-indigo-300 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {gistFetching ? (
-                <svg className="spinner h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" d="M12 2a10 10 0 0 1 10 10" />
-                </svg>
-              ) : (
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                </svg>
-              )}
-              Fetch
-            </button>
-          </div>
-          {gistError && <p className="text-xs text-rose-400">{gistError}</p>}
-          {!gistError && gistFiles.length === 0 && (
-            <p className="text-xs text-slate-500">
-              Paste a public Gist URL to fetch and scan its Rust source.
-            </p>
-          )}
-          {/* Multi-file selector */}
-          {gistFiles.length > 1 && (
-            <div className="space-y-1">
-              <label htmlFor="gist-file-select" className="text-xs text-slate-500">Select file:</label>
-              <select
-                id="gist-file-select"
-                value={gistSelectedFile}
-                onChange={e => handleGistFileSelect(e.target.value)}
-                className="w-full rounded-lg border border-[#2a2d3a] bg-[#12151f] px-3 py-2 text-sm text-slate-300 outline-none focus:border-indigo-500/60"
-                disabled={gistFetching}
-              >
-                {gistFiles.map(f => (
-                  <option key={f.filename} value={f.filename}>{f.filename}</option>
-                ))}
-              </select>
-            </div>
-          )}
-          {gistContent !== null && (
-            <div className="space-y-1">
-              <p className="text-xs text-emerald-400">
-                ✓ Fetched {gistContent.length.toLocaleString()} chars — preview below
-              </p>
-              <textarea
-                readOnly
-                value={gistContent}
-                rows={10}
-                className="code-textarea w-full resize-y rounded-xl border border-emerald-500/30 bg-[#12151f] px-4 py-3 text-sm text-slate-400 outline-none"
-                spellCheck={false}
-              />
-            </div>
-          )}
-        </div>
-      )}
-
+       ) : mode === 'contractId' ? (
+         <div className="space-y-2">
+           <div className="relative">
+             <input
+               type="text"
+               value={contractId}
+               onChange={e => handleContractIdChange(e.target.value)}
+               onKeyDown={handleKeyDown}
+               placeholder="CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
+               className="w-full rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 font-mono text-sm text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
+               disabled={loading}
+               spellCheck={false}
+             />
+             {normalized && (
+               <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded bg-indigo-500/20 px-2 py-0.5 text-xs text-indigo-300 transition-opacity duration-500">
+                 Normalized
+               </span>
+             )}
+           </div>
+           {extractedFromUrl && (
+             <p className="text-xs text-emerald-400">✓ Extracted from explorer URL</p>
+           )}
+           <p className="text-xs text-slate-500">
+             Enter a Soroban contract ID (C-address) deployed on Stellar. The scanner
+             will fetch the WASM bytecode via Soroban RPC and analyze it.
+           </p>
+           {/* Contract Metadata */}
+           {metadataLoading ? (
+             <p className="text-xs text-slate-500">Loading metadata...</p>
+           ) : metadata ? (
+             <div className="mt-4 p-4 rounded-lg border border-[#2a2d3a] bg-[#12151f]">
+               <h3 className="mb-2 text-sm font-semibold text-slate-300">Contract Metadata</h3>
+               <div className="space-y-2 text-xs">
+                 <div className="flex">
+                   <span className="w-20 font-mono">WASM Hash:</span>
+                   <span className="break-all text-slate-400">{metadata.wasmHash}</span>
+                 </div>
+                 <div className="flex">
+                   <span className="w-20 font-mono">Created At:</span>
+                   <span className="text-slate-400">
+                     {metadata.createdAt ? new Date(metadata.createdAt).toLocaleString() : 'Unknown'}
+                   </span>
+                 </div>
+                 <div className="flex">
+                   <span className="w-20 font-mono">Creator:</span>
+                   <span className="text-slate-400">
+                     {metadata.creator ?? 'Not available'}
+                   </span>
+                 </div>
+               </div>
+             </div>
+           ) : null}
+         </div>
       {/* Try sample — code mode only */}
       {mode === 'code' && (
         <div className="flex justify-end">
