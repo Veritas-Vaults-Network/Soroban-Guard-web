@@ -3,11 +3,14 @@
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import ScanInput from '@/components/ScanInput'
+import ErrorBoundary from '@/components/ErrorBoundary'
 import WalletConnect from '@/components/WalletConnect'
 import NetworkBadge from '@/components/NetworkBadge'
 import NetworkHealthBanner from '@/components/NetworkHealthBanner'
 import ThemeToggle from '@/components/ThemeToggle'
-import { scanContract, TimeoutError } from '@/lib/api'
+import ScanQuotaIndicator from '@/components/ScanQuota'
+import { scanContract } from '@/lib/api'
+import type { ScanQuota } from '@/lib/api'
 import { checkNetworkHealth } from '@/lib/stellar'
 import { getScanHistory } from '@/lib/history'
 import { encodeFindings } from '@/lib/share'
@@ -25,6 +28,7 @@ export default function HomePage() {
   const [networkHealthy, setNetworkHealthy] = useState(true)
   const [statusMessage, setStatusMessage] = useState('')
   const [scanHistory, setScanHistory] = useState<ContractScanRecord[]>([])
+  const [quota, setQuota] = useState<ScanQuota | null>(null)
 
   useEffect(() => {
     if (!walletKey) return
@@ -43,6 +47,7 @@ export default function HomePage() {
     try {
       const data = await scanContract(source)
       setStatusMessage(`Scan complete. ${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} detected.`)
+      if (data.quota) setQuota(data.quota)
       // Store results in sessionStorage so the results page can read them
       sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
       const encoded = encodeFindings(data.findings)
@@ -74,12 +79,6 @@ export default function HomePage() {
       setLoading(false)
     }
   }
-
-  return (
-    <div className="flex min-h-screen flex-col">
-      {/* Aria-live region for screen readers */}
-      <div
-        aria-live="polite"
         aria-atomic="true"
         className="sr-only"
       >
@@ -91,6 +90,7 @@ export default function HomePage() {
         <NetworkHealthBanner
           network={walletNetwork.name}
           onDismiss={() => setNetworkHealthy(true)}
+          checkHealth={() => checkNetworkHealth(walletNetwork)}
         />
       )}
 
@@ -109,12 +109,13 @@ export default function HomePage() {
               Veritas Vaults Network
             </a>
             <ThemeToggle />
+            {quota && <ScanQuotaIndicator quota={quota} />}
             <WalletConnect />
           </div>
         </div>
       </header>
 
-      <main className="flex-1">
+      <main id="main-content" className="flex-1">
         {/* Hero */}
         <section className="mx-auto max-w-3xl px-4 pb-12 pt-20 text-center sm:px-6">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-400">
@@ -149,13 +150,18 @@ export default function HomePage() {
 
           {/* Scan card */}
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-6 text-left shadow-2xl">
-            <ScanInput
-              onScan={handleScan}
-              loading={loading}
-              error={error}
-              isTimeout={isTimeout}
-              onRetry={isTimeout ? () => handleScan(lastSource) : undefined}
-            />
+            <ErrorBoundary>
+              <ScanInput onScan={handleScan} loading={loading} />
+            </ErrorBoundary>
+
+            {error && (
+              <div className="mt-4 flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+                <svg className="mt-0.5 h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span>{error}</span>
+              </div>
+            )}
           </div>
 
           {/* Recent scans */}

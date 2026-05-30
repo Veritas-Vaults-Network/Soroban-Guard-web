@@ -33,6 +33,13 @@ function findingDescription(finding: Finding): string {
   ].join('\n')
 }
 
+/**
+ * Create a Linear issue for a single finding.
+ * @param apiKey - Linear API key
+ * @param teamId - Target Linear team ID
+ * @param finding - The finding to create an issue for
+ * @returns URL of the created Linear issue
+ */
 export async function createLinearIssue(
   apiKey: string,
   teamId: string,
