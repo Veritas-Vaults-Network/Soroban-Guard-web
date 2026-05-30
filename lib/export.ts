@@ -1,5 +1,11 @@
 import type { Finding } from '@/types/findings'
 
+/**
+ * Generate a Markdown security report string from findings.
+ * @param findings - Array of scan findings
+ * @param metadata - Report metadata including source and scan timestamp
+ * @returns Formatted Markdown string
+ */
 export function exportMarkdown(
   findings: Finding[],
   metadata: { source: string; scannedAt: string },
@@ -46,6 +52,11 @@ export function exportMarkdown(
   return lines.join('\n')
 }
 
+/**
+ * Generate and trigger a browser download of a Markdown report.
+ * @param findings - Array of scan findings
+ * @param metadata - Report metadata including source and scan timestamp
+ */
 export function downloadMarkdown(findings: Finding[], metadata: { source: string; scannedAt: string }) {
   try {
     const content = exportMarkdown(findings, metadata)
@@ -67,6 +78,10 @@ function download(filename: string, data: Blob) {
   URL.revokeObjectURL(url)
 }
 
+/**
+ * Trigger a browser download of findings as a JSON file.
+ * @param findings - Array of scan findings
+ */
 export function exportJson(findings: Finding[]) {
   try {
     const content = findings.length === 0 ? '' : JSON.stringify(findings, null, 2)
@@ -86,6 +101,11 @@ function escapeCsv(value: any) {
   return s
 }
 
+/**
+ * Build a mailto: URI pre-filled with scan results.
+ * @param findings - Array of scan findings
+ * @returns A mailto: URI string
+ */
 export function exportEmail(findings: Finding[]): string {
   const subject = encodeURIComponent('Soroban Guard Scan Results')
   let body: string
@@ -102,6 +122,10 @@ export function exportEmail(findings: Finding[]): string {
   return `mailto:?subject=${subject}&body=${encodeURIComponent(body)}`
 }
 
+/**
+ * Trigger a browser download of findings as a CSV file.
+ * @param findings - Array of scan findings
+ */
 export function exportCsv(findings: Finding[]) {
   try {
     const headers = ['severity', 'check_name', 'function_name', 'file_path', 'line', 'description']
@@ -129,6 +153,10 @@ function escapeXml(text: string): string {
     .replace(/'/g, '&#39;')
 }
 
+/**
+ * Trigger a browser download of findings as an XML file.
+ * @param findings - Array of scan findings
+ */
 export function exportXml(findings: Finding[]) {
   try {
     const timestamp = new Date().toISOString()

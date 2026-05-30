@@ -8,6 +8,11 @@ const LEVEL_MAP: Record<Severity, 'error' | 'warning' | 'note'> = {
   Info: 'note',
 }
 
+/**
+ * Generate a SARIF 2.1.0 JSON string from scan findings.
+ * @param findings - Array of scan findings
+ * @returns SARIF-formatted JSON string
+ */
 export function exportSarif(findings: Finding[]): string {
   const ruleIds = new Set<string>()
   const rules = findings

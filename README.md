@@ -110,6 +110,29 @@ Install [Freighter](https://freighter.app) in your browser to enable wallet feat
 | Variable | Default | Description |
 |---|---|---|
 | `NEXT_PUBLIC_API_URL` | `http://localhost:3001` | Base URL for soroban-guard-core |
+| `API_SECRET_KEY` | *(unset)* | Shared secret for internal API routes (see below) |
+| `KV_REST_API_URL` | *(unset)* | Vercel KV REST endpoint for persistent storage |
+| `KV_REST_API_TOKEN` | *(unset)* | Vercel KV REST auth token |
+
+Copy `.env.example` to `.env.local` and fill in the values.
+
+## Internal API Authentication
+
+`POST/GET /api/results` and `POST/GET /api/webhook` are internal routes used to share scan results across page navigations and deliver webhook payloads.
+
+When `API_SECRET_KEY` is set, every request to these routes must include:
+
+```
+Authorization: Bearer <API_SECRET_KEY>
+```
+
+Requests without a valid token receive `401 Unauthorized`. Leave `API_SECRET_KEY` unset in local development to bypass authentication.
+
+## Persistent Storage (Vercel KV)
+
+By default both routes use an in-memory store that is wiped on every cold start. To survive deployments, connect a [Vercel KV](https://vercel.com/docs/storage/vercel-kv) database and set `KV_REST_API_URL` + `KV_REST_API_TOKEN`. The routes detect these variables at runtime and switch to KV automatically — no code changes needed.
+
+Results are stored with a 30-day TTL; webhook tokens expire after 1 hour.
 
 ## API Contract
 

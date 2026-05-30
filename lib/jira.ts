@@ -5,7 +5,7 @@ interface JiraIssueResponse {
   self?: string
 }
 
-function normalizeBaseUrl(baseUrl: string): string {
+export function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, '')
 }
 
@@ -23,7 +23,7 @@ function findingBody(finding: Finding): string {
   ].join('\n')
 }
 
-function toJiraDoc(text: string) {
+export function toJiraDoc(text: string) {
   return {
     type: 'doc',
     version: 1,
@@ -34,6 +34,15 @@ function toJiraDoc(text: string) {
   }
 }
 
+/**
+ * Create a Jira issue for a single finding.
+ * @param baseUrl - Jira instance base URL (e.g. https://yourorg.atlassian.net)
+ * @param email - Jira account email
+ * @param apiToken - Jira API token
+ * @param projectKey - Target project key (e.g. 'SG')
+ * @param finding - The finding to create an issue for
+ * @returns URL of the created Jira issue
+ */
 export async function createJiraIssue(
   baseUrl: string,
   email: string,

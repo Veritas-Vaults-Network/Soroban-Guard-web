@@ -2,6 +2,13 @@ import type { Finding } from '@/types/findings'
 
 const TELEGRAM_API = 'https://api.telegram.org'
 
+/**
+ * Send scan results as a Telegram message via the Bot API.
+ * @param botToken - Telegram bot token
+ * @param chatId - Target chat ID
+ * @param findings - Array of scan findings
+ * @param source - Contract source identifier shown in the message
+ */
 export async function postToTelegram(
   botToken: string,
   chatId: string,

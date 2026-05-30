@@ -2,6 +2,10 @@ import type { ContractScanRecord } from '@/types/stellar'
 
 const STORAGE_KEY = 'sg_scan_history'
 
+/**
+ * Retrieve all scan history records from localStorage.
+ * @returns Array of all scan records, or empty array on error
+ */
 export function getAllScanHistory(): ContractScanRecord[] {
   if (typeof window === 'undefined') return []
   try {
@@ -13,6 +17,9 @@ export function getAllScanHistory(): ContractScanRecord[] {
   }
 }
 
+/**
+ * Remove all scan history from localStorage.
+ */
 export function clearScanHistory(): void {
   if (typeof window === 'undefined') return
   try {
@@ -22,6 +29,11 @@ export function clearScanHistory(): void {
   }
 }
 
+/**
+ * Retrieve scan history filtered by a specific wallet public key.
+ * @param publicKey - Stellar public key (G-address) to filter by
+ * @returns Array of matching scan records
+ */
 export function getScanHistory(publicKey: string): ContractScanRecord[] {
   if (typeof window === 'undefined') return []
   try {
@@ -34,6 +46,11 @@ export function getScanHistory(publicKey: string): ContractScanRecord[] {
   }
 }
 
+/**
+ * Find a single scan record by its ID.
+ * @param id - Record ID to look up
+ * @returns The matching record, or null if not found
+ */
 export function getById(id: string): ContractScanRecord | null {
   if (typeof window === 'undefined') return null
   try {
@@ -46,6 +63,14 @@ export function getById(id: string): ContractScanRecord | null {
   }
 }
 
+/**
+ * Persist a new scan record to localStorage (capped at 50 entries).
+ * @param publicKey - Wallet public key that initiated the scan
+ * @param contractId - Scanned contract ID
+ * @param network - Network name (e.g. 'testnet')
+ * @param findings - Array of findings from the scan
+ * @param score - Optional security score (0-100)
+ */
 export function addScanRecord(
   publicKey: string,
   contractId: string,
