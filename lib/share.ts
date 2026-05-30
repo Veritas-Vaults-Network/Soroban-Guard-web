@@ -6,11 +6,16 @@ export function encodeFindings(findings: Finding[]): string {
 }
 
 export function decodeFindings(param: string): Finding[] {
+  return decodeFindingsParam(param) ?? []
+}
+
+export function decodeFindingsParam(param: string): Finding[] | null {
   try {
     const json = atob(decodeURIComponent(param))
-    return JSON.parse(json) as Finding[]
+    const parsed = JSON.parse(json)
+    return Array.isArray(parsed) ? (parsed as Finding[]) : null
   } catch {
-    return []
+    return null
   }
 }
 
