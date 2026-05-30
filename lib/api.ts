@@ -23,6 +23,13 @@ export class ApiError extends Error {
   }
 }
 
+export class TimeoutError extends Error {
+  constructor() {
+    super('The scan timed out after 30 seconds. Please try again.')
+    this.name = 'TimeoutError'
+  }
+}
+
 export interface ScanResult extends ScanResponse {
   quota?: ScanQuota
 }
@@ -36,13 +43,19 @@ export async function scanContract(source: string, network?: StellarNetwork): Pr
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 30000)
 
-  const res = await fetch(`${API_BASE}/scan`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-    signal: controller.signal,
-  })
-
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE}/scan`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+  } catch (err) {
+    clearTimeout(timeoutId)
+    if (err instanceof Error && err.name === 'AbortError') throw new TimeoutError()
+    throw err
+  }
   clearTimeout(timeoutId)
 
   if (!res.ok) {

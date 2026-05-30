@@ -7,7 +7,7 @@ import WalletConnect from '@/components/WalletConnect'
 import NetworkBadge from '@/components/NetworkBadge'
 import NetworkHealthBanner from '@/components/NetworkHealthBanner'
 import ThemeToggle from '@/components/ThemeToggle'
-import { scanContract } from '@/lib/api'
+import { scanContract, TimeoutError } from '@/lib/api'
 import { checkNetworkHealth } from '@/lib/stellar'
 import { getScanHistory } from '@/lib/history'
 import { encodeFindings } from '@/lib/share'
@@ -20,6 +20,8 @@ export default function HomePage() {
   const { publicKey: walletKey, network: walletNetwork } = useWallet()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isTimeout, setIsTimeout] = useState(false)
+  const [lastSource, setLastSource] = useState('')
   const [networkHealthy, setNetworkHealthy] = useState(true)
   const [statusMessage, setStatusMessage] = useState('')
   const [scanHistory, setScanHistory] = useState<ContractScanRecord[]>([])
@@ -33,8 +35,10 @@ export default function HomePage() {
   }, [walletKey, walletNetwork])
 
   async function handleScan(source: string) {
+    setLastSource(source)
     setLoading(true)
     setError(null)
+    setIsTimeout(false)
     setStatusMessage('Scanning your contract…')
     try {
       const data = await scanContract(source)
@@ -44,8 +48,12 @@ export default function HomePage() {
       const encoded = encodeFindings(data.findings)
       router.push(`/results?r=${encoded}`)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unexpected error'
-      setError(msg)
+      if (err instanceof TimeoutError) {
+        setIsTimeout(true)
+        setError(err.message)
+      } else {
+        setError(err instanceof Error ? err.message : 'Unexpected error')
+      }
       setStatusMessage('')
     } finally {
       setLoading(false)
@@ -141,16 +149,13 @@ export default function HomePage() {
 
           {/* Scan card */}
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-6 text-left shadow-2xl">
-            <ScanInput onScan={handleScan} loading={loading} />
-
-            {error && (
-              <div className="mt-4 flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-                <svg className="mt-0.5 h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                <span>{error}</span>
-              </div>
-            )}
+            <ScanInput
+              onScan={handleScan}
+              loading={loading}
+              error={error}
+              isTimeout={isTimeout}
+              onRetry={isTimeout ? () => handleScan(lastSource) : undefined}
+            />
           </div>
 
           {/* Recent scans */}
