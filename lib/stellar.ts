@@ -190,6 +190,40 @@ export async function fetchContractsByAccount(
   }
 }
 
+// ── Contract transaction history ─────────────────────────────────────────────
+
+export interface ContractTransaction {
+  id: string
+  hash: string
+  created_at: string
+  operation_count: number
+  fee_charged: string
+}
+
+/**
+ * Fetch the 10 most recent transactions for a contract from Horizon.
+ * Uses the /accounts/:contract_id/transactions endpoint.
+ * Returns an empty array if the contract has no transactions or on error.
+ */
+export async function fetchContractTransactions(
+  contractId: string,
+  network: StellarNetwork,
+): Promise<ContractTransaction[]> {
+  if (!isValidContractId(contractId)) return []
+
+  try {
+    const url = `${network.horizonUrl}/accounts/${contractId}/transactions?limit=10&order=desc`
+    const res = await fetch(url, { headers: { Accept: 'application/json' } })
+    if (!res.ok) return []
+    const data = (await res.json()) as {
+      _embedded?: { records?: ContractTransaction[] }
+    }
+    return data._embedded?.records ?? []
+  } catch {
+    return []
+  }
+}
+
 /**
  * Fetch contract metadata including WASM hash, creation date, and creator.
  * Note: Creator is not available via current APIs and will return null.
