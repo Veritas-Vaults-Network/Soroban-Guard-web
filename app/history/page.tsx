@@ -113,12 +113,26 @@ export default function HistoryPage() {
             Analytics
           </a>
           {entries.length > 0 && (
-            <button
-              onClick={() => setShowConfirm(true)}
-              className="rounded-lg border border-red-500/30 px-4 py-2 text-sm text-red-400 transition hover:bg-red-500/10"
-            >
-              Clear history
-            </button>
+            <>
+              <button
+                onClick={exportHistoryCsv}
+                className="rounded-lg border border-[#2a2d3a] px-4 py-2 text-sm text-slate-400 transition hover:text-white"
+              >
+                Export CSV
+              </button>
+              <button
+                onClick={exportHistoryJson}
+                className="rounded-lg border border-[#2a2d3a] px-4 py-2 text-sm text-slate-400 transition hover:text-white"
+              >
+                Export JSON
+              </button>
+              <button
+                onClick={() => setShowConfirm(true)}
+                className="rounded-lg border border-red-500/30 px-4 py-2 text-sm text-red-400 transition hover:bg-red-500/10"
+              >
+                Clear history
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -196,7 +210,6 @@ export default function HistoryPage() {
                   {e.findings.length} finding
                   {e.findings.length !== 1 ? "s" : ""}
                 </p>
-                {/* Schedule rescan toggle */}
                 <div className="mt-3 flex items-center gap-2">
                   <svg
                     className="h-3.5 w-3.5 text-slate-500"

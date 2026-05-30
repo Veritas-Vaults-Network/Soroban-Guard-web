@@ -8,6 +8,7 @@ import FindingsTable from '@/components/FindingsTable'
 import EmptyState from '@/components/EmptyState'
 import SeverityBadge from '@/components/SeverityBadge'
 import ThemeToggle from '@/components/ThemeToggle'
+import ErrorBoundary from '@/components/ErrorBoundary'
 
 export default function ResultsPage() {
   const router = useRouter()
@@ -68,12 +69,12 @@ export default function ResultsPage() {
 
   const counts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0, Info: 0,
 }
-  for (const f of findings) counts[f.severity]++
 
   const canCopy = typeof navigator !== 'undefined' && navigator.clipboard
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <ErrorBoundary>
+      <div className="flex min-h-screen flex-col">
       {/* Nav */}
       <header className="border-b border-[var(--border)] bg-[var(--bg)]/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
@@ -191,7 +192,8 @@ export default function ResultsPage() {
       <footer className="border-t border-[var(--border)] py-6 text-center text-xs text-slate-600">
         Soroban Guard · Veritas Vaults Network
       </footer>
-    </div>
+      </div>
+    </ErrorBoundary>
   )
 }
 

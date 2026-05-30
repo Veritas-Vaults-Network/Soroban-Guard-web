@@ -1,7 +1,10 @@
 'use client'
 
-import { useEffect, useState, type KeyboardEvent } from 'react'
+import { useEffect, useState } from 'react'
+
 import type { Finding, Severity } from '@/types/findings'
+import type { PageSize } from '@/lib/preferences'
+import { getPageSize, setPageSize, getNumericPageSize } from '@/lib/preferences'
 import BottomSheet from './BottomSheet'
 import SeverityBadge from './SeverityBadge'
 import FindingCard from './FindingCard'
@@ -42,9 +45,27 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize = 2
 
   useEffect(() => {
     if (forceExpandedIndex !== undefined) {
-      setExpandedIndex(forceExpandedIndex)
+      setExpandedIndex(forceExpandedIndex ?? null)
     }
   }, [forceExpandedIndex])
+
+  // Handle URL hash: #finding-{index} — scroll to and expand on load
+  useEffect(() => {
+    if (didScrollToHash.current) return
+    const hash = window.location.hash
+    const match = hash.match(/^#finding-(\d+)$/)
+    if (!match) return
+    const idx = parseInt(match[1], 10)
+    if (isNaN(idx)) return
+    didScrollToHash.current = true
+    const targetPage = Math.floor(idx / pageSize)
+    setCurrentPage(targetPage)
+    setExpandedIndex(idx)
+    setTimeout(() => {
+      const el = document.querySelector(`[data-finding-index="${idx}"]`)
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 100)
+  }, [pageSize])
 
   useEffect(() => {
     const printQuery = window.matchMedia('print')
@@ -110,7 +131,13 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize = 2
       setExpandedIndex(null)
       return
     }
-    setExpandedIndex(prev => (prev === globalIndex ? null : globalIndex))
+    const next = expandedIndex === globalIndex ? null : globalIndex
+    setExpandedIndex(next)
+    if (next !== null) {
+      history.replaceState(null, '', `#finding-${next}`)
+    } else {
+      history.replaceState(null, '', window.location.pathname + window.location.search)
+    }
   }
 
   function handleKeyDown(e: KeyboardEvent, globalIndex: number) {
@@ -147,6 +174,7 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize = 2
   }
 
   return (
+
     <div>
       {/* Severity filter chips */}
       {findings.length > 0 && (
@@ -296,9 +324,7 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize = 2
 function ChevronIcon({ expanded }: { expanded: boolean }) {
   return (
     <svg
-      className={`h-4 w-4 flex-shrink-0 text-slate-500 transition-transform duration-200 ${
-        expanded ? 'rotate-180' : ''
-      }`}
+      className={`h-4 w-4 flex-shrink-0 text-slate-500 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"

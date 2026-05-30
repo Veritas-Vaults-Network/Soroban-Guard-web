@@ -7,6 +7,11 @@ export interface GistFile {
   content?: string
 }
 
+/**
+ * Validate a GitHub Gist URL.
+ * @param url - URL to validate
+ * @returns True if the URL matches the expected Gist format
+ */
 export function isValidGistUrl(url: string): boolean {
   return GIST_URL_RE.test(url.trim())
 }
