@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { getAllScanHistory } from '@/lib/history'
-import { computeAnalytics, checkTrend, allCheckNames, type Analytics } from '@/lib/analytics'
+import { computeAnalytics, checkTrend, allCheckNames, scoreTrend, type Analytics } from '@/lib/analytics'
 import type { ContractScanRecord } from '@/types/stellar'
 import ThemeToggle from '@/components/ThemeToggle'
 import CheckTrendChart from '@/components/CheckTrendChart'
@@ -33,6 +33,9 @@ export default function AnalyticsPage() {
   }
 
   const isEmpty = records.length < MIN_RECORDS
+
+  // Compute security score trend data (average findings per scan per day)
+  const scoreTrendData = scoreTrend(records)
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -79,6 +82,16 @@ export default function AnalyticsPage() {
               <StatCard label="Total medium" value={analytics.totalFindings.medium} color="text-amber-400" />
             </div>
 
+            {/* Security score trend chart */}
+            <div className="mb-6 rounded-xl border border-[var(--border)] bg-[#12151f] p-6">
+              <h2 className="mb-4 text-sm font-semibold text-slate-300">Security score trend over time</h2>
+              {scoreTrendData.length < 2 ? (
+                <p className="text-sm text-slate-500">Not enough data points to show a trend.</p>
+              ) : (
+                <CheckTrendChart data={scoreTrendData} checkName="Security Score" />
+              )}
+            </div>
+
             {/* Top checks bar chart */}
             <div className="rounded-xl border border-[var(--border)] bg-[#12151f] p-6">
               <h2 className="mb-5 text-sm font-semibold text-slate-300">Top 5 most frequent checks</h2>
@@ -115,6 +128,16 @@ export default function AnalyticsPage() {
                   )}
                 </div>
               )
+            })()}
+          </>
+        )}
+      </main>
+
+      <footer className="border-t border-[var(--border)] py-6 text-center text-xs text-slate-600">
+        Soroban Guard · Veritas Vaults Network
+      </footer>
+    </div>
+  )
             })()}
           </>
         )}
