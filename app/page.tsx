@@ -8,10 +8,11 @@ import NetworkBadge from '@/components/NetworkBadge'
 import NetworkHealthBanner from '@/components/NetworkHealthBanner'
 import ThemeToggle from '@/components/ThemeToggle'
 import { scanContract } from '@/lib/api'
-import { checkNetworkHealth } from '@/lib/stellar'
+import { checkNetworkHealth, fetchContractsByAccount } from '@/lib/stellar'
 import { getScanHistory } from '@/lib/history'
 import { encodeFindings } from '@/lib/share'
 import { useWallet } from '@/lib/WalletContext'
+import { FEATURED_CONTRACTS } from '@/lib/featuredContracts'
 import type { ContractScanRecord } from '@/types/stellar'
 import { NETWORKS } from '@/types/stellar'
 
@@ -246,11 +247,45 @@ export default function HomePage() {
                   </button>
                 ))}
               </div>
-            </div>
-          )}
-        </section>
+             </div>
+           )}
+         </section>
 
-        {/* How it works */}
+         {/* Featured contracts */}
+         <section className="mt-8">
+           <div className="mx-auto max-w-5xl px-4 sm:px-6">
+             <h2 className="mb-6 text-center text-xl font-semibold text-white">Featured Contracts</h2>
+             <p className="mb-8 text-center text-slate-400 max-w-2xl">
+               Explore these example Soroban contracts to see how Soroban Guard works.
+             </p>
+             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+               {FEATURED_CONTRACTS.map((contract, idx) => (
+                 <div key={idx} className="group">
+                   <button
+                     onClick={() => handleScan(contract.contractId)}
+                     className="w-full flex flex-col items-center p-6 rounded-xl border border-[var(--border)] bg-[#12151f] transition-all hover:border-indigo-500/40 hover:bg-[#1a1d27]"
+                   >
+                     <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400">
+                       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+                       </svg>
+                     </div>
+                     <h3 className="mb-2 text-lg font-semibold text-white">{contract.name}</h3>
+                     <p className="mb-4 flex-1 text-slate-400 text-center">{contract.description}</p>
+                     <div className="w-full">
+                       <NetworkBadge network={NETWORKS.testnet} />
+                       <span className="ml-2 font-mono text-xs text-slate-500">
+                         {contract.contractId.slice(0, 8)}...{contract.contractId.slice(-8)}
+                       </span>
+                     </div>
+                   </button>
+                 </div>
+               ))}
+             </div>
+           </div>
+         </section>
+
+         {/* How it works */}
         <section className="border-t border-[var(--border)] bg-[var(--bg-tertiary)] py-16">
           <div className="mx-auto max-w-5xl px-4 sm:px-6">
             <h2 className="mb-10 text-center text-2xl font-bold text-white">
