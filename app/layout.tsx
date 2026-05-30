@@ -46,7 +46,9 @@ export default function RootLayout({
         <ErrorBoundary>
           <WalletProvider>
             <ToastProvider>
-              {children}
+              <main id="main-content" tabIndex={-1}>
+                {children}
+              </main>
               <ToastContainer />
             </ToastProvider>
           </WalletProvider>

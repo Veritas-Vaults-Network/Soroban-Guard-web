@@ -7,6 +7,11 @@ export interface Analytics {
   totalFindings: { high: number; medium: number; low: number }
 }
 
+/**
+ * Compute aggregate analytics from an array of scan records.
+ * @param records - Array of contract scan records
+ * @returns Aggregated analytics including totals, average score, and top checks
+ */
 export function computeAnalytics(records: ContractScanRecord[]): Analytics {
   const totalScans = records.length
 
@@ -37,6 +42,12 @@ export function computeAnalytics(records: ContractScanRecord[]): Analytics {
   return { totalScans, avgScore, topChecks, totalFindings: totals }
 }
 
+/**
+ * Build a daily time-series of how often a specific check fired.
+ * @param records - Array of contract scan records
+ * @param checkName - The check name to track
+ * @returns Array of { date, count } sorted chronologically
+ */
 export function checkTrend(
   records: ContractScanRecord[],
   checkName: string,
@@ -58,6 +69,11 @@ export function checkTrend(
     .map(([date, count]) => ({ date, count }))
 }
 
+/**
+ * Collect all unique check names across all scan records.
+ * @param records - Array of contract scan records
+ * @returns Sorted array of unique check names
+ */
 export function allCheckNames(records: ContractScanRecord[]): string[] {
   const names = new Set<string>()
   for (const record of records) {

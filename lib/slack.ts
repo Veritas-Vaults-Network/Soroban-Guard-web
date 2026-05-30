@@ -8,7 +8,7 @@ const SEVERITY_ORDER: Record<Severity, number> = {
   Info: 4,
 }
 
-function countBySeverity(findings: Finding[]): Record<Severity, number> {
+export function countBySeverity(findings: Finding[]): Record<Severity, number> {
   return findings.reduce<Record<Severity, number>>(
     (counts, finding) => {
       counts[finding.severity] += 1
@@ -24,6 +24,12 @@ function getResultsUrl(): string | null {
   return window.sessionStorage.getItem('sg_results_url') ?? window.location.href
 }
 
+/**
+ * Post scan results as a structured message to a Slack webhook.
+ * @param webhookUrl - Slack incoming webhook URL
+ * @param findings - Array of scan findings
+ * @param source - Contract source identifier shown in the message
+ */
 export async function postToSlack(
   webhookUrl: string,
   findings: Finding[],

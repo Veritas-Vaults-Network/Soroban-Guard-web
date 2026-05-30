@@ -2,6 +2,11 @@ const NPM_PACKAGE_SEGMENT_RE = /^[a-z0-9][a-z0-9._-]*$/
 const NPM_PACKAGE_NAME_RE = /^(?:@([a-z0-9][a-z0-9._-]*)\/)?([a-z0-9][a-z0-9._-]*)$/
 const MAX_NPM_SOURCE_CHARS = 100_000
 
+/**
+ * Validate an npm package name.
+ * @param packageName - Package name to validate (supports scoped packages)
+ * @returns True if the name is a valid npm package name
+ */
 export function isValidNpmPackage(packageName: string): boolean {
   const trimmed = packageName.trim()
   if (trimmed.length === 0 || trimmed.length > 214) return false
@@ -24,6 +29,13 @@ function buildUnpkgPackagePath(packageName: string): string {
   return encodeURIComponent(trimmed)
 }
 
+/**
+ * Fetch the main source file of an npm package via unpkg.com.
+ * @param packageName - npm package name (supports scoped packages)
+ * @param version - Optional version string
+ * @returns Raw source text (max 100,000 chars)
+ * @throws If the package is not found, too large, or the request times out
+ */
 export async function fetchNpmSource(packageName: string, version?: string): Promise<string> {
   const trimmed = packageName.trim()
   if (!isValidNpmPackage(trimmed)) {

@@ -7,6 +7,11 @@ export interface RecentScan {
 const STORAGE_KEY = 'sg_recent_scans'
 const MAX_RECENTS = 5
 
+/**
+ * Add or update a recent scan entry in localStorage.
+ * @param type - Input mode used for the scan
+ * @param value - The scanned value (URL, contract ID, or code snippet)
+ */
 export function addRecent(type: RecentScan['type'], value: string): void {
   if (typeof window === 'undefined') return
   
@@ -27,6 +32,10 @@ export function addRecent(type: RecentScan['type'], value: string): void {
   }
 }
 
+/**
+ * Retrieve recent scans from localStorage.
+ * @returns Array of recent scan entries, newest first
+ */
 export function getRecent(): RecentScan[] {
   if (typeof window === 'undefined') return []
   
@@ -42,6 +51,11 @@ export function getRecent(): RecentScan[] {
   }
 }
 
+/**
+ * Produce a short display label for a recent scan entry.
+ * @param scan - The recent scan entry
+ * @returns Truncated label string suitable for display in a list
+ */
 export function truncateLabel(scan: RecentScan): string {
   const maxLen = 40
   
