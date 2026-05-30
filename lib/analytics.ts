@@ -83,3 +83,29 @@ export function allCheckNames(records: ContractScanRecord[]): string[] {
   }
   return Array.from(names).sort()
 }
+
+export function scoreTrend(records: ContractScanRecord[]): { date: string; count: number }[] {
+  // Group by day (YYYY-MM-DD)
+  const daily: Record<string, { total: number; count: number }> = {}
+
+  for (const record of records) {
+    const date = record.scannedAt.slice(0, 10) // YYYY-MM-DD
+    if (!daily[date]) {
+      daily[date] = { total: 0, count: 0 }
+    }
+    daily[date].total += record.findingCount
+    daily[date].count++
+  }
+
+  // Compute average and convert to array
+  const result: { date: string; count: number }[] = Object.entries(daily).map(
+    ([date, { total, count }]) => ({
+      date,
+      count: Math.round((total / count) * 10) / 10, // Keep one decimal place
+    })
+  )
+
+  // Sort by date ascending
+  result.sort((a, b) => a.date.localeCompare(b.date))
+  return result
+}

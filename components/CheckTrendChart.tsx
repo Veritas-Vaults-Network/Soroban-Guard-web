@@ -28,12 +28,11 @@ export default function CheckTrendChart({ data, checkName }: Props) {
             axisLine={false}
             tickLine={false}
           />
-          <YAxis
-            allowDecimals={false}
-            tick={{ fill: '#64748b', fontSize: 11 }}
-            axisLine={false}
-            tickLine={false}
-          />
+        <YAxis
+          tick={{ fill: '#64748b', fontSize: 11 }}
+          axisLine={false}
+          tickLine={false}
+        />
           <Tooltip
             contentStyle={{ background: '#1a1d27', border: '1px solid #2a2d3a', borderRadius: 8 }}
             labelStyle={{ color: '#e2e8f0', marginBottom: 4 }}
