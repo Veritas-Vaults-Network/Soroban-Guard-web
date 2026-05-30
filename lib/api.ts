@@ -23,6 +23,13 @@ export class ApiError extends Error {
   }
 }
 
+export class TimeoutError extends Error {
+  constructor() {
+    super('The scan timed out after 30 seconds. Please try again.')
+    this.name = 'TimeoutError'
+  }
+}
+
 export interface ScanResult extends ScanResponse {
   quota?: ScanQuota
 }
