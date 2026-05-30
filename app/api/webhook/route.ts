@@ -1,26 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { Finding } from '@/types/findings'
+import { requireApiKey } from '@/lib/apiAuth'
 
 const TTL_MS = 60 * 60 * 1000 // 1 hour
+const TTL_S = 60 * 60
 
 interface CacheEntry {
   findings: Finding[]
   expiresAt: number
 }
 
-// Module-level map persists across requests in the same server process
-const cache = new Map<string, CacheEntry>()
+// In-memory fallback (used when KV_REST_API_URL is not configured)
+const memCache = new Map<string, CacheEntry>()
 
-function evict() {
-  const now = Date.now()
-  for (const [k, v] of cache) {
-    if (v.expiresAt <= now) cache.delete(k)
+async function cacheGet(token: string): Promise<CacheEntry | null> {
+  if (process.env.KV_REST_API_URL) {
+    const { kv } = await import('@vercel/kv')
+    return kv.get<CacheEntry>(`webhook:${token}`)
+  }
+  const entry = memCache.get(token)
+  return entry && entry.expiresAt > Date.now() ? entry : null
+}
+
+async function cacheSet(token: string, value: CacheEntry): Promise<void> {
+  if (process.env.KV_REST_API_URL) {
+    const { kv } = await import('@vercel/kv')
+    await kv.set(`webhook:${token}`, value, { ex: TTL_S })
+  } else {
+    // Evict expired entries before writing
+    const now = Date.now()
+    for (const [k, v] of memCache) {
+      if (v.expiresAt <= now) memCache.delete(k)
+    }
+    memCache.set(token, value)
   }
 }
 
-export function GET(req: NextRequest, { params }: { params: { token: string } }) {
-  evict()
-  const entry = cache.get(params.token)
+export async function GET(req: NextRequest) {
+  const authError = requireApiKey(req)
+  if (authError) return authError
+
+  const token = req.nextUrl.searchParams.get('token')
+  if (!token) return NextResponse.json({ error: 'Missing token' }, { status: 400 })
+
+  const entry = await cacheGet(token)
   if (!entry || entry.expiresAt <= Date.now()) {
     return NextResponse.json({ error: 'Not found or expired' }, { status: 404 })
   }
@@ -28,6 +51,9 @@ export function GET(req: NextRequest, { params }: { params: { token: string } })
 }
 
 export async function POST(req: NextRequest) {
+  const authError = requireApiKey(req)
+  if (authError) return authError
+
   let body: { findings?: unknown }
   try {
     body = await req.json()
@@ -39,10 +65,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'findings must be an array' }, { status: 400 })
   }
 
-  evict()
-
   const token = crypto.randomUUID()
-  cache.set(token, { findings: body.findings as Finding[], expiresAt: Date.now() + TTL_MS })
+  await cacheSet(token, { findings: body.findings as Finding[], expiresAt: Date.now() + TTL_MS })
 
   return NextResponse.json({ token }, { status: 201 })
 }

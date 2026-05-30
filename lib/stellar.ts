@@ -15,10 +15,20 @@ import type { ContractInfo, StellarNetwork } from '@/types/stellar'
 const G_ADDRESS_RE = /^G[A-Z2-7]{55}$/
 const C_ADDRESS_RE = /^C[A-Z2-7]{55}$/
 
+/**
+ * Check whether a string is a valid Stellar public key (G-address).
+ * @param key - String to validate
+ * @returns True if the key matches the G-address format
+ */
 export function isValidPublicKey(key: string): boolean {
   return G_ADDRESS_RE.test(key)
 }
 
+/**
+ * Check whether a string is a valid Soroban contract ID (C-address).
+ * @param id - String to validate
+ * @returns True if the id matches the C-address format
+ */
 export function isValidContractId(id: string): boolean {
   return C_ADDRESS_RE.test(id)
 }
@@ -137,6 +147,11 @@ export async function fetchContractCode(
 
 // ── Network health ────────────────────────────────────────────────────────────
 
+/**
+ * Check whether the Horizon API for a given network is reachable.
+ * @param network - The Stellar network to check
+ * @returns True if the network responded within 5 seconds
+ */
 export async function checkNetworkHealth(network: StellarNetwork): Promise<boolean> {
   try {
     const res = await fetch(`${network.horizonUrl}/`, {
@@ -172,5 +187,59 @@ export async function fetchContractsByAccount(
       .filter(v => C_ADDRESS_RE.test(v))
   } catch {
     return []
+  }
+}
+
+/**
+ * Fetch contract metadata including WASM hash, creation date, and creator.
+ * Note: Creator is not available via current APIs and will return null.
+ * Creation date is derived from the contract's creation ledger via Soroban RPC and Horizon.
+ */
+export async function fetchContractMetadata(
+  contractId: string,
+  network: StellarNetwork,
+): Promise<{ wasmHash: string; createdAt: string | null; creator: string | null }> {
+  if (!isValidContractId(contractId)) {
+    return { wasmHash: '', createdAt: null, creator: null }
+  }
+
+  let wasmHash: string | null = null
+  let creationLedger: number | null = null
+
+  try {
+    const result = await rpcCall<{
+      contract_id: string
+      wasm_hash: string
+      creation_ledger: number
+    }>(
+      network.sorobanRpcUrl,
+      'getContractInfo',
+      { contract_id: contractId }
+    )
+    wasmHash = result.wasm_hash
+    creationLedger = result.creation_ledger
+  } catch (e) {
+    // If we fail to get the contract info via Soroban RPC, return empty
+    return { wasmHash: '', createdAt: null, creator: null }
+  }
+
+  let createdAt: string | null = null
+  if (creationLedger !== null) {
+    try {
+      const ledgerUrl = `${network.horizonUrl}/ledgers/${creationLedger}`
+      const ledgerRes = await fetch(ledgerUrl)
+      if (ledgerRes.ok) {
+        const ledgerData = await ledgerRes.json()
+        createdAt = ledgerData.closed_at // ISO 8601 string
+      }
+    } catch (e) {
+      // Leave createdAt as null if we fail to fetch ledger details
+    }
+  }
+
+  return {
+    wasmHash: wasmHash ?? '',
+    createdAt,
+    creator: null, // Creator information is not available via current APIs
   }
 }

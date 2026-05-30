@@ -34,6 +34,12 @@ function getResultsUrl(): string | null {
   return window.sessionStorage.getItem('sg_results_url') ?? window.location.href
 }
 
+/**
+ * Post scan results as a rich embed to a Discord webhook.
+ * @param webhookUrl - Discord incoming webhook URL
+ * @param findings - Array of scan findings
+ * @param source - Contract source identifier shown in the embed
+ */
 export async function postToDiscord(
   webhookUrl: string,
   findings: Finding[],

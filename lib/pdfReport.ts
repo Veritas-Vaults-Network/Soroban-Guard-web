@@ -6,6 +6,11 @@ export interface ReportMetadata {
   score: number
 }
 
+/**
+ * Open the print/PDF report page in a new tab with findings encoded in the URL.
+ * @param findings - Array of scan findings
+ * @param metadata - Report metadata including source, scan time, and score
+ */
 export function generatePdfReport(findings: Finding[], metadata: ReportMetadata): void {
   const params = new URLSearchParams({
     f: btoa(JSON.stringify(findings)),
