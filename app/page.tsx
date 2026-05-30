@@ -23,6 +23,8 @@ export default function HomePage() {
   const { publicKey: walletKey, network: walletNetwork } = useWallet()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isTimeout, setIsTimeout] = useState(false)
+  const [lastSource, setLastSource] = useState('')
   const [networkHealthy, setNetworkHealthy] = useState(true)
   const [statusMessage, setStatusMessage] = useState('')
   const [scanHistory, setScanHistory] = useState<ContractScanRecord[]>([])
@@ -37,8 +39,10 @@ export default function HomePage() {
   }, [walletKey, walletNetwork])
 
   async function handleScan(source: string) {
+    setLastSource(source)
     setLoading(true)
     setError(null)
+    setIsTimeout(false)
     setStatusMessage('Scanning your contract…')
     try {
       const data = await scanContract(source)
@@ -49,8 +53,12 @@ export default function HomePage() {
       const encoded = encodeFindings(data.findings)
       router.push(`/results?r=${encoded}`)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unexpected error'
-      setError(msg)
+      if (err instanceof TimeoutError) {
+        setIsTimeout(true)
+        setError(err.message)
+      } else {
+        setError(err instanceof Error ? err.message : 'Unexpected error')
+      }
       setStatusMessage('')
     } finally {
       setLoading(false)
