@@ -1,76 +1,88 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useState, useEffect } from 'react'
 import type { Finding, Severity } from '@/types/findings'
-import { decodeFindings, encodeWorkspace } from '@/lib/share'
+import { decodeFindingsParam, encodeWorkspace } from '@/lib/share'
 import { exportEmail } from '@/lib/export'
 import { exportSarif } from '@/lib/sarif'
 import { getAllScanHistory } from '@/lib/history'
 import { diffFindings } from '@/lib/diffFindings'
+import { useToast } from '@/lib/toast'
+import { useWallet } from '@/lib/WalletContext'
 import { scanContract } from '@/lib/api'
 import FindingsTable from '@/components/FindingsTable'
 import FindingsDiff from '@/components/FindingsDiff'
 import FindingsByFunction from '@/components/FindingsByFunction'
+import FindingsSkeleton from '@/components/FindingsSkeleton'
 import FindingsWordCloud from '@/components/FindingsWordCloud'
 import EmptyState from '@/components/EmptyState'
 import SeverityBadge from '@/components/SeverityBadge'
 import SeverityDonut from '@/components/SeverityDonut'
 import FindingsSkeleton from '@/components/FindingsSkeleton'
 import ThemeToggle from '@/components/ThemeToggle'
+import { generatePdfReport } from '@/lib/pdfReport'
+import { calculateScore } from '@/lib/score'
 import { useToast } from '@/lib/toast'
 import { useWallet } from '@/lib/WalletContext'
 import GithubExportModal from '@/components/GithubExportModal'
 import JiraExportModal from '@/components/JiraExportModal'
 import NotionExportModal from '@/components/NotionExportModal'
+import ResultsQRCode from '@/components/ResultsQRCode'
 
 export default function ResultsClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { show } = useToast()
-  const { publicKey: walletKey, network: walletNetwork } = useWallet()
+  const { publicKey: walletKey } = useWallet()
   const [findings, setFindings] = useState<Finding[] | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showGithubModal, setShowGithubModal] = useState(false)
   const [showJiraModal, setShowJiraModal] = useState(false)
   const [showNotionModal, setShowNotionModal] = useState(false)
-  const [showEmbedModal, setShowEmbedModal] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const [isRescanning, setIsRescanning] = useState(false)
-  const [isAttesting, setIsAttesting] = useState(false)
-  const [showWordCloud, setShowWordCloud] = useState(false)
-  const [duration, setDuration] = useState<string | null>(null)
-  const [scanSource, setScanSource] = useState<string | null>(null)
+  const [showQrModal, setShowQrModal] = useState(false)
   const [prevFindings, setPrevFindings] = useState<Finding[] | null>(null)
   const [showDiff, setShowDiff] = useState(false)
+  const [showWordCloud, setShowWordCloud] = useState(false)
   const [groupView, setGroupView] = useState<'flat' | 'function'>('flat')
   const [navIndex, setNavIndex] = useState<number | null>(null)
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false)
   const hasSource = Boolean(scanSource)
 
   useEffect(() => {
-    const raw = sessionStorage.getItem('sg_findings')
-    if (!raw) {
+    const storedFindings = sessionStorage.getItem('sg_findings')
+    const sharedParam = searchParams.get('r')
+
+    if (sharedParam) {
+      const decoded = decodeFindingsParam(sharedParam)
+      if (decoded === null) {
+        router.replace('/')
+        return
+      }
+      setFindings(decoded)
+      const shareableUrl = new URL('/results', window.location.origin)
+      shareableUrl.searchParams.set('r', sharedParam)
+      setResultsUrl(shareableUrl.toString())
+    } else if (storedFindings) {
+      try {
+        setFindings(JSON.parse(storedFindings) as Finding[])
+      } catch {
+        router.replace('/')
+        return
+      }
+    } else {
       router.replace('/')
       return
     }
-    try {
-      setFindings(JSON.parse(raw) as Finding[])
-      const rawDuration = sessionStorage.getItem('sg_scan_duration')
-      if (rawDuration) {
-        const ms = Number(rawDuration)
-        if (!Number.isNaN(ms)) {
-          setDuration((ms / 1000).toFixed(2))
-        }
-      }
-      setScanSource(sessionStorage.getItem('sg_scan_source'))
-    } catch {
-      router.replace('/')
-    }
-  }, [router])
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (e.key === '?') {
+        e.preventDefault()
+        setShowShortcutsModal(v => !v)
+        return
+      }
       if (findings && (e.key === 'j' || e.key === 'k')) {
         e.preventDefault()
         const current = navIndex ?? -1
@@ -87,17 +99,16 @@ export default function ResultsClient() {
         }
       }
     }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [findings, navIndex])
+  }, [router, searchParams])
 
   useEffect(() => {
     if (findings == null) return
-    const source = sessionStorage.getItem('sg_last_scan_source')
+
+    const source = sessionStorage.getItem('sg_last_scan_source') ?? sessionStorage.getItem('sg_scan_source')
     if (!source) return
+
     const history = getAllScanHistory()
-    // Find the most recent previous scan for the same source (contractId)
-    const prev = history.find(r => r.contractId === source && r.findings.length > 0)
+    const prev = history.find(record => record.contractId === source && record.findings.length > 0)
     if (prev) {
       setPrevFindings(prev.findings as Finding[])
     }
@@ -109,10 +120,16 @@ export default function ResultsClient() {
     router.push('/')
   }
 
-  function handleCopyJson() {
-    const url = window.location.href
+  function flashCopied(message: string) {
+    setCopied(true)
+    window.setTimeout(() => setCopied(false), 2000)
+    show(message, 'success')
+  }
+
+  function handleCopyResultsUrl() {
+    const url = resultsUrl || window.location.href
     navigator.clipboard.writeText(url)
-    show('Link copied!', 'success')
+    flashCopied('Link copied!')
   }
 
   function getEmbedToken(): string {
@@ -121,30 +138,28 @@ export default function ResultsClient() {
 
   function getEmbedSnippet(): string {
     const token = getEmbedToken()
-    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    const origin = window.location.origin
     return `<iframe src="${origin}/embed/${token}" width="300" height="150" frameborder="0" style="border-radius:12px;overflow:hidden;" title="Soroban Guard Security Status"></iframe>`
   }
 
   function handleCopyEmbed() {
     navigator.clipboard.writeText(getEmbedSnippet())
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    flashCopied('Embed code copied!')
   }
 
   async function handleRescan() {
-    const source = sessionStorage.getItem('sg_scan_source')
-    if (!source) {
+    if (!scanSource) {
       show('No scan source found', 'error')
       return
     }
 
     setIsRescanning(true)
     try {
-      const data = await scanContract(source)
+      const data = await scanContract(scanSource)
       setFindings(data.findings)
       sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
-      show('Rescan complete!', 'success')
-    } catch (error) {
+      flashCopied('Rescan complete!')
+    } catch {
       show('Rescan failed', 'error')
     } finally {
       setIsRescanning(false)
@@ -153,31 +168,23 @@ export default function ResultsClient() {
 
   function handleCopyCli() {
     if (!scanSource) return
-    
+
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
-    const truncatedSource = scanSource.length > 200 
-      ? `${scanSource.slice(0, 200)}...` 
-      : scanSource
-    
     const command = `curl -X POST ${apiUrl}/scan -H 'Content-Type: application/json' -d '{"source":"${scanSource.replace(/"/g, '\\"').replace(/\n/g, '\\n')}"}'`
-    
+
     navigator.clipboard.writeText(command)
-    show('CLI command copied to clipboard', 'success')
+    flashCopied('CLI command copied to clipboard')
   }
 
-  function handleShareWorkspace() {
-    if (!canCopy) return
-    const url = window.location.href
-    navigator.clipboard.writeText(url)
-    show('Link copied!', 'success')
+  function handleDownloadPdf() {
+    generatePdfReport(findings ?? [], {
+      source: scanSource ?? 'Unknown',
+      scannedAt: new Date().toISOString(),
+      score: calculateScore(findings ?? []),
+    })
   }
 
-  function handleAttest() {
-    show('Attest feature is not enabled in this build.', 'info')
-  }
-
-  function handleDownloadSarif() {
-    const content = exportSarif(findings ?? [])
+  function handleDownloadSarif() {    const content = exportSarif(findings ?? [])
     const blob = new Blob([content], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -189,6 +196,27 @@ export default function ResultsClient() {
     URL.revokeObjectURL(url)
   }
 
+  function handleShareWorkspace() {
+    if (!scanSource) {
+      show('No scan source found', 'error')
+      return
+    }
+
+    const token = encodeWorkspace(scanSource, findings ?? [])
+    const workspaceUrl = `${window.location.origin}/workspace/${token}`
+    navigator.clipboard.writeText(workspaceUrl)
+    flashCopied('Workspace link copied!')
+  }
+
+  function handleOpenQrModal() {
+    if (!resultsUrl) return
+    setShowQrModal(true)
+  }
+
+  function handleAttest() {
+    show('Attestation is not available in this build', 'error')
+  }
+
   if (findings === null) {
     return (
       <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
@@ -197,26 +225,25 @@ export default function ResultsClient() {
     )
   }
 
-  const counts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0, Info: 0,
-}
-  for (const f of findings) counts[f.severity]++
+  const counts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0 }
+  for (const finding of findings) counts[finding.severity]++
 
   const q = searchQuery.toLowerCase()
   const filteredFindings = q
     ? findings.filter(
-        f =>
-          f.check_name.toLowerCase().includes(q) ||
-          f.function_name.toLowerCase().includes(q) ||
-          f.file_path.toLowerCase().includes(q) ||
-          f.description.toLowerCase().includes(q),
+        finding =>
+          finding.check_name.toLowerCase().includes(q) ||
+          finding.function_name.toLowerCase().includes(q) ||
+          finding.file_path.toLowerCase().includes(q) ||
+          finding.description.toLowerCase().includes(q),
       )
     : findings
 
-  const canCopy = typeof navigator !== 'undefined' && navigator.clipboard
+  const canCopy = typeof navigator !== 'undefined' && !!navigator.clipboard
+  const hasSource = Boolean(scanSource)
 
   return (
     <div className="flex min-h-screen flex-col">
-      {/* Nav */}
       <header className="border-b border-[var(--border)] bg-[var(--bg)]/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
           <button
@@ -233,28 +260,36 @@ export default function ResultsClient() {
               <button
                 onClick={handleRescan}
                 disabled={isRescanning}
-                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isRescanning ? 'Rescanning...' : 'Rescan'}
               </button>
             )}
-            {findings !== null && findings.length === 0 && walletKey && (
+            {findings.length === 0 && walletKey && (
               <button
                 onClick={handleAttest}
-                disabled={isAttesting}
-                className="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-300 transition hover:bg-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-300 transition hover:bg-emerald-500/20"
               >
-                {isAttesting ? (
-                  <svg className="spinner h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" d="M12 2a10 10 0 0 1 10 10" />
-                  </svg>
-                ) : (
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                )}
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
                 Attest on Stellar
               </button>
+            )}
+            {attestationTxHash && attestationExplorerUrl && (
+              <div className="flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5">
+                <svg className="h-4 w-4 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                <a
+                  href={attestationExplorerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-emerald-300 hover:text-emerald-200 hover:underline"
+                >
+                  View attestation on Stellar.expert
+                </a>
+              </div>
             )}
             <a
               href={exportEmail(findings)}
@@ -267,6 +302,12 @@ export default function ResultsClient() {
               className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
             >
               Download SARIF
+            </button>
+            <button
+              onClick={handleDownloadPdf}
+              className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
+            >
+              Download PDF
             </button>
             {findings.length > 0 && (
               <button
@@ -300,7 +341,7 @@ export default function ResultsClient() {
             )}
             {getEmbedToken() && (
               <button
-                onClick={() => setShowEmbedModal(true)}
+                onClick={handleCopyEmbed}
                 className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -319,12 +360,15 @@ export default function ResultsClient() {
               </svg>
               Share workspace
             </button>
-            {scanSource && (
+            {resultsUrl && (
               <button
-                onClick={() => router.push('/?scanAgain=1')}
-                className="rounded-lg border border-indigo-500/50 bg-indigo-500/10 px-4 py-1.5 text-sm font-medium text-indigo-300 transition hover:bg-indigo-500/20"
+                onClick={handleOpenQrModal}
+                className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
               >
-                Scan Again
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4h5v5H4V4zm11 0h5v5h-5V4zM4 15h5v5H4v-5zm9 0h2m2 0h3m-7 3h3m4-4v6" />
+                </svg>
+                QR code
               </button>
             )}
             <button
@@ -338,12 +382,11 @@ export default function ResultsClient() {
         </div>
       </header>
 
-      <main id="main-content" className="mx-auto w-full max-w-6xl flex-1 px-4 pb-24 pt-10 sm:pb-10 sm:px-6">
-        {/* Summary bar */}
+      <main id="main-content" className="mx-auto w-full max-w-6xl flex-1 px-4 pb-24 pt-10 sm:px-6 sm:pb-10">
         <div className="mb-8">
           <div className="mb-4 flex items-center justify-between">
             <h1 className="text-2xl font-bold text-white">Scan Results</h1>
-            <div className="flex items-center gap-2">
+            <div className="relative flex items-center gap-2">
               {scanSource && (
                 <button
                   onClick={handleCopyCli}
@@ -358,9 +401,9 @@ export default function ResultsClient() {
                 </button>
               )}
               <button
-                onClick={handleCopyJson}
+                onClick={handleCopyResultsUrl}
                 disabled={!canCopy}
-                title={canCopy ? 'Copy findings as JSON' : 'Clipboard API unavailable'}
+                title={canCopy ? 'Copy results link' : 'Clipboard API unavailable'}
                 className="rounded-lg p-2 text-slate-400 transition hover:bg-[#1a1d27] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -378,9 +421,7 @@ export default function ResultsClient() {
             {findings.length === 0
               ? 'No issues detected.'
               : `${findings.length} finding${findings.length !== 1 ? 's' : ''} detected across your contract.`}
-            {duration && (
-              <span className="ml-2 text-slate-600">Scanned in {duration}s</span>
-            )}
+            {duration && <span className="ml-2 text-slate-600">Scanned in {duration}s</span>}
           </p>
 
           <div className="flex gap-6">
@@ -414,6 +455,13 @@ export default function ResultsClient() {
                   bg="bg-sky-500/5"
                   border="border-sky-500/20"
                 />
+                <SummaryCard
+                  label="Info"
+                  value={counts.Info}
+                  color="text-slate-400"
+                  bg="bg-slate-500/5"
+                  border="border-slate-500/20"
+                />
                 {duration && (
                   <SummaryCard
                     label="Scan Time"
@@ -433,12 +481,10 @@ export default function ResultsClient() {
           </div>
         </div>
 
-        {/* Findings or empty state */}
         {findings.length === 0 ? (
           <EmptyState onScanAnother={handleScanAnother} />
         ) : (
           <div>
-            {/* Word cloud collapsible panel */}
             <div className="mb-6">
               <button
                 onClick={() => setShowWordCloud(v => !v)}
@@ -453,24 +499,24 @@ export default function ResultsClient() {
                 </span>
                 <svg
                   className={`h-4 w-4 text-slate-500 transition-transform duration-200 ${showWordCloud ? 'rotate-180' : ''}`}
-                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  aria-hidden="true"
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
               {showWordCloud && (
                 <div className="mt-2">
-                  <FindingsWordCloud
-                    findings={findings}
-                    onTermClick={term => setSearchQuery(term)}
-                  />
+                  <FindingsWordCloud findings={findings} onTermClick={term => setSearchQuery(term)} />
                 </div>
               )}
             </div>
 
-            <div className="mb-3 flex items-center justify-between">              <h2 className="text-sm font-semibold text-slate-400">
-                Findings — click a row to expand details
-              </h2>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-slate-400">Findings - click a row to expand details</h2>
               <div className="flex items-center gap-2">
                 {prevFindings && (
                   <button
@@ -485,7 +531,7 @@ export default function ResultsClient() {
                   </button>
                 )}
                 {!showDiff && (
-                  <div className="flex rounded-lg border border-[var(--border)] overflow-hidden text-xs font-medium">
+                  <div className="overflow-hidden rounded-lg border border-[var(--border)] text-xs font-medium">
                     <button
                       onClick={() => setGroupView('flat')}
                       className={`px-3 py-1.5 transition ${groupView === 'flat' ? 'bg-indigo-500/10 text-indigo-300' : 'text-slate-400 hover:text-white'}`}
@@ -494,13 +540,13 @@ export default function ResultsClient() {
                     </button>
                     <button
                       onClick={() => setGroupView('function')}
-                      className={`px-3 py-1.5 border-l border-[var(--border)] transition ${groupView === 'function' ? 'bg-indigo-500/10 text-indigo-300' : 'text-slate-400 hover:text-white'}`}
+                      className={`border-l border-[var(--border)] px-3 py-1.5 transition ${groupView === 'function' ? 'bg-indigo-500/10 text-indigo-300' : 'text-slate-400 hover:text-white'}`}
                     >
                       Group by function
                     </button>
                   </div>
                 )}
-                {(['High', 'Medium', 'Low'] as Severity[]).map(s =>
+                {(['Critical', 'High', 'Medium', 'Low'] as Severity[]).map(s =>
                   counts[s] > 0 ? (
                     <SeverityBadge key={s} severity={s} size="sm" />
                   ) : null,
@@ -512,9 +558,10 @@ export default function ResultsClient() {
               <FindingsDiff diff={diffFindings(prevFindings, findings)} />
             ) : (
               <>
-                {/* Search input */}
                 <div className="relative mb-4">
-                  <label htmlFor="findings-search" className="sr-only">Search findings</label>
+                  <label htmlFor="findings-search" className="sr-only">
+                    Search findings
+                  </label>
                   <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
                   </svg>
@@ -523,7 +570,7 @@ export default function ResultsClient() {
                     type="search"
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    placeholder="Search by check, function, file, or description…"
+                    placeholder="Search by check, function, file, or description..."
                     className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] py-2 pl-9 pr-9 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                   {searchQuery && (
@@ -538,7 +585,6 @@ export default function ResultsClient() {
                     </button>
                   )}
                 </div>
-                {/* Sort: High → Medium → Low */}
                 {filteredFindings.length === 0 ? (
                   <p className="py-10 text-center text-sm text-slate-500">No findings match your search.</p>
                 ) : groupView === 'function' ? (
@@ -559,7 +605,6 @@ export default function ResultsClient() {
         )}
       </main>
 
-      {/* Mobile FAB */}
       <button
         onClick={handleScanAnother}
         aria-label="Scan another contract"
@@ -583,6 +628,51 @@ export default function ResultsClient() {
       )}
       {showNotionModal && (
         <NotionExportModal findings={findings} onClose={() => setShowNotionModal(false)} />
+      )}
+      {showShortcutsModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Keyboard shortcuts"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowShortcutsModal(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-6 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-white">Keyboard Shortcuts</h2>
+              <button
+                onClick={() => setShowShortcutsModal(false)}
+                aria-label="Close"
+                className="text-slate-400 hover:text-white"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <table className="w-full text-sm">
+              <tbody className="divide-y divide-[var(--border)]">
+                {[
+                  ['j', 'Next finding'],
+                  ['k', 'Previous finding'],
+                  ['?', 'Toggle this help'],
+                ].map(([key, desc]) => (
+                  <tr key={key}>
+                    <td className="py-2 pr-4">
+                      <kbd className="rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-0.5 font-mono text-xs text-slate-300">
+                        {key}
+                      </kbd>
+                    </td>
+                    <td className="py-2 text-slate-400">{desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
     </div>
   )
