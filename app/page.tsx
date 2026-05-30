@@ -23,6 +23,9 @@ export default function HomePage() {
   const [networkHealthy, setNetworkHealthy] = useState(true)
   const [statusMessage, setStatusMessage] = useState('')
   const [scanHistory, setScanHistory] = useState<ContractScanRecord[]>([])
+  const [contracts, setContracts] = useState<string[]>([])
+  const [contractsLoading, setContractsLoading] = useState(false)
+  const [contractsError, setContractsError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!walletKey) return
@@ -30,6 +33,21 @@ export default function HomePage() {
     checkNetworkHealth(walletNetwork).then(healthy => {
       setNetworkHealthy(healthy)
     })
+  }, [walletKey, walletNetwork])
+
+  useEffect(() => {
+    if (!walletKey) return
+    setContractsLoading(true)
+    setContractsError(null)
+    fetchContractsByAccount(walletKey, walletNetwork)
+      .then(data => {
+        setContracts(data)
+        setContractsLoading(false)
+      })
+      .catch(err => {
+        setContractsError(err instanceof Error ? err.message : 'Unknown error')
+        setContractsLoading(false)
+      })
   }, [walletKey, walletNetwork])
 
   async function handleScan(source: string) {
@@ -139,7 +157,37 @@ export default function HomePage() {
             risks, and more.
           </p>
 
-          {/* Scan card */}
+           {walletKey && (
+             <div className="mb-6">
+               <h3 className="mb-3 text-lg font-semibold text-white">Your deployed contracts</h3>
+               {contractsLoading ? (
+                 <p className="text-sm text-slate-400">Loading...</p>
+               ) : contractsError ? (
+                 <p className="text-sm text-red-400">Error loading contracts.</p>
+               ) : contracts.length === 0 ? (
+                 <p className="text-sm text-slate-500">No deployed contracts found.</p>
+               ) : (
+                 <div className="flex flex-wrap gap-3">
+                   {contracts.map((contract, idx) => (
+                     <button
+                       key={idx}
+                       onClick={() => handleScan(contract)}
+                       disabled={loading}
+                       className="rounded-lg border border-[#2a2d3a] bg-[#12151f] p-3 text-left transition hover:border-indigo-500/40 hover:bg-[#1a1d27] disabled:opacity-50 flex items-center gap-2"
+                     >
+                       <NetworkBadge network={walletNetwork} />
+                       <div className="min-w-0 flex-1">
+                         <p className="truncate font-mono text-sm text-slate-300">
+                           {contract.slice(0, 12)}...{contract.slice(-8)}
+                         </p>
+                       </div>
+                     </button>
+                   ))}
+                 </div>
+               )}
+             </div>
+           )}
+           {/* Scan card */}
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-6 text-left shadow-2xl">
             <ScanInput onScan={handleScan} loading={loading} />
 
