@@ -46,15 +46,24 @@ export default function CodeViewer({ source, highlightLine }: Props) {
 
   const lines = source.split('\n')
 
+  function escapeHtml(str: string): string {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+  }
+
   function getHighlightedLine(line: string) {
-    if (!hlReady || !hljsRef.current) return line
+    if (!hlReady || !hljsRef.current) return escapeHtml(line)
     try {
       const detected = hljsRef.current.highlightAuto(source)
       const lang = detected.language
       if (lang) return hljsRef.current.highlight(line, { language: lang }).value
       return hljsRef.current.highlightAuto(line).value
     } catch (e) {
-      return line
+      return escapeHtml(line)
     }
   }
 
@@ -84,9 +93,10 @@ export default function CodeViewer({ source, highlightLine }: Props) {
                 >
                   {hlReady ? (
                     // eslint-disable-next-line react/no-danger
-                    <code className="hljs" dangerouslySetInnerHTML={{ __html: getHighlightedLine(line) || ' ' }} />
+                    <code className="hljs" dangerouslySetInnerHTML={{ __html: getHighlightedLine(line) || '&nbsp;' }} />
                   ) : (
-                    line || ' '
+                    // eslint-disable-next-line react/no-danger
+                    <code dangerouslySetInnerHTML={{ __html: escapeHtml(line) || '&nbsp;' }} />
                   )}
                 </td>
               </tr>
