@@ -25,12 +25,16 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# test snapshots & coverage
+**/__snapshots__/
+coverage/
+.nyc_output/
+
 # playwright
 test-results/
 playwright-report/
 blob-report/
 playwright/.cache/
-**/__snapshots__/
 
 # editor
 .idea/
@@ -48,3 +52,6 @@ push-20-new-issues.sh
 push-30-issues.sh
 push-batch4-issues.sh
 vrickish.md
+issue-259-description.md
+issue-260-description.md
+issue-259-workflow.ipynb

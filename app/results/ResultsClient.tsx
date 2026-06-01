@@ -28,6 +28,7 @@ import { useWallet } from '@/lib/WalletContext'
 import GithubExportModal from '@/components/GithubExportModal'
 import JiraExportModal from '@/components/JiraExportModal'
 import NotionExportModal from '@/components/NotionExportModal'
+import LinearExportModal from '@/components/LinearExportModal'
 import ResultsQRCode from '@/components/ResultsQRCode'
 
 export default function ResultsClient() {
@@ -40,6 +41,7 @@ export default function ResultsClient() {
   const [showGithubModal, setShowGithubModal] = useState(false)
   const [showJiraModal, setShowJiraModal] = useState(false)
   const [showNotionModal, setShowNotionModal] = useState(false)
+  const [showLinearModal, setShowLinearModal] = useState(false)
   const [showQrModal, setShowQrModal] = useState(false)
   const [prevFindings, setPrevFindings] = useState<Finding[] | null>(null)
   const [showDiff, setShowDiff] = useState(false)
@@ -339,6 +341,14 @@ export default function ResultsClient() {
                 Export to Jira
               </button>
             )}
+            {findings.length > 0 && (
+              <button
+                onClick={() => setShowLinearModal(true)}
+                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
+              >
+                Export to Linear
+              </button>
+            )}
             {getEmbedToken() && (
               <button
                 onClick={handleCopyEmbed}
@@ -628,6 +638,9 @@ export default function ResultsClient() {
       )}
       {showNotionModal && (
         <NotionExportModal findings={findings} onClose={() => setShowNotionModal(false)} />
+      )}
+      {showLinearModal && (
+        <LinearExportModal findings={findings} onClose={() => setShowLinearModal(false)} />
       )}
       {showShortcutsModal && (
         <div

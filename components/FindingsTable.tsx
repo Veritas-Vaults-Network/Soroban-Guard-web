@@ -8,6 +8,7 @@ import { getPageSize, setPageSize, getNumericPageSize } from '@/lib/preferences'
 import BottomSheet from './BottomSheet'
 import SeverityBadge from './SeverityBadge'
 import FindingCard from './FindingCard'
+import CheckTooltip from './CheckTooltip'
 
 type SortKey = 'severity' | 'file_path' | 'function_name' | 'line'
 
@@ -254,7 +255,7 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize = 2
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center gap-2">
                           <SeverityBadge severity={finding.severity} size="sm" />
-                          <span className="font-mono text-xs text-indigo-400">{finding.check_name}</span>
+                          <CheckTooltip checkName={finding.check_name} />
                         </div>
                         <p className="line-clamp-2 text-sm text-slate-400">{finding.description}</p>
                       </div>
@@ -265,7 +266,7 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize = 2
                         <SeverityBadge severity={finding.severity} size="sm" />
                         <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{finding.severity}</span>
                       </div>
-                      <span className="font-mono text-sm text-indigo-400">{finding.check_name}</span>
+                      <CheckTooltip checkName={finding.check_name} />
                       <span className="truncate font-mono text-sm text-slate-300">{finding.function_name}</span>
                       <span className="font-mono text-sm text-slate-400">{finding.line}</span>
                       <div className="flex items-center justify-between gap-2">

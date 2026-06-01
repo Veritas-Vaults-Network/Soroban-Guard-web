@@ -6,6 +6,7 @@ import { computeAnalytics, checkTrend, allCheckNames, type Analytics } from '@/l
 import type { ContractScanRecord } from '@/types/stellar'
 import ThemeToggle from '@/components/ThemeToggle'
 import CheckTrendChart from '@/components/CheckTrendChart'
+import ScanHeatmap from '@/components/ScanHeatmap'
 
 const MIN_RECORDS = 3
 
@@ -77,6 +78,11 @@ export default function AnalyticsClient() {
               <StatCard label="Avg findings / scan" value={analytics.avgScore} color="text-indigo-400" />
               <StatCard label="Total high" value={analytics.totalFindings.high} color="text-red-400" />
               <StatCard label="Total medium" value={analytics.totalFindings.medium} color="text-amber-400" />
+            </div>
+
+            {/* Scan heatmap */}
+            <div className="mb-6">
+              <ScanHeatmap entries={records.map(r => ({ date: r.scannedAt }))} />
             </div>
 
             {/* Top checks bar chart */}
