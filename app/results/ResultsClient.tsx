@@ -43,6 +43,7 @@ export default function ResultsClient() {
   const [showGithubModal, setShowGithubModal] = useState(false)
   const [showJiraModal, setShowJiraModal] = useState(false)
   const [showNotionModal, setShowNotionModal] = useState(false)
+  const [showLinearModal, setShowLinearModal] = useState(false)
   const [showQrModal, setShowQrModal] = useState(false)
   const [prevFindings, setPrevFindings] = useState<Finding[] | null>(null)
   const [showDiff, setShowDiff] = useState(false)
