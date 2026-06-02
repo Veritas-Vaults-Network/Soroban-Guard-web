@@ -5,7 +5,8 @@ import { SAMPLE_CONTRACT } from "@/lib/sampleContract";
 import { isValidCid, fetchFromIpfs } from "@/lib/ipfs";
 import { isValidNpmPackage, fetchNpmSource } from "@/lib/npm";
 import { requestPermission } from "@/lib/notifications";
-import { extractContractIdFromUrl } from "@/lib/stellar";
+import { extractContractIdFromUrl, getContractWasmSize } from "@/lib/stellar";
+import { NETWORKS } from "@/types/stellar";
 import {
   isValidGistUrl,
   fetchGistFiles,
@@ -103,6 +104,7 @@ export default function ScanInput({
   const [npmPackageValid, setNpmPackageValid] = useState(false);
   const [normalized, setNormalized] = useState(false);
   const [extractedFromUrl, setExtractedFromUrl] = useState(false);
+  const [wasmSize, setWasmSize] = useState<number | null>(null);
   // Gist state
   const [gistUrl, setGistUrl] = useState("");
   const [gistFiles, setGistFiles] = useState<GistFile[]>([]);
@@ -139,6 +141,12 @@ export default function ScanInput({
     repoUrl.length > 0 && !repoValidation.valid
       ? repoValidation.error
       : undefined;
+
+  useEffect(() => {
+    if (!contractValid) { setWasmSize(null); return; }
+    const network = (typeof selectedNetwork !== "undefined" ? selectedNetwork : null) ?? NETWORKS.testnet;
+    getContractWasmSize(contractId, network).then(setWasmSize);
+  }, [contractId, contractValid]);
 
   function handleContractIdChange(raw: string) {
     setExtractedFromUrl(false);
@@ -511,6 +519,11 @@ export default function ScanInput({
           {extractedFromUrl && (
             <p className="text-xs text-emerald-400">
               {t('scanInput.contractId.extractedFromUrl')}
+            </p>
+          )}
+          {wasmSize !== null && (
+            <p className="text-xs text-indigo-300">
+              WASM size: {wasmSize.toLocaleString()} bytes ({(wasmSize / 1024).toFixed(1)} KB)
             </p>
           )}
           <p className="text-xs text-slate-500">

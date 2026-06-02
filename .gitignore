@@ -32,13 +32,9 @@ blob-report/
 playwright/.cache/
 **/__snapshots__/
 
-# test coverage & jest cache
+# jest / vitest
 coverage/
-.jest-cache/
-jest_0/
-
-# vercel
-.vercel/
+*.snap
 
 # editor
 .idea/
