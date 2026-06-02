@@ -100,6 +100,20 @@ async function rpcCall<T>(
 }
 
 /**
+ * Fetch the WASM bytecode size (in bytes) for a contract from Soroban RPC.
+ * Returns the byte count, or null if not found.
+ */
+export async function getContractWasmSize(
+  contractId: string,
+  network: StellarNetwork,
+): Promise<number | null> {
+  const wasm = await fetchContractWasm(contractId, network)
+  if (!wasm) return null
+  // wasm is hex-encoded: 2 hex chars = 1 byte
+  return wasm.length / 2
+}
+
+/**
  * Fetch the WASM bytecode for a contract from Soroban RPC.
  * Returns the hex-encoded WASM string, or null if not found.
  */
@@ -185,6 +199,40 @@ export async function fetchContractsByAccount(
     return records
       .map(r => atob(r.value))
       .filter(v => C_ADDRESS_RE.test(v))
+  } catch {
+    return []
+  }
+}
+
+// ── Contract transaction history ─────────────────────────────────────────────
+
+export interface ContractTransaction {
+  id: string
+  hash: string
+  created_at: string
+  operation_count: number
+  fee_charged: string
+}
+
+/**
+ * Fetch the 10 most recent transactions for a contract from Horizon.
+ * Uses the /accounts/:contract_id/transactions endpoint.
+ * Returns an empty array if the contract has no transactions or on error.
+ */
+export async function fetchContractTransactions(
+  contractId: string,
+  network: StellarNetwork,
+): Promise<ContractTransaction[]> {
+  if (!isValidContractId(contractId)) return []
+
+  try {
+    const url = `${network.horizonUrl}/accounts/${contractId}/transactions?limit=10&order=desc`
+    const res = await fetch(url, { headers: { Accept: 'application/json' } })
+    if (!res.ok) return []
+    const data = (await res.json()) as {
+      _embedded?: { records?: ContractTransaction[] }
+    }
+    return data._embedded?.records ?? []
   } catch {
     return []
   }

@@ -5,13 +5,17 @@ import { SAMPLE_CONTRACT } from "@/lib/sampleContract";
 import { isValidCid, fetchFromIpfs } from "@/lib/ipfs";
 import { isValidNpmPackage, fetchNpmSource } from "@/lib/npm";
 import { requestPermission } from "@/lib/notifications";
-import { extractContractIdFromUrl } from "@/lib/stellar";
+import { extractContractIdFromUrl, getContractWasmSize } from "@/lib/stellar";
+import { NETWORKS } from "@/types/stellar";
 import {
   isValidGistUrl,
   fetchGistFiles,
   fetchGistFileContent,
   type GistFile,
 } from "@/lib/gist";
+import { useT } from "@/lib/useT";
+
+const MAX_CHARS = 500_000;
 
 const NOTIF_PREF_KEY = "sg_notifications_enabled";
 const TG_BOT_TOKEN_KEY = "sg_tg_bot_token";
@@ -38,16 +42,16 @@ function validateGithub(url: string): { valid: boolean; error?: string } {
   try {
     const u = new URL(url);
     if (u.hostname !== "github.com")
-      return { valid: false, error: "Must be a github.com URL" };
+      return { valid: false, error: "github.errorNotGithub" };
     const parts = u.pathname.replace(/^\//, "").split("/");
     if (parts.length < 2 || !parts[0] || !parts[1])
       return {
         valid: false,
-        error: "Must be a repository URL (github.com/org/repo)",
+        error: "github.errorInvalidRepo",
       };
     return { valid: true };
   } catch {
-    return { valid: false, error: "Invalid URL" };
+    return { valid: false, error: "github.errorInvalidUrl" };
   }
 }
 
@@ -58,6 +62,7 @@ export default function ScanInput({
   initialValue = "",
   initialMode,
 }: Props) {
+  const { t } = useT();
   const [mode, setMode] = useState<InputMode>(() => {
     if (initialMode) return initialMode;
     if (initialValue.startsWith("https://github.com")) return "github";
@@ -99,6 +104,7 @@ export default function ScanInput({
   const [npmPackageValid, setNpmPackageValid] = useState(false);
   const [normalized, setNormalized] = useState(false);
   const [extractedFromUrl, setExtractedFromUrl] = useState(false);
+  const [wasmSize, setWasmSize] = useState<number | null>(null);
   // Gist state
   const [gistUrl, setGistUrl] = useState("");
   const [gistFiles, setGistFiles] = useState<GistFile[]>([]);
@@ -135,6 +141,12 @@ export default function ScanInput({
     repoUrl.length > 0 && !repoValidation.valid
       ? repoValidation.error
       : undefined;
+
+  useEffect(() => {
+    if (!contractValid) { setWasmSize(null); return; }
+    const network = (typeof selectedNetwork !== "undefined" ? selectedNetwork : null) ?? NETWORKS.testnet;
+    getContractWasmSize(contractId, network).then(setWasmSize);
+  }, [contractId, contractValid]);
 
   function handleContractIdChange(raw: string) {
     setExtractedFromUrl(false);
@@ -279,7 +291,7 @@ export default function ScanInput({
     !loading &&
     !isRateLimited &&
     (mode === "code"
-      ? code.trim().length > 0 && code.length <= 100000
+      ? code.trim().length > 0 && code.length <= MAX_CHARS
       : mode === "github"
         ? repoUrl.trim().length > 0 && repoValidation.valid
         : mode === "contractId"
@@ -293,7 +305,7 @@ export default function ScanInput({
       {/* Network selector */}
       <div className="flex items-center gap-2">
         <label htmlFor="network-selector" className="text-xs text-slate-400">
-          Network
+          {t('scanInput.network')}
         </label>
         <select
           id="network-selector"
@@ -304,9 +316,9 @@ export default function ScanInput({
           }}
           className="rounded-lg border border-[#2a2d3a] bg-[#12151f] px-2 py-1 text-xs text-slate-300 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
         >
-          <option value="mainnet">Mainnet</option>
-          <option value="testnet">Testnet</option>
-          <option value="futurenet">Futurenet</option>
+          <option value="mainnet">{t('scanInput.networks.mainnet')}</option>
+          <option value="testnet">{t('scanInput.networks.testnet')}</option>
+          <option value="futurenet">{t('scanInput.networks.futurenet')}</option>
         </select>
       </div>
 
@@ -331,7 +343,7 @@ export default function ScanInput({
             </svg>
           }
         >
-          Paste Code
+          {t('scanInput.tabs.code')}
         </TabButton>
         <TabButton
           active={mode === "github"}
@@ -342,7 +354,7 @@ export default function ScanInput({
             </svg>
           }
         >
-          GitHub URL
+          {t('scanInput.tabs.github')}
         </TabButton>
         <TabButton
           active={mode === "contractId"}
@@ -363,7 +375,7 @@ export default function ScanInput({
             </svg>
           }
         >
-          Contract ID
+          {t('scanInput.tabs.contractId')}
         </TabButton>
         <TabButton
           active={mode === "ipfs"}
@@ -384,7 +396,7 @@ export default function ScanInput({
             </svg>
           }
         >
-          IPFS CID
+          {t('scanInput.tabs.ipfs')}
         </TabButton>
         <TabButton
           active={mode === "gist"}
@@ -395,7 +407,7 @@ export default function ScanInput({
             </svg>
           }
         >
-          Gist URL
+          {t('scanInput.tabs.gist')}
         </TabButton>
       </div>
 
@@ -417,25 +429,27 @@ export default function ScanInput({
             <span
               aria-live="polite"
               className={`absolute bottom-3 right-3 mr-2 text-xs ${
-                code.length > 100000
+                code.length > MAX_CHARS
                   ? "text-red-400"
-                  : code.length > 50000
+                  : code.length > MAX_CHARS / 2
                     ? "text-amber-400"
                     : "text-slate-600"
               }`}
             >
-              {code.split("\n").length.toLocaleString()} lines ·{" "}
-              {code.length.toLocaleString()} chars
+              {t('scanInput.code.charCount', {
+                lines: code.split('\n').length.toLocaleString(),
+                chars: code.length.toLocaleString(),
+              })}
             </span>
           )}
-          {code.length > 100000 && (
+          {code.length > MAX_CHARS && (
             <p className="mt-1.5 text-xs text-red-400">
-              Contract too large. Maximum 100,000 characters.
+              {t('scanInput.code.tooLarge', { max: MAX_CHARS.toLocaleString() })}
             </p>
           )}
-          {code.length > 50000 && code.length <= 100000 && (
+          {code.length > MAX_CHARS / 2 && code.length <= MAX_CHARS && (
             <p className="mt-1.5 text-xs text-amber-400">
-              Large contract — scan may be slow
+              {t('scanInput.code.largeWarning')}
             </p>
           )}
         </div>
@@ -468,17 +482,18 @@ export default function ScanInput({
                   clipRule="evenodd"
                 />
               </svg>
-              <p className="text-xs text-red-400">{repoError}</p>
+              <p className="text-xs text-red-400">{t(`scanInput.${repoError}`)}</p>
             </div>
           )}
           {!repoError && (
             <p className="text-xs text-slate-500">
-              The repository must be public. The scanner will clone and analyze
-              all{" "}
-              <code className="rounded bg-[#1a1d27] px-1 text-slate-400">
-                .rs
-              </code>{" "}
-              files.
+              {t('scanInput.github.hint').split('.rs').map((part, i, arr) =>
+                i < arr.length - 1 ? (
+                  <span key={i}>{part}<code className="rounded bg-[#1a1d27] px-1 text-slate-400">.rs</code></span>
+                ) : (
+                  <span key={i}>{part}</span>
+                )
+              )}
             </p>
           )}
         </div>
@@ -497,18 +512,22 @@ export default function ScanInput({
             />
             {normalized && (
               <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded bg-indigo-500/20 px-2 py-0.5 text-xs text-indigo-300 transition-opacity duration-500">
-                Normalized
+                {t('scanInput.contractId.normalized')}
               </span>
             )}
           </div>
           {extractedFromUrl && (
             <p className="text-xs text-emerald-400">
-              ✓ Extracted from explorer URL
+              {t('scanInput.contractId.extractedFromUrl')}
+            </p>
+          )}
+          {wasmSize !== null && (
+            <p className="text-xs text-indigo-300">
+              WASM size: {wasmSize.toLocaleString()} bytes ({(wasmSize / 1024).toFixed(1)} KB)
             </p>
           )}
           <p className="text-xs text-slate-500">
-            Enter a Soroban contract ID (C-address) deployed on Stellar. The
-            scanner will fetch the WASM bytecode via Soroban RPC and analyze it.
+            {t('scanInput.contractId.hint')}
           </p>
         </div>
       ) : mode === "ipfs" ? (
@@ -561,22 +580,23 @@ export default function ScanInput({
           {ipfsError && <p className="text-xs text-rose-400">{ipfsError}</p>}
           {!ipfsError && !ipfsPreview && (
             <p className="text-xs text-slate-500">
-              Enter a CID (
-              <code className="rounded bg-[#1a1d27] px-1 text-slate-400">
-                Qm…
-              </code>{" "}
-              or{" "}
-              <code className="rounded bg-[#1a1d27] px-1 text-slate-400">
-                bafy…
-              </code>
-              ) and click Fetch to load the contract source.
+              {t('scanInput.ipfs.hint').split('Qm…').map((part, i, arr) =>
+                i < arr.length - 1 ? (
+                  <span key={i}>{part}<code className="rounded bg-[#1a1d27] px-1 text-slate-400">Qm…</code></span>
+                ) : part.split('bafy…').map((p, j, a) =>
+                    j < a.length - 1 ? (
+                      <span key={j}>{p}<code className="rounded bg-[#1a1d27] px-1 text-slate-400">bafy…</code></span>
+                    ) : (
+                      <span key={j}>{p}</span>
+                    )
+                  )
+              )}
             </p>
           )}
           {ipfsPreview !== null && (
             <div className="space-y-1">
               <p className="text-xs text-emerald-400">
-                ✓ Fetched {ipfsPreview.length.toLocaleString()} chars — preview
-                below
+                {t('scanInput.ipfs.fetchedChars', { chars: ipfsPreview.length.toLocaleString() })}
               </p>
               <textarea
                 readOnly
@@ -643,7 +663,7 @@ export default function ScanInput({
           {gistError && <p className="text-xs text-rose-400">{gistError}</p>}
           {!gistError && gistFiles.length === 0 && (
             <p className="text-xs text-slate-500">
-              Paste a public Gist URL to fetch and scan its Rust source.
+              {t('scanInput.gist.hint')}
             </p>
           )}
           {/* Multi-file selector */}
@@ -653,7 +673,7 @@ export default function ScanInput({
                 htmlFor="gist-file-select"
                 className="text-xs text-slate-500"
               >
-                Select file:
+                {t('scanInput.gist.selectFile')}
               </label>
               <select
                 id="gist-file-select"
@@ -673,8 +693,7 @@ export default function ScanInput({
           {gistContent !== null && (
             <div className="space-y-1">
               <p className="text-xs text-emerald-400">
-                ✓ Fetched {gistContent.length.toLocaleString()} chars — preview
-                below
+                {t('scanInput.gist.fetchedChars', { chars: gistContent.length.toLocaleString() })}
               </p>
               <textarea
                 readOnly
@@ -710,7 +729,7 @@ export default function ScanInput({
                 d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
               />
             </svg>
-            Try sample contract
+            {t('scanInput.code.trySample')}
           </button>
         </div>
       )}
@@ -734,7 +753,7 @@ export default function ScanInput({
               d="M9 5l7 7-7 7"
             />
           </svg>
-          Advanced options
+          {t('scanInput.advanced.toggle')}
         </button>
         {advancedOpen && (
           <div className="rounded-lg border border-[#2a2d3a] bg-[#12151f] p-4">
@@ -742,7 +761,7 @@ export default function ScanInput({
               htmlFor="slack-webhook-url"
               className="mb-1 block text-sm font-medium text-slate-300"
             >
-              Slack webhook URL
+              {t('scanInput.advanced.slackLabel')}
             </label>
             <input
               id="slack-webhook-url"
@@ -752,12 +771,12 @@ export default function ScanInput({
                 setSlackWebhookUrl(e.target.value);
                 localStorage.setItem("sg_slack_webhook", e.target.value);
               }}
-              placeholder="https://hooks.slack.com/services/..."
+              placeholder={t('scanInput.advanced.slackPlaceholder')}
               disabled={loading}
               className="w-full rounded-lg border border-[#2a2d3a] bg-[#0a0c0f] px-3 py-2 text-sm text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30 disabled:opacity-50"
             />
             <p className="text-xs font-medium text-slate-400 mt-3">
-              Telegram notifications
+              {t('scanInput.advanced.telegramLabel')}
             </p>
             <div className="space-y-2 mt-2">
               <input
@@ -767,7 +786,7 @@ export default function ScanInput({
                   setTgBotToken(e.target.value);
                   localStorage.setItem(TG_BOT_TOKEN_KEY, e.target.value);
                 }}
-                placeholder="Bot token (e.g. 123456:ABC-DEF…)"
+                placeholder={t('scanInput.advanced.telegramBotPlaceholder')}
                 className="w-full rounded-lg border border-[#2a2d3a] bg-[#0d0f17] px-3 py-2 text-xs text-slate-300 placeholder-slate-600 outline-none focus:border-indigo-500/60"
                 disabled={loading}
               />
@@ -778,13 +797,12 @@ export default function ScanInput({
                   setTgChatId(e.target.value);
                   localStorage.setItem(TG_CHAT_ID_KEY, e.target.value);
                 }}
-                placeholder="Chat ID (e.g. -1001234567890)"
+                placeholder={t('scanInput.advanced.telegramChatPlaceholder')}
                 className="w-full rounded-lg border border-[#2a2d3a] bg-[#0d0f17] px-3 py-2 text-xs text-slate-300 placeholder-slate-600 outline-none focus:border-indigo-500/60"
                 disabled={loading}
               />
               <p className="text-xs text-slate-600">
-                Results will be sent to your Telegram chat after a successful
-                scan.
+                {t('scanInput.advanced.telegramHint')}
               </p>
             </div>
           </div>
@@ -806,7 +824,7 @@ export default function ScanInput({
                   onClick={onRetry}
                   className="mt-1 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 transition hover:bg-red-500/20"
                 >
-                  Retry scan
+                  {t('scanInput.submit.retry')}
                 </button>
               </div>
             )}
@@ -836,7 +854,7 @@ export default function ScanInput({
                     d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
-                Rate limited — retry in {countdown}s
+                {t('scanInput.submit.rateLimited', { seconds: countdown })}
               </>
             ) : loading ? (
               <>
@@ -849,7 +867,7 @@ export default function ScanInput({
                 >
                   <path strokeLinecap="round" d="M12 2a10 10 0 0 1 10 10" />
                 </svg>
-                Scanning…
+                {t('scanInput.submit.scanning')}
               </>
             ) : (
               <>
@@ -866,7 +884,7 @@ export default function ScanInput({
                     d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
                   />
                 </svg>
-                Scan Contract
+                {t('scanInput.submit.scan')}
               </>
             )}
           </button>
@@ -875,13 +893,13 @@ export default function ScanInput({
             onClick={toggleNotifications}
             aria-label={
               notificationsEnabled
-                ? "Disable scan notifications"
-                : "Enable scan notifications"
+                ? t('scanInput.submit.notificationsDisable')
+                : t('scanInput.submit.notificationsEnable')
             }
             title={
               notificationsEnabled
-                ? "Disable scan notifications"
-                : "Enable scan notifications"
+                ? t('scanInput.submit.notificationsDisable')
+                : t('scanInput.submit.notificationsEnable')
             }
             className={`flex items-center justify-center rounded-xl border px-3 py-3 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
               notificationsEnabled
@@ -920,7 +938,7 @@ export default function ScanInput({
             )}
           </button>
         </div>
-        <p className="text-center text-xs text-slate-600">⌘↵ to scan</p>
+        <p className="text-center text-xs text-slate-600">{t('scanInput.submit.shortcut')}</p>
       </div>
     </form>
   );
