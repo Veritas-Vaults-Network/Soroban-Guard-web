@@ -36,6 +36,10 @@ playwright-report/
 blob-report/
 playwright/.cache/
 
+# jest / vitest
+coverage/
+*.snap
+
 # editor
 .idea/
 .vscode/settings.json

@@ -1,0 +1,88 @@
+{
+  "app": {
+    "title": "Soroban Guard — Smart Contract Security Scanner",
+    "description": "Automated vulnerability detection for Soroban smart contracts. Scan your Rust/Soroban code for security issues before deployment.",
+    "skipToMain": "Skip to main content"
+  },
+  "notFound": {
+    "code": "404",
+    "heading": "Page not found",
+    "body": "The page you're looking for doesn't exist.",
+    "backToScanner": "Back to scanner"
+  },
+  "scanInput": {
+    "tabs": {
+      "code": "Paste Code",
+      "github": "GitHub URL",
+      "contractId": "Contract ID",
+      "ipfs": "IPFS CID",
+      "gist": "Gist URL",
+      "npm": "npm Package"
+    },
+    "network": "Network",
+    "networks": {
+      "mainnet": "Mainnet",
+      "testnet": "Testnet",
+      "futurenet": "Futurenet"
+    },
+    "code": {
+      "placeholder": "#![no_std]\nuse soroban_sdk::{contract, contractimpl, Env};\n\n#[contract]\npub struct MyContract;\n\n#[contractimpl]\nimpl MyContract {\n    pub fn hello(env: Env) -> String {\n        // paste your contract here...\n    }\n}",
+      "charCount": "{lines} lines · {chars} chars",
+      "tooLarge": "Contract too large. Maximum {max} characters.",
+      "largeWarning": "Large contract — scan may be slow",
+      "trySample": "Try sample contract"
+    },
+    "github": {
+      "placeholder": "https://github.com/org/repo",
+      "hint": "The repository must be public. The scanner will clone and analyze all .rs files.",
+      "errorNotGithub": "Must be a github.com URL",
+      "errorInvalidRepo": "Must be a repository URL (github.com/org/repo)",
+      "errorInvalidUrl": "Invalid URL"
+    },
+    "contractId": {
+      "placeholder": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+      "hint": "Enter a Soroban contract ID (C-address) deployed on Stellar. The scanner will fetch the WASM bytecode via Soroban RPC and analyze it.",
+      "normalized": "Normalized",
+      "extractedFromUrl": "✓ Extracted from explorer URL"
+    },
+    "ipfs": {
+      "placeholder": "Qm… or bafy…",
+      "hint": "Enter a CID (Qm… or bafy…) and click Fetch to load the contract source.",
+      "fetch": "Fetch",
+      "errorInvalidCid": "Invalid CID — must start with Qm… or bafy…",
+      "errorFetchFailed": "Failed to fetch from IPFS",
+      "fetchedChars": "✓ Fetched {chars} chars — preview below"
+    },
+    "gist": {
+      "placeholder": "https://gist.github.com/user/abc123",
+      "hint": "Paste a public Gist URL to fetch and scan its Rust source.",
+      "fetch": "Fetch",
+      "errorInvalidUrl": "Invalid Gist URL. Expected: https://gist.github.com/{user}/{id}",
+      "errorFetchFailed": "Failed to fetch Gist",
+      "errorFetchFileFailed": "Failed to fetch file",
+      "selectFile": "Select file:",
+      "fetchedChars": "✓ Fetched {chars} chars — preview below"
+    },
+    "advanced": {
+      "toggle": "Advanced options",
+      "slackLabel": "Slack webhook URL",
+      "slackPlaceholder": "https://hooks.slack.com/services/...",
+      "telegramLabel": "Telegram notifications",
+      "telegramBotPlaceholder": "Bot token (e.g. 123456:ABC-DEF…)",
+      "telegramChatPlaceholder": "Chat ID (e.g. -1001234567890)",
+      "telegramHint": "Results will be sent to your Telegram chat after a successful scan."
+    },
+    "submit": {
+      "scan": "Scan Contract",
+      "scanning": "Scanning…",
+      "rateLimited": "Rate limited — retry in {seconds}s",
+      "shortcut": "⌘↵ to scan",
+      "notificationsEnable": "Enable scan notifications",
+      "notificationsDisable": "Disable scan notifications",
+      "retry": "Retry scan"
+    }
+  },
+  "loading": {
+    "message": "Loading…"
+  }
+}

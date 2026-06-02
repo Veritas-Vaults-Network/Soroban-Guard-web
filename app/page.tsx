@@ -9,7 +9,7 @@ import NetworkBadge from '@/components/NetworkBadge'
 import NetworkHealthBanner from '@/components/NetworkHealthBanner'
 import ThemeToggle from '@/components/ThemeToggle'
 import ScanQuotaIndicator from '@/components/ScanQuota'
-import { scanContract } from '@/lib/api'
+import { scanContract, ApiError, TimeoutError } from '@/lib/api'
 import type { ScanQuota } from '@/lib/api'
 import { checkNetworkHealth } from '@/lib/stellar'
 import { getScanHistory } from '@/lib/history'
@@ -30,6 +30,23 @@ export default function HomePage() {
   const [statusMessage, setStatusMessage] = useState('')
   const [scanHistory, setScanHistory] = useState<ContractScanRecord[]>([])
   const [quota, setQuota] = useState<ScanQuota | null>(null)
+  const [rateLimitCountdown, setRateLimitCountdown] = useState(0)
+
+  // Tick down the rate-limit countdown using quota.resetAt
+  useEffect(() => {
+    if (!quota || quota.remaining > 0) {
+      setRateLimitCountdown(0)
+      return
+    }
+    const tick = () => {
+      const secsLeft = Math.max(0, Math.ceil((quota.resetAt - Date.now()) / 1000))
+      setRateLimitCountdown(secsLeft)
+      if (secsLeft <= 0) setQuota(null)
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [quota])
 
   useEffect(() => {
     if (!walletKey) return
@@ -71,6 +88,10 @@ export default function HomePage() {
     } catch (err) {
       if (err instanceof TimeoutError) {
         setIsTimeout(true)
+        setError(err.message)
+      } else if (err instanceof ApiError && err.status === 429) {
+        const retryAfter = err.retryAfter ?? 60
+        setQuota({ remaining: 0, limit: 0, resetAt: Date.now() + retryAfter * 1000 })
         setError(err.message)
       } else {
         setError(err instanceof Error ? err.message : 'Unexpected error')
@@ -197,7 +218,7 @@ export default function HomePage() {
            {/* Scan card */}
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-6 text-left shadow-2xl">
             <ErrorBoundary>
-              <ScanInput onScan={handleScan} loading={loading} />
+              <ScanInput onScan={handleScan} loading={loading} countdown={rateLimitCountdown} />
             </ErrorBoundary>
 
             {error && (
