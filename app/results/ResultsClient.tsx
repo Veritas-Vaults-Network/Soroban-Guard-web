@@ -29,6 +29,8 @@ import TelegramNotifyModal from '@/components/TelegramNotifyModal'
 import DiscordNotifyModal from '@/components/DiscordNotifyModal'
 import SlackNotifyModal from '@/components/SlackNotifyModal'
 import ResultsQRCode from '@/components/ResultsQRCode'
+import { fetchContractTransactions, isValidContractId, type ContractTransaction } from '@/lib/stellar'
+import { NETWORKS } from '@/types/stellar'
 
 export default function ResultsClient() {
   const router = useRouter()
@@ -47,16 +49,8 @@ export default function ResultsClient() {
   const [groupView, setGroupView] = useState<'flat' | 'function'>('flat')
   const [navIndex, setNavIndex] = useState<number | null>(null)
   const [showShortcutsModal, setShowShortcutsModal] = useState(false)
-  const [scanSource, setScanSource] = useState<string | null>(null)
-  const [resultsUrl, setResultsUrl] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
-  const [isRescanning, setIsRescanning] = useState(false)
-  const [duration, setDuration] = useState<string | null>(null)
-  const [attestationTxHash, setAttestationTxHash] = useState<string | null>(null)
-  const [attestationExplorerUrl, setAttestationExplorerUrl] = useState<string | null>(null)
-  const [showTelegramModal, setShowTelegramModal] = useState(false)
-  const [showDiscordModal, setShowDiscordModal] = useState(false)
-  const [showSlackModal, setShowSlackModal] = useState(false)
+  const [contractTxs, setContractTxs] = useState<ContractTransaction[]>([])
+  const hasSource = Boolean(scanSource)
 
   useEffect(() => {
     const storedFindings = sessionStorage.getItem('sg_findings')
@@ -131,6 +125,14 @@ export default function ResultsClient() {
       setPrevFindings(prev.findings as Finding[])
     }
   }, [findings])
+
+  useEffect(() => {
+    const source = sessionStorage.getItem('sg_last_scan_source') ?? sessionStorage.getItem('sg_scan_source')
+    if (!source || !isValidContractId(source)) return
+
+    const network = NETWORKS[sessionStorage.getItem('sg_network') ?? 'testnet'] ?? NETWORKS.testnet
+    fetchContractTransactions(source, network).then(setContractTxs)
+  }, [])
 
   function handleScanAnother() {
     sessionStorage.removeItem('sg_findings')
@@ -644,6 +646,47 @@ export default function ResultsClient() {
               </>
             )}
           </div>
+        )}
+
+        {contractTxs.length > 0 && (
+          <section className="mt-10" aria-labelledby="tx-history-heading">
+            <h2 id="tx-history-heading" className="mb-3 text-sm font-semibold text-slate-400">
+              Recent Transactions
+            </h2>
+            <div className="overflow-hidden rounded-xl border border-[var(--border)]">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[var(--border)] bg-[var(--bg-secondary)] text-xs text-slate-500">
+                    <th className="px-4 py-2 text-left font-medium">Hash</th>
+                    <th className="px-4 py-2 text-left font-medium">Date</th>
+                    <th className="px-4 py-2 text-right font-medium">Ops</th>
+                    <th className="px-4 py-2 text-right font-medium">Fee (stroops)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--border)]">
+                  {contractTxs.map(tx => (
+                    <tr key={tx.id} className="bg-[var(--bg)] transition hover:bg-[var(--bg-secondary)]">
+                      <td className="px-4 py-2 font-mono text-xs text-indigo-400">
+                        <a
+                          href={`https://stellar.expert/explorer/testnet/tx/${tx.hash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:underline"
+                        >
+                          {tx.hash.slice(0, 12)}…
+                        </a>
+                      </td>
+                      <td className="px-4 py-2 text-slate-400">
+                        {new Date(tx.created_at).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-2 text-right text-slate-300">{tx.operation_count}</td>
+                      <td className="px-4 py-2 text-right text-slate-300">{tx.fee_charged}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
         )}
       </main>
 
