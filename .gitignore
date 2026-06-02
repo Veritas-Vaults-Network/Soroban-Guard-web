@@ -48,3 +48,11 @@ push-20-new-issues.sh
 push-30-issues.sh
 push-batch4-issues.sh
 vrickish.md
+issue-259-description.md
+issue-260-description.md
+issue-259-workflow.ipynb
+
+# coverage
+coverage/
+.nyc_output/
+lcov.info

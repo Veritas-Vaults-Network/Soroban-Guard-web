@@ -47,6 +47,7 @@ export default function ResultsClient() {
   const [groupView, setGroupView] = useState<'flat' | 'function'>('flat')
   const [navIndex, setNavIndex] = useState<number | null>(null)
   const [showShortcutsModal, setShowShortcutsModal] = useState(false)
+  const [showActionsMenu, setShowActionsMenu] = useState(false)
   const hasSource = Boolean(scanSource)
 
   useEffect(() => {
@@ -253,9 +254,9 @@ export default function ResultsClient() {
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            Soroban Guard
+            <span className="hidden sm:inline">Soroban Guard</span>
           </button>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {hasSource && (
               <button
                 onClick={handleRescan}
@@ -265,117 +266,207 @@ export default function ResultsClient() {
                 {isRescanning ? 'Rescanning...' : 'Rescan'}
               </button>
             )}
-            {findings.length === 0 && walletKey && (
-              <button
-                onClick={handleAttest}
-                className="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-300 transition hover:bg-emerald-500/20"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-                Attest on Stellar
-              </button>
-            )}
-            {attestationTxHash && attestationExplorerUrl && (
-              <div className="flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5">
-                <svg className="h-4 w-4 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-                <a
-                  href={attestationExplorerUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-emerald-300 hover:text-emerald-200 hover:underline"
+            {/* Secondary actions — visible on desktop, collapsed on mobile */}
+            <div className="hidden items-center gap-2 sm:flex">
+              {findings.length === 0 && walletKey && (
+                <button
+                  onClick={handleAttest}
+                  className="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-300 transition hover:bg-emerald-500/20"
                 >
-                  View attestation on Stellar.expert
-                </a>
-              </div>
-            )}
-            <a
-              href={exportEmail(findings)}
-              className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
-            >
-              Email summary
-            </a>
-            <button
-              onClick={handleDownloadSarif}
-              className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
-            >
-              Download SARIF
-            </button>
-            <button
-              onClick={handleDownloadPdf}
-              className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
-            >
-              Download PDF
-            </button>
-            {findings.length > 0 && (
-              <button
-                onClick={() => setShowNotionModal(true)}
-                className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
-              >
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.968c-.42-.326-.981-.7-2.055-.607L3.01 2.295c-.466.046-.56.28-.374.466zm.793 3.08v13.904c0 .747.373 1.027 1.214.98l14.523-.84c.841-.046.935-.56.935-1.167V6.354c0-.606-.233-.933-.748-.887l-15.177.887c-.56.047-.747.327-.747.933zm14.337.745c.093.42 0 .84-.42.888l-.7.14v10.264c-.608.327-1.168.514-1.635.514-.748 0-.935-.234-1.495-.933l-4.577-7.186v6.952L12.21 19s0 .84-1.168.84l-3.222.186c-.093-.186 0-.653.327-.746l.84-.233V9.854L7.822 9.76c-.094-.42.14-1.026.793-1.073l3.456-.233 4.764 7.279v-6.44l-1.215-.14c-.093-.514.28-.887.747-.933zM1.936 1.035l13.31-.98c1.634-.14 2.055-.047 3.082.7l4.249 2.986c.7.513.934.653.934 1.213v16.378c0 1.026-.373 1.634-1.68 1.726l-15.458.934c-.98.047-1.448-.093-1.962-.747l-3.129-4.06c-.56-.747-.793-1.306-.793-1.96V2.667c0-.839.374-1.54 1.447-1.632z" />
-                </svg>
-                Export to Notion
-              </button>
-            )}
-            {findings.length > 0 && (
-              <button
-                onClick={() => setShowGithubModal(true)}
-                className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
-              >
-                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
-                </svg>
-                Create GitHub Issues
-              </button>
-            )}
-            {findings.some(finding => finding.severity === 'Critical' || finding.severity === 'High') && (
-              <button
-                onClick={() => setShowJiraModal(true)}
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  Attest on Stellar
+                </button>
+              )}
+              {attestationTxHash && attestationExplorerUrl && (
+                <div className="flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5">
+                  <svg className="h-4 w-4 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  <a
+                    href={attestationExplorerUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-emerald-300 hover:text-emerald-200 hover:underline"
+                  >
+                    View attestation on Stellar.expert
+                  </a>
+                </div>
+              )}
+              <a
+                href={exportEmail(findings)}
                 className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
               >
-                Export to Jira
-              </button>
-            )}
-            {getEmbedToken() && (
+                Email summary
+              </a>
               <button
-                onClick={handleCopyEmbed}
-                className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
+                onClick={handleDownloadSarif}
+                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
+              >
+                Download SARIF
+              </button>
+              <button
+                onClick={handleDownloadPdf}
+                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
+              >
+                Download PDF
+              </button>
+              {findings.length > 0 && (
+                <button
+                  onClick={() => setShowNotionModal(true)}
+                  className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.968c-.42-.326-.981-.7-2.055-.607L3.01 2.295c-.466.046-.56.28-.374.466zm.793 3.08v13.904c0 .747.373 1.027 1.214.98l14.523-.84c.841-.046.935-.56.935-1.167V6.354c0-.606-.233-.933-.748-.887l-15.177.887c-.56.047-.747.327-.747.933zm14.337.745c.093.42 0 .84-.42.888l-.7.14v10.264c-.608.327-1.168.514-1.635.514-.748 0-.935-.234-1.495-.933l-4.577-7.186v6.952L12.21 19s0 .84-1.168.84l-3.222.186c-.093-.186 0-.653.327-.746l.84-.233V9.854L7.822 9.76c-.094-.42.14-1.026.793-1.073l3.456-.233 4.764 7.279v-6.44l-1.215-.14c-.093-.514.28-.887.747-.933zM1.936 1.035l13.31-.98c1.634-.14 2.055-.047 3.082.7l4.249 2.986c.7.513.934.653.934 1.213v16.378c0 1.026-.373 1.634-1.68 1.726l-15.458.934c-.98.047-1.448-.093-1.962-.747l-3.129-4.06c-.56-.747-.793-1.306-.793-1.96V2.667c0-.839.374-1.54 1.447-1.632z" />
+                  </svg>
+                  Export to Notion
+                </button>
+              )}
+              {findings.length > 0 && (
+                <button
+                  onClick={() => setShowGithubModal(true)}
+                  className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
+                >
+                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+                  </svg>
+                  Create GitHub Issues
+                </button>
+              )}
+              {findings.some(finding => finding.severity === 'Critical' || finding.severity === 'High') && (
+                <button
+                  onClick={() => setShowJiraModal(true)}
+                  className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
+                >
+                  Export to Jira
+                </button>
+              )}
+              {getEmbedToken() && (
+                <button
+                  onClick={handleCopyEmbed}
+                  className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                  </svg>
+                  Get embed code
+                </button>
+              )}
+              <button
+                onClick={handleShareWorkspace}
+                disabled={!canCopy}
+                className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white disabled:opacity-40"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                 </svg>
-                Get embed code
+                Share workspace
               </button>
-            )}
-            <button
-              onClick={handleShareWorkspace}
-              disabled={!canCopy}
-              className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white disabled:opacity-40"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-              </svg>
-              Share workspace
-            </button>
-            {resultsUrl && (
+              {resultsUrl && (
+                <button
+                  onClick={handleOpenQrModal}
+                  className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4h5v5H4V4zm11 0h5v5h-5V4zM4 15h5v5H4v-5zm9 0h2m2 0h3m-7 3h3m4-4v6" />
+                  </svg>
+                  QR code
+                </button>
+              )}
+            </div>
+            {/* Mobile actions dropdown */}
+            <div className="relative sm:hidden">
               <button
-                onClick={handleOpenQrModal}
-                className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
+                onClick={() => setShowActionsMenu(v => !v)}
+                aria-label="More actions"
+                aria-expanded={showActionsMenu}
+                className="rounded-lg border border-[var(--border)] p-2 text-slate-400 transition hover:text-white"
               >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4h5v5H4V4zm11 0h5v5h-5V4zM4 15h5v5H4v-5zm9 0h2m2 0h3m-7 3h3m4-4v6" />
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
-                QR code
               </button>
-            )}
+              {showActionsMenu && (
+                <div
+                  className="absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] py-1 shadow-xl"
+                  role="menu"
+                >
+                  <button
+                    onClick={() => { handleDownloadPdf(); setShowActionsMenu(false) }}
+                    className="w-full px-4 py-2.5 text-left text-sm text-slate-400 hover:bg-[var(--bg-hover)] hover:text-white"
+                    role="menuitem"
+                  >
+                    Download PDF
+                  </button>
+                  <button
+                    onClick={() => { handleDownloadSarif(); setShowActionsMenu(false) }}
+                    className="w-full px-4 py-2.5 text-left text-sm text-slate-400 hover:bg-[var(--bg-hover)] hover:text-white"
+                    role="menuitem"
+                  >
+                    Download SARIF
+                  </button>
+                  <a
+                    href={exportEmail(findings)}
+                    className="block px-4 py-2.5 text-sm text-slate-400 hover:bg-[var(--bg-hover)] hover:text-white"
+                    role="menuitem"
+                  >
+                    Email summary
+                  </a>
+                  {canCopy && (
+                    <button
+                      onClick={() => { handleShareWorkspace(); setShowActionsMenu(false) }}
+                      className="w-full px-4 py-2.5 text-left text-sm text-slate-400 hover:bg-[var(--bg-hover)] hover:text-white"
+                      role="menuitem"
+                    >
+                      Share workspace
+                    </button>
+                  )}
+                  {findings.length > 0 && (
+                    <>
+                      <button
+                        onClick={() => { setShowGithubModal(true); setShowActionsMenu(false) }}
+                        className="w-full px-4 py-2.5 text-left text-sm text-slate-400 hover:bg-[var(--bg-hover)] hover:text-white"
+                        role="menuitem"
+                      >
+                        Create GitHub Issues
+                      </button>
+                      <button
+                        onClick={() => { setShowNotionModal(true); setShowActionsMenu(false) }}
+                        className="w-full px-4 py-2.5 text-left text-sm text-slate-400 hover:bg-[var(--bg-hover)] hover:text-white"
+                        role="menuitem"
+                      >
+                        Export to Notion
+                      </button>
+                    </>
+                  )}
+                  {findings.some(f => f.severity === 'Critical' || f.severity === 'High') && (
+                    <button
+                      onClick={() => { setShowJiraModal(true); setShowActionsMenu(false) }}
+                      className="w-full px-4 py-2.5 text-left text-sm text-slate-400 hover:bg-[var(--bg-hover)] hover:text-white"
+                      role="menuitem"
+                    >
+                      Export to Jira
+                    </button>
+                  )}
+                  {findings.length === 0 && walletKey && (
+                    <button
+                      onClick={() => { handleAttest(); setShowActionsMenu(false) }}
+                      className="w-full px-4 py-2.5 text-left text-sm text-emerald-400 hover:bg-[var(--bg-hover)]"
+                      role="menuitem"
+                    >
+                      Attest on Stellar
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
             <button
               onClick={handleScanAnother}
-              className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-indigo-500"
+              className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-indigo-500 sm:px-4"
             >
-              Scan another contract
+              <span className="hidden sm:inline">Scan another contract</span>
+              <span className="sm:hidden">New scan</span>
             </button>
             <ThemeToggle />
           </div>

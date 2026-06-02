@@ -85,7 +85,11 @@ export default function AnalyticsClient() {
               {analytics.topChecks.length === 0 ? (
                 <p className="text-sm text-slate-500">No findings recorded yet.</p>
               ) : (
-                <TopChecksChart checks={analytics.topChecks} />
+                <div className="overflow-x-auto">
+                  <div className="min-w-[280px]">
+                    <TopChecksChart checks={analytics.topChecks} />
+                  </div>
+                </div>
               )}
             </div>
 
@@ -95,12 +99,12 @@ export default function AnalyticsClient() {
               const trendData = checkTrend(records, selectedCheck)
               return (
                 <div className="mt-6 rounded-xl border border-[var(--border)] bg-[#12151f] p-6">
-                  <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                  <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <h2 className="text-sm font-semibold text-slate-300">Findings severity trend by check</h2>
                     <select
                       value={selectedCheck}
                       onChange={e => setSelectedCheck(e.target.value)}
-                      className="rounded-lg border border-[#2a2d3a] bg-[#1a1d27] px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-full rounded-lg border border-[#2a2d3a] bg-[#1a1d27] px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:w-auto"
                       aria-label="Select check name"
                     >
                       {names.map(name => (
@@ -111,7 +115,11 @@ export default function AnalyticsClient() {
                   {trendData.length < 2 ? (
                     <p className="text-sm text-slate-500">Not enough data points to show a trend for this check.</p>
                   ) : (
-                    <CheckTrendChart data={trendData} checkName={selectedCheck} />
+                    <div className="overflow-x-auto">
+                      <div className="min-w-[280px]">
+                        <CheckTrendChart data={trendData} checkName={selectedCheck} />
+                      </div>
+                    </div>
                   )}
                 </div>
               )
