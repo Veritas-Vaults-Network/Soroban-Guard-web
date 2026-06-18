@@ -5,11 +5,13 @@ import type { Finding } from '@/types/findings'
 import { encodeWorkspace } from '@/lib/share'
 
 const mockReplace = jest.fn()
+const mockPush = jest.fn()
+const mockRouter = { replace: mockReplace, push: mockPush }
 let mockToken = ''
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ token: mockToken }),
-  useRouter: () => ({ replace: mockReplace, push: jest.fn() }),
+  useRouter: () => mockRouter,
 }))
 jest.mock('@/components/FindingsTable', () => ({ __esModule: true, default: ({ findings }: { findings: Finding[] }) => <ul>{findings.map((f, i) => <li key={i}>{f.check_name}</li>)}</ul> }))
 jest.mock('@/components/EmptyState', () => ({ __esModule: true, default: ({ onScanAnother }: { onScanAnother: () => void }) => <button onClick={onScanAnother}>Scan another</button> }))

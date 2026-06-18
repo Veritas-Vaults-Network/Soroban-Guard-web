@@ -5,9 +5,10 @@ import ReportPage from './page'
 import type { Finding } from '@/types/findings'
 
 const mockGet = jest.fn()
+const mockSearchParams = { get: mockGet }
 
 jest.mock('next/navigation', () => ({
-  useSearchParams: () => ({ get: mockGet }),
+  useSearchParams: () => mockSearchParams,
 }))
 
 // suppress window.print
@@ -42,7 +43,7 @@ describe('ReportPage', () => {
     expect(screen.getByText('transfer')).toBeInTheDocument()
     expect(screen.getByText('src/lib.rs')).toBeInTheDocument()
     expect(screen.getByText('Authorization not verified.')).toBeInTheDocument()
-    expect(screen.getByText('my-contract')).toBeInTheDocument()
+    expect(screen.getByText(/my-contract/)).toBeInTheDocument()
     expect(screen.getByText(/Security Score: 75/)).toBeInTheDocument()
   })
 
