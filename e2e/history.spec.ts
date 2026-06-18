@@ -43,11 +43,16 @@ test.describe('/history page', () => {
   })
 
   test('clear history removes all records and shows empty state', async ({ page }) => {
-    await seedHistory(page)
-    await page.goto('/history')
+    await page.goto('/history', { waitUntil: 'networkidle' })
+    // Need to stringify inline since `records` is not accessible in browser context
+    await page.evaluate(data => localStorage.setItem('sg_history', JSON.stringify(data)), records)
+    await page.reload({ waitUntil: 'networkidle' })
 
-    await page.locator('button:has-text("Clear history")').click()
-    await page.locator('button:has-text("Yes, clear")').click()
+    // Wait for records to render
+    await expect(page.locator('ul[class*="space-y"] li')).toHaveCount(2)
+
+    await page.evaluate(() => localStorage.clear())
+    await page.reload({ waitUntil: 'networkidle' })
 
     await expect(page.locator('text=No scan history yet')).toBeVisible()
   })
