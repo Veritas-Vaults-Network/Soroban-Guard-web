@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { Finding } from '@/types/findings'
 import { createLinearIssue } from '@/lib/linear'
+import { useFocusTrap } from '@/lib/useFocusTrap'
 
 interface Props {
   findings: Finding[]
@@ -16,6 +17,7 @@ export default function LinearExportModal({ findings, onClose }: Props) {
   const [urls, setUrls] = useState<string[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  const dialogRef = useFocusTrap<HTMLDivElement>(onClose)
   const busy = progress !== null && urls === null
 
   async function handleSubmit(e: React.FormEvent) {
@@ -44,7 +46,7 @@ export default function LinearExportModal({ findings, onClose }: Props) {
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="w-full max-w-md rounded-2xl border border-[#2a2d3a] bg-[#0e1117] p-6 shadow-xl">
+      <div ref={dialogRef} className="w-full max-w-md rounded-2xl border border-[#2a2d3a] bg-[#0e1117] p-6 shadow-xl">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-base font-semibold text-white">Create Linear Issues</h2>
           <button onClick={onClose} className="text-slate-500 hover:text-white" aria-label="Close">

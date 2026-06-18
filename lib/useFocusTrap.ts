@@ -22,6 +22,8 @@ export function useFocusTrap<T extends HTMLElement>(onClose: () => void) {
     const container = ref.current
     if (!container) return
 
+    const previouslyFocused = document.activeElement as HTMLElement | null
+
     // Focus the first focusable element on mount
     const focusable = Array.from(
       container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS),
@@ -57,7 +59,10 @@ export function useFocusTrap<T extends HTMLElement>(onClose: () => void) {
     }
 
     document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      previouslyFocused?.focus()
+    }
   }, [onClose])
 
   return ref
