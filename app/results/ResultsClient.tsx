@@ -211,6 +211,7 @@ export default function ResultsClient() {
       source: scanSource ?? 'Unknown',
       scannedAt: new Date().toISOString(),
       score: calculateScore(findings ?? []),
+      walletAddress: walletKey ?? undefined,
     })
   }
 
