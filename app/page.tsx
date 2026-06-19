@@ -20,6 +20,9 @@ import { useWallet } from '@/lib/WalletContext'
 import { FEATURED_CONTRACTS } from '@/lib/featuredContracts'
 import type { ContractScanRecord } from '@/types/stellar'
 import { NETWORKS } from '@/types/stellar'
+import { addRecent } from '@/lib/recentScans'
+import RecentScansPanel from '@/components/RecentScansPanel'
+import type { RecentScan } from '@/lib/recentScans'
 
 const TOUR_STEPS = [
   {
@@ -111,7 +114,17 @@ export default function HomePage() {
       })
   }, [walletKey, walletNetwork])
 
-  async function handleScan(source: string) {
+  async function handleScan(source: string, mode?: string) {
+    // Determine type for addRecent — prefer the explicit mode from ScanInput,
+    // fall back to auto-detection for direct contract-ID calls.
+    let scanType: RecentScan['type']
+    if (mode === 'contractId') scanType = 'contractId'
+    else if (mode === 'github') scanType = 'github'
+    else if (mode === 'code') scanType = 'code'
+    else if (/^[CG][A-Z2-7]{55}$/.test(source)) scanType = 'contractId'
+    else if (source.startsWith('https://github.com/') || source.includes('github.com/')) scanType = 'github'
+    else scanType = 'code'
+
     setLastSource(source)
     setLoading(true)
     setError(null)
@@ -121,6 +134,7 @@ export default function HomePage() {
       const data = await scanContract(source)
       setStatusMessage(`Scan complete. ${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} detected.`)
       if (data.quota) setQuota(data.quota)
+      addRecent(scanType, source, scanType === 'contractId' ? walletNetwork.name : undefined)
       // Store results in sessionStorage so the results page can read them
       sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
       const encoded = encodeFindings(data.findings)
@@ -285,6 +299,8 @@ export default function HomePage() {
                 <span>{error}</span>
               </div>
             )}
+
+            <RecentScansPanel onLaunch={(value, type) => handleScan(value, type)} />
           </div>
 
           {/* Recent scans */}

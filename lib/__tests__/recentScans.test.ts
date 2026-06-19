@@ -1,7 +1,8 @@
-import { addRecent, getRecent, truncateLabel } from '../recentScans'
+import { addRecent, getRecent, removeRecent, truncateLabel, getPinned, pinScan, unpinScan } from '../recentScans'
 import type { RecentScan } from '../recentScans'
 
 const STORAGE_KEY = 'sg_recent_scans'
+const PINNED_KEY = 'sg_pinned_scans'
 
 const mockLocalStorage = (() => {
   let store: Record<string, string> = {}
@@ -127,5 +128,91 @@ describe('truncateLabel', () => {
   it('returns short code value unchanged', () => {
     const s = scan('code', 'short')
     expect(truncateLabel(s)).toBe('short')
+  })
+})
+
+describe('addRecent — network field', () => {
+  it('stores network on contractId entries', () => {
+    addRecent('contractId', 'CONTRACT123', 'testnet')
+    const stored: RecentScan[] = JSON.parse(mockLocalStorage.setItem.mock.calls.at(-1)![1])
+    expect(stored[0].network).toBe('testnet')
+  })
+
+  it('omits network field when not provided', () => {
+    addRecent('github', 'owner/repo')
+    const stored: RecentScan[] = JSON.parse(mockLocalStorage.setItem.mock.calls.at(-1)![1])
+    expect(stored[0].network).toBeUndefined()
+  })
+})
+
+describe('removeRecent', () => {
+  it('removes the matching entry', () => {
+    addRecent('github', 'owner/repo')
+    addRecent('code', 'fn main() {}')
+    removeRecent('github', 'owner/repo')
+    const remaining = getRecent()
+    expect(remaining).toHaveLength(1)
+    expect(remaining[0].value).toBe('fn main() {}')
+  })
+
+  it('is a no-op when entry does not exist', () => {
+    addRecent('github', 'owner/repo')
+    removeRecent('github', 'nonexistent')
+    expect(getRecent()).toHaveLength(1)
+  })
+
+  it('does not remove entries with same value but different type', () => {
+    addRecent('github', 'same-value')
+    addRecent('code', 'same-value')
+    removeRecent('github', 'same-value')
+    const remaining = getRecent()
+    expect(remaining).toHaveLength(1)
+    expect(remaining[0].type).toBe('code')
+  })
+})
+
+describe('pin logic', () => {
+  it('getPinned returns empty array when nothing stored', () => {
+    expect(getPinned()).toEqual([])
+  })
+
+  it('pinScan stores a value', () => {
+    pinScan('CONTRACT_A')
+    expect(getPinned()).toContain('CONTRACT_A')
+  })
+
+  it('pinScan is a no-op when value is already pinned', () => {
+    pinScan('CONTRACT_A')
+    pinScan('CONTRACT_A')
+    expect(getPinned()).toHaveLength(1)
+  })
+
+  it('pinScan does not exceed MAX_PINS (3)', () => {
+    pinScan('A')
+    pinScan('B')
+    pinScan('C')
+    pinScan('D')
+    expect(getPinned()).toHaveLength(3)
+    expect(getPinned()).not.toContain('D')
+  })
+
+  it('unpinScan removes a pinned value', () => {
+    pinScan('CONTRACT_A')
+    unpinScan('CONTRACT_A')
+    expect(getPinned()).not.toContain('CONTRACT_A')
+  })
+
+  it('unpinScan is a no-op when value is not pinned', () => {
+    pinScan('CONTRACT_A')
+    unpinScan('CONTRACT_B')
+    expect(getPinned()).toHaveLength(1)
+  })
+
+  it('removeRecent also unpins the removed entry', () => {
+    addRecent('contractId', 'MY_CONTRACT')
+    pinScan('MY_CONTRACT')
+    expect(getPinned()).toContain('MY_CONTRACT')
+    removeRecent('contractId', 'MY_CONTRACT')
+    expect(getPinned()).not.toContain('MY_CONTRACT')
   })
 })
