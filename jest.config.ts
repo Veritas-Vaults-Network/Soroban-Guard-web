@@ -14,6 +14,8 @@ const config: Config = {
     '/__tests__/gist',
     '/lib/stellar\\.test\\.ts',
     '/lib/attestation\\.test\\.ts',
+    '/lib/diffFindings\\.test\\.ts',
+    '/lib/score\\.test\\.ts',
     '/lib/__tests__/analytics',
     '/lib/__tests__/clawbackNormalizer',
     '/lib/__tests__/groupFindings',

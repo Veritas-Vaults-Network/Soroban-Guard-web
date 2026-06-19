@@ -12,6 +12,8 @@ import { diffFindings } from '@/lib/diffFindings'
 import { useToast } from '@/lib/toast'
 import { useWallet } from '@/lib/WalletContext'
 import { scanContract } from '@/lib/api'
+import FindingsFilterBar from '@/components/FindingsFilterBar'
+import { filterFindings, type FilterState } from '@/lib/filterFindings'
 import FindingsTable from '@/components/FindingsTable'
 import FindingsDiff from '@/components/FindingsDiff'
 import FindingsByFunction from '@/components/FindingsByFunction'
@@ -61,6 +63,18 @@ export default function ResultsClient() {
   const [showTelegramModal, setShowTelegramModal] = useState(false)
   const [showDiscordModal, setShowDiscordModal] = useState(false)
   const [showSlackModal, setShowSlackModal] = useState(false)
+  const [filterState, setFilterState] = useState<FilterState>(() => {
+    const severityParam = searchParams.get('severity')
+    const fileParam = searchParams.get('file')
+    const mutedParam = searchParams.get('muted')
+    return {
+      severities: severityParam
+        ? new Set(severityParam.split(',').map(s => s.charAt(0).toUpperCase() + s.slice(1)) as Severity[])
+        : new Set<Severity>(['Critical', 'High', 'Medium', 'Low', 'Info']),
+      fileFilter: fileParam || '',
+      showMuted: mutedParam === 'show',
+    }
+  })
 
   useEffect(() => {
     const storedFindings = sessionStorage.getItem('sg_findings')
@@ -143,6 +157,27 @@ export default function ResultsClient() {
     const network = NETWORKS[sessionStorage.getItem('sg_network') ?? 'testnet'] ?? NETWORKS.testnet
     fetchContractTransactions(source, network).then(setContractTxs)
   }, [])
+
+  // Sync filter state to URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    params.delete('severity')
+    params.delete('file')
+    params.delete('muted')
+    const allSeverities: Severity[] = ['Critical', 'High', 'Medium', 'Low', 'Info']
+    if (filterState.severities.size < allSeverities.length) {
+      params.set('severity', [...filterState.severities].map(s => s.toLowerCase()).join(','))
+    }
+    if (filterState.fileFilter) {
+      params.set('file', filterState.fileFilter)
+    }
+    if (filterState.showMuted) {
+      params.set('muted', 'show')
+    }
+    const qs = params.toString()
+    const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname
+    window.history.replaceState(null, '', newUrl)
+  }, [filterState])
 
   function handleScanAnother() {
     sessionStorage.removeItem('sg_findings')
@@ -258,16 +293,17 @@ export default function ResultsClient() {
   const counts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0, Info: 0 }
   for (const finding of findings) counts[finding.severity]++
 
+  const filteredByFilters = filterFindings(findings, filterState)
   const q = searchQuery.toLowerCase()
   const filteredFindings = q
-    ? findings.filter(
+    ? filteredByFilters.filter(
         finding =>
           finding.check_name.toLowerCase().includes(q) ||
           finding.function_name.toLowerCase().includes(q) ||
           finding.file_path.toLowerCase().includes(q) ||
           finding.description.toLowerCase().includes(q),
       )
-    : findings
+    : filteredByFilters
 
   const canCopy = typeof navigator !== 'undefined' && !!navigator.clipboard
   const hasSource = Boolean(scanSource)
@@ -705,14 +741,21 @@ export default function ResultsClient() {
                 ) : groupView === 'function' ? (
                   <FindingsByFunction findings={filteredFindings} />
                 ) : (
-                  <FindingsTable
-                    findings={[...filteredFindings].sort((a, b) => {
-                      const order: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3, Info: 4,
+                  <>
+                    <FindingsFilterBar
+                      findings={findings}
+                      filterState={filterState}
+                      onFilterChange={setFilterState}
+                    />
+                    <FindingsTable
+                      findings={[...filteredFindings].sort((a, b) => {
+                        const order: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3, Info: 4,
 }
-                      return order[a.severity] - order[b.severity]
-                    })}
-                    searchQuery={searchQuery}
-                  />
+                        return order[a.severity] - order[b.severity]
+                      })}
+                      searchQuery={searchQuery}
+                    />
+                  </>
                 )}
               </>
             )}

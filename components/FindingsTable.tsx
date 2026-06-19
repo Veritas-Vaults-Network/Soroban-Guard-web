@@ -26,7 +26,6 @@ interface Props {
 }
 
 const SEVERITY_ORDER: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3, Info: 4 }
-const SEVERITIES: Severity[] = ['Critical', 'High', 'Medium', 'Low', 'Info']
 
 const columns = [
   { key: 'severity' as SortKey, label: 'Severity' },
@@ -41,7 +40,6 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize = 2
   const [currentPage, setCurrentPage] = useState(0)
   const [isPrint, setIsPrint] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
-  const [activeSeverity, setActiveSeverity] = useState<Severity | null>(null)
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'severity', direction: 'asc' })
   const didScrollToHash = useRef(false)
 
@@ -85,23 +83,7 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize = 2
     return () => mobileQuery.removeEventListener('change', handleMobileChange)
   }, [])
 
-  const q = searchQuery.trim().toLowerCase()
-
-  const severityFiltered = activeSeverity
-    ? findings.filter(f => f.severity === activeSeverity)
-    : findings
-
-  const searched = q
-    ? severityFiltered.filter(
-        finding =>
-          finding.check_name.toLowerCase().includes(q) ||
-          finding.function_name.toLowerCase().includes(q) ||
-          finding.file_path.toLowerCase().includes(q) ||
-          finding.description.toLowerCase().includes(q),
-      )
-    : severityFiltered
-
-  const sorted = [...searched].sort((a, b) => {
+  const sorted = [...findings].sort((a, b) => {
     const { key, direction } = sortConfig
     const dir = direction === 'asc' ? 1 : -1
 
@@ -120,7 +102,7 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize = 2
 
   useEffect(() => {
     setCurrentPage(0)
-  }, [q, activeSeverity, sortConfig])
+  }, [findings, sortConfig])
 
   const totalPages = Math.ceil(sorted.length / pageSize)
   const start = currentPage * pageSize
@@ -149,12 +131,6 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize = 2
     }
   }
 
-  function handleSeverityToggle(severity: Severity) {
-    setActiveSeverity(prev => (prev === severity ? null : severity))
-    setExpandedIndex(null)
-    setMobileOpenIndex(null)
-  }
-
   function handleSortToggle(key: SortKey) {
     setSortConfig(prev => ({
       key,
@@ -178,47 +154,9 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize = 2
   return (
 
     <div>
-      {/* Severity filter chips */}
-      {findings.length > 0 && (
-        <div className="mb-4 flex flex-wrap gap-2">
-          {SEVERITIES.map(severity => {
-            const count = findings.filter(f => f.severity === severity).length
-            if (count === 0) return null
-            const isActive = activeSeverity === severity
-            return (
-              <button
-                key={severity}
-                onClick={() => handleSeverityToggle(severity)}
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold tracking-wide transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
-                  isActive
-                    ? 'bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/50'
-                    : 'bg-[var(--bg-tertiary)] text-slate-400 hover:bg-[var(--bg-hover)] hover:text-slate-200'
-                }`}
-                aria-pressed={isActive}
-              >
-                <SeverityBadge severity={severity} size="sm" includeIcon={false} />
-                <span>{severity}</span>
-                <span className="ml-0.5 rounded-md bg-[var(--bg)] px-1.5 py-0.5 text-[10px] tabular-nums text-slate-500">
-                  {count}
-                </span>
-              </button>
-            )
-          })}
-          {activeSeverity && (
-            <button
-              onClick={() => setActiveSeverity(null)}
-              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs text-slate-500 transition-colors hover:text-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-            >
-              Clear filter
-            </button>
-          )}
-        </div>
-      )}
       {sorted.length === 0 ? (
         <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-tertiary)] px-5 py-10 text-center text-sm text-slate-500">
-          {activeSeverity
-            ? `No ${activeSeverity} severity findings match your search.`
-            : 'No findings match your search.'}
+          No findings match your search.
         </div>
       ) : (
         <>
