@@ -34,6 +34,7 @@ import SlackNotifyModal from '@/components/SlackNotifyModal'
 import ResultsQRCode from '@/components/ResultsQRCode'
 import { fetchContractTransactions, isValidContractId, type ContractTransaction } from '@/lib/stellar'
 import { NETWORKS } from '@/types/stellar'
+import { isFeatureEnabled } from '@/lib/featureFlags'
 
 export default function ResultsClient() {
   const router = useRouter()
@@ -334,7 +335,7 @@ export default function ResultsClient() {
             )}
             {/* Secondary actions — visible on desktop, collapsed on mobile */}
             <div className="hidden items-center gap-2 sm:flex">
-              {findings.length === 0 && walletKey && (
+              {findings.length === 0 && walletKey && isFeatureEnabled('attestation') && (
                 <button
                   onClick={handleAttest}
                   className="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-300 transition hover:bg-emerald-500/20"
@@ -510,7 +511,7 @@ export default function ResultsClient() {
                       Export to Jira
                     </button>
                   )}
-                  {findings.length === 0 && walletKey && (
+                  {findings.length === 0 && walletKey && isFeatureEnabled('attestation') && (
                     <button
                       onClick={() => { handleAttest(); setShowActionsMenu(false) }}
                       className="w-full px-4 py-2.5 text-left text-sm text-emerald-400 hover:bg-[var(--bg-hover)]"
