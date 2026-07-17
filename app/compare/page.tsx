@@ -161,6 +161,76 @@ export default function ComparePage({}: Props) {
             </div>
           </div>
         </div>
+
+        {/* Code diff area */}
+        <section className="mt-12">
+          <h2 className="mb-4 text-lg font-semibold text-slate-200">Code Diff (experimental)</h2>
+          <p className="mb-4 text-sm text-slate-400">Paste two source versions to see a line-level diff, or paste two WASM hex blobs to see a structural section diff.</p>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm text-slate-300">Version A</label>
+              <textarea id="srcA" className="h-48 w-full rounded-md bg-[var(--bg)] p-2 text-sm text-slate-200" />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm text-slate-300">Version B</label>
+              <textarea id="srcB" className="h-48 w-full rounded-md bg-[var(--bg)] p-2 text-sm text-slate-200" />
+            </div>
+          </div>
+
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={() => {
+                const a = (document.getElementById('srcA') as HTMLTextAreaElement).value
+                const b = (document.getElementById('srcB') as HTMLTextAreaElement).value
+                // naive line diff: compute and open a new window with results
+                const da = a.split('\n')
+                const db = b.split('\n')
+                const max = Math.max(da.length, db.length)
+                const rows: string[] = []
+                rows.push('<table class="w-full table-fixed text-sm"><thead><tr><th class="w-1/2">A</th><th class="w-1/2">B</th></tr></thead><tbody>')
+                for (let i = 0; i < max; i++) {
+                  const la = (da[i] ?? '').replace(/</g, '&lt;')
+                  const lb = (db[i] ?? '').replace(/</g, '&lt;')
+                  const cls = la === lb ? '' : 'bg-yellow-900/30'
+                  rows.push(`<tr class='${cls}'><td class="align-top p-2 font-mono">${la}</td><td class="align-top p-2 font-mono">${lb}</td></tr>`)
+                }
+                rows.push('</tbody></table>')
+                const html = rows.join('\n')
+                const w = window.open('', '_blank')
+                if (w) {
+                  w.document.write(html)
+                  w.document.close()
+                }
+              }}
+              className="rounded bg-indigo-600 px-3 py-2 text-sm font-medium text-white"
+            >
+              Show source diff
+            </button>
+
+            <button
+              onClick={async () => {
+                // attempt to parse as hex and show structural diff using wasm helper if available
+                const a = (document.getElementById('srcA') as HTMLTextAreaElement).value
+                const b = (document.getElementById('srcB') as HTMLTextAreaElement).value
+                try {
+                  const mod = await import('@/lib/wasmDiff')
+                  const res = mod.structuralWasmDiff(a, b)
+                  const pretty = `<pre class=\"text-sm\">${JSON.stringify(res, null, 2)}</pre>`
+                  const w = window.open('', '_blank')
+                  if (w) {
+                    w.document.body.innerHTML = pretty
+                  }
+                } catch (e) {
+                  alert('WASM structural diff not available: ' + (e as Error).message)
+                }
+              }}
+              className="rounded bg-slate-700 px-3 py-2 text-sm font-medium text-white"
+            >
+              Show WASM structure diff
+            </button>
+          </div>
+        </section>
       </main>
     </div>
   )
