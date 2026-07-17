@@ -4,6 +4,8 @@ import { useId, useState } from 'react'
 import type { Finding } from '@/types/findings'
 import { postToTelegram } from '@/lib/telegram'
 import { useFocusTrap } from '@/lib/useFocusTrap'
+import { useWallet } from '@/lib/WalletContext'
+import { logAuditEvent } from '@/lib/auditLog'
 
 interface Props {
   findings: Finding[]
@@ -18,12 +20,14 @@ export default function TelegramNotifyModal({ findings, source, onClose }: Props
   const [error, setError] = useState<string | null>(null)
   const titleId = useId()
   const dialogRef = useFocusTrap<HTMLDivElement>(onClose)
+  const { publicKey } = useWallet()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setStatus('sending')
     setError(null)
     try {
+      await logAuditEvent({ wallet: publicKey, action: 'notify', target: 'telegram' })
       await postToTelegram(botToken.trim(), chatId.trim(), findings, source)
       setStatus('done')
     } catch (err) {

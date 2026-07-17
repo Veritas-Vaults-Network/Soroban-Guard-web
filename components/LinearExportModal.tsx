@@ -4,6 +4,8 @@ import { useState } from 'react'
 import type { Finding } from '@/types/findings'
 import { createLinearIssue } from '@/lib/linear'
 import { useFocusTrap } from '@/lib/useFocusTrap'
+import { useWallet } from '@/lib/WalletContext'
+import { logAuditEvent } from '@/lib/auditLog'
 
 interface Props {
   findings: Finding[]
@@ -18,6 +20,7 @@ export default function LinearExportModal({ findings, onClose }: Props) {
   const [error, setError] = useState<string | null>(null)
 
   const dialogRef = useFocusTrap<HTMLDivElement>(onClose)
+  const { publicKey } = useWallet()
   const busy = progress !== null && urls === null
 
   async function handleSubmit(e: React.FormEvent) {
@@ -27,6 +30,7 @@ export default function LinearExportModal({ findings, onClose }: Props) {
     setProgress({ done: 0, total: findings.length })
 
     try {
+      await logAuditEvent({ wallet: publicKey, action: 'export', target: 'linear' })
       const created: string[] = []
       for (let i = 0; i < findings.length; i += 1) {
         created.push(await createLinearIssue(apiKey, teamId.trim(), findings[i]))

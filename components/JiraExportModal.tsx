@@ -4,6 +4,8 @@ import { useId, useState } from 'react'
 import type { Finding } from '@/types/findings'
 import { createJiraIssue } from '@/lib/jira'
 import { useFocusTrap } from '@/lib/useFocusTrap'
+import { useWallet } from '@/lib/WalletContext'
+import { logAuditEvent } from '@/lib/auditLog'
 
 interface Props {
   findings: Finding[]
@@ -20,6 +22,7 @@ export default function JiraExportModal({ findings, onClose }: Props) {
   const [error, setError] = useState<string | null>(null)
   const titleId = useId()
   const dialogRef = useFocusTrap<HTMLDivElement>(onClose)
+  const { publicKey } = useWallet()
 
   const ticketFindings = findings.filter(
     finding => finding.severity === 'Critical' || finding.severity === 'High',
@@ -33,6 +36,7 @@ export default function JiraExportModal({ findings, onClose }: Props) {
     setProgress({ done: 0, total: ticketFindings.length })
 
     try {
+      await logAuditEvent({ wallet: publicKey, action: 'export', target: 'jira' })
       const created: string[] = []
       for (let i = 0; i < ticketFindings.length; i += 1) {
         created.push(

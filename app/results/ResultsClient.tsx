@@ -35,6 +35,7 @@ import ResultsQRCode from '@/components/ResultsQRCode'
 import { fetchContractTransactions, isValidContractId, type ContractTransaction } from '@/lib/stellar'
 import { NETWORKS } from '@/types/stellar'
 import { isFeatureEnabled } from '@/lib/featureFlags'
+import { logAuditEvent } from '@/lib/auditLog'
 
 export default function ResultsClient() {
   const router = useRouter()
@@ -242,7 +243,8 @@ export default function ResultsClient() {
     flashCopied('CLI command copied to clipboard')
   }
 
-  function handleDownloadPdf() {
+  async function handleDownloadPdf() {
+    await logAuditEvent({ wallet: walletKey, action: 'export', target: 'pdf' })
     generatePdfReport(findings ?? [], {
       source: scanSource ?? 'Unknown',
       scannedAt: new Date().toISOString(),
@@ -251,7 +253,9 @@ export default function ResultsClient() {
     })
   }
 
-  function handleDownloadSarif() {    const content = exportSarif(findings ?? [])
+  async function handleDownloadSarif() {
+    await logAuditEvent({ wallet: walletKey, action: 'export', target: 'sarif' })
+    const content = exportSarif(findings ?? [])
     const blob = new Blob([content], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -280,7 +284,8 @@ export default function ResultsClient() {
     setShowQrModal(true)
   }
 
-  function handleAttest() {
+  async function handleAttest() {
+    await logAuditEvent({ wallet: walletKey, action: 'attest', target: 'stellar' })
     show('Attestation is not available in this build', 'error')
   }
 
@@ -345,6 +350,7 @@ export default function ResultsClient() {
               )}
             <a
               href={exportEmail(findings)}
+              onClick={() => { void logAuditEvent({ wallet: walletKey, action: 'export', target: 'email' }) }}
               className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
             >
               Email summary
@@ -362,19 +368,28 @@ export default function ResultsClient() {
               Download PDF
             </button>
             <button
-              onClick={() => exportJson(findings)}
+              onClick={() => {
+                void logAuditEvent({ wallet: walletKey, action: 'export', target: 'json' })
+                exportJson(findings)
+              }}
               className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
             >
               Download JSON
             </button>
             <button
-              onClick={() => exportCsv(findings)}
+              onClick={() => {
+                void logAuditEvent({ wallet: walletKey, action: 'export', target: 'csv' })
+                exportCsv(findings)
+              }}
               className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
             >
               Download CSV
             </button>
             <button
-              onClick={() => downloadMarkdown(findings, { source: scanSource ?? 'Unknown', scannedAt: new Date().toISOString() })}
+              onClick={() => {
+                void logAuditEvent({ wallet: walletKey, action: 'export', target: 'markdown' })
+                downloadMarkdown(findings, { source: scanSource ?? 'Unknown', scannedAt: new Date().toISOString() })
+              }}
               className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
             >
               Download Markdown
