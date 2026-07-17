@@ -159,6 +159,31 @@ The app calls `POST /scan` on the core API:
 }
 ```
 
+## Scan Progress Tracking
+
+The scan progress indicator in `components/ScanProgress.tsx` shows **client-side estimated progress**, not real-time backend signals.
+
+**Why estimated?**
+- The current core API (`soroban-guard-core`) is synchronous — `POST /scan` blocks until complete
+- Actual scan duration varies wildly (1-30+ seconds) depending on contract complexity
+- The fixed timeline (0% → 30% → 65% → 100%) is a best-effort UX approximation
+
+**Current behavior:**
+- ✓ Shows estimated time for each phase (uploading, parsing, analyzing)
+- ✓ Displays elapsed time for the active phase
+- ✓ Shows real progress for batch scans (actual count of completed contracts)
+- ✗ Does **not** reflect actual backend progress
+- ✗ Times are not based on real engine feedback
+
+**For real progress tracking**, the core API would need to implement:
+1. **Server-Sent Events (SSE)** — Stream progress events during scan
+2. **Job status polling** — Query `/scan/{jobId}/status` endpoint
+3. **Async scan initiation** — Return a `scanId` upfront instead of blocking
+
+See [docs/PROGRESS_TRACKING_SPEC.md](./docs/PROGRESS_TRACKING_SPEC.md) for detailed architecture and implementation requirements.
+
+---
+
 ## Project Structure
 
 ```
