@@ -6,6 +6,18 @@ const STEPS = ['Uploading', 'Parsing', 'Analyzing', 'Done'] as const
 // Approximate % completion at each step boundary
 const STEP_PCT = [0, 30, 65, 100]
 
+/**
+ * ScanProgress shows estimated progress while the backend scan executes.
+ * 
+ * IMPORTANT: This is CLIENT-SIDE ESTIMATED progress, not real-time engine feedback.
+ * The actual scan duration depends on contract complexity (1-30+ seconds),
+ * but the UI shows a fixed timeline for UX consistency.
+ * 
+ * Times and percentages shown are approximations. Actual progress may be faster or slower.
+ * 
+ * See docs/PROGRESS_TRACKING_SPEC.md for details on how to implement real progress tracking.
+ */
+
 interface Props {
   loading: boolean
   /** For batch scans: how many contracts have been scanned so far */
@@ -66,7 +78,36 @@ export default function ScanProgress({ loading, batchCurrent, batchTotal }: Prop
   )
 
   return (
-    <div className="mt-4 space-y-3" role="status" aria-label="Scan progress">
+    <div className="mt-4 space-y-3" role="status" aria-label="Scan progress (estimated times)">
+      {/* Header with indicator that progress is estimated */}
+      <div className="flex items-center justify-between gap-2 px-1">
+        {!isBatch && (
+          <span className="text-xs font-medium text-slate-500">Estimated progress</span>
+        )}
+        {!isBatch && (
+          <div
+            className="group relative cursor-help"
+            title="Progress times are estimated. Actual scan duration depends on contract complexity."
+          >
+            <svg
+              className="h-4 w-4 text-slate-500 transition-colors group-hover:text-slate-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {/* Tooltip */}
+            <div
+              className="pointer-events-none absolute right-0 top-6 hidden w-48 rounded-md bg-slate-900 p-2 text-xs text-slate-300 shadow-lg group-hover:block"
+            >
+              Progress times are estimated based on a typical contract scan. Actual duration depends on complexity.
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Batch indicator */}
       {isBatch && (
         <p className="text-center text-sm text-slate-400">
@@ -147,7 +188,7 @@ export default function ScanProgress({ loading, batchCurrent, batchTotal }: Prop
       {/* Percentage label (single scan only) */}
       {!isBatch && (
         <p className="text-center text-xs text-slate-500">
-          {pct}%
+          {pct}% estimated
         </p>
       )}
     </div>
