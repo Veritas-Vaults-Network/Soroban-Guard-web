@@ -16,7 +16,7 @@ jest.mock('../api', () => ({
 
 const mockScanContract = scanContract as jest.MockedFunction<typeof scanContract>
 
-const mockNetwork = { name: 'testnet', url: 'https://testnet.stellar.org' } as const
+const mockNetwork = { name: 'testnet', url: 'https://testnet.stellar.org' } as any
 
 describe('batchScanner', () => {
   beforeEach(() => {
@@ -204,7 +204,7 @@ describe('batchScanner', () => {
 
     mockScanContract.mockImplementation(async (id) => {
       await new Promise((resolve) => setTimeout(resolve, 10))
-      return { findings: [{ id: '1', severity: 'Low', title: 'Test', description: 'Test' }] }
+      return { findings: [{ id: '1', severity: 'Low', title: 'Test', description: 'Test' }] } as any
     })
 
     await batchScan(
