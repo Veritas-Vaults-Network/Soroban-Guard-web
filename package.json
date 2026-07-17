@@ -2,6 +2,9 @@
   "name": "soroban-guard-web",
   "version": "1.0.0",
   "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -14,6 +17,7 @@
     "test:unit:watch": "vitest lib/"
   },
   "dependencies": {
+    "soroban-guard-sdk": "*",
     "@vercel/kv": "^3.0.0",
     "next": "14.2.35",
     "qrcode.react": "^4.2.0",
