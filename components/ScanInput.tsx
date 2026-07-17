@@ -30,6 +30,7 @@ interface Props {
     options?: {
       slackWebhookUrl?: string;
       telegramConfig?: { botToken: string; chatId: string };
+      networks?: string[];
     },
   ) => void;
   loading: boolean;
@@ -138,7 +139,7 @@ export default function ScanInput({
       ? (localStorage.getItem(TG_CHAT_ID_KEY) ?? "")
       : "",
   );
-  const [selectedNetwork, setSelectedNetwork] = useState(NETWORKS.testnet);
+  const [selectedNetworks, setSelectedNetworks] = useState<string[]>([NETWORKS.testnet.name]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const normalizedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -151,9 +152,10 @@ export default function ScanInput({
 
   useEffect(() => {
     if (!contractValid) { setWasmSize(null); return; }
-    const network = (typeof selectedNetwork !== "undefined" ? selectedNetwork : null) ?? NETWORKS.testnet;
+    const networkName = selectedNetworks[0] ?? NETWORKS.testnet.name;
+    const network = NETWORKS[networkName] ?? NETWORKS.testnet;
     getContractWasmSize(contractId, network).then(setWasmSize);
-  }, [contractId, contractValid]);
+  }, [contractId, contractValid, selectedNetworks]);
 
   function handleContractIdChange(raw: string) {
     setExtractedFromUrl(false);
@@ -262,6 +264,7 @@ export default function ScanInput({
         tgBotToken && tgChatId
           ? { botToken: tgBotToken, chatId: tgChatId }
           : undefined,
+      networks: mode === 'contractId' && selectedNetworks.length > 0 ? selectedNetworks : undefined,
     };
     if (mode === "ipfs") {
       if (ipfsPreview) onScan(ipfsPreview, mode, options);
@@ -309,24 +312,42 @@ export default function ScanInput({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Network selector */}
-      <div data-tour-id="network-selector" className="flex items-center gap-2">
-        <label htmlFor="network-selector" className="text-xs text-slate-400">
-          {t('scanInput.network')}
-        </label>
-        <select
-          id="network-selector"
-          value={selectedNetwork.name}
-          onChange={(e) => {
-            const network = NETWORKS[e.target.value]
-            if (network) setSelectedNetwork(network)
-          }}
-          className="rounded-lg border border-[#2a2d3a] bg-[#12151f] px-2 py-1 text-xs text-slate-300 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
-        >
-          <option value="mainnet">{t('scanInput.networks.mainnet')}</option>
-          <option value="testnet">{t('scanInput.networks.testnet')}</option>
-          <option value="futurenet">{t('scanInput.networks.futurenet')}</option>
-        </select>
+      {/* Network multi-selector */}
+      <div data-tour-id="network-selector" className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-slate-400">{t('scanInput.network')}</span>
+        {(['mainnet', 'testnet', 'futurenet'] as const).map((name) => {
+          const network = NETWORKS[name]
+          const checked = selectedNetworks.includes(name)
+          return (
+            <label
+              key={name}
+              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium transition ${
+                checked
+                  ? name === 'mainnet'
+                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                    : name === 'testnet'
+                      ? 'border-amber-500/30 bg-amber-500/10 text-amber-400'
+                      : 'border-violet-500/30 bg-violet-500/10 text-violet-400'
+                  : 'border-[#2a2d3a] text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={() => {
+                  setSelectedNetworks(prev =>
+                    checked
+                      ? prev.filter(n => n !== name)
+                      : [...prev, name],
+                  )
+                }}
+                className="sr-only"
+              />
+              <span className={`h-1.5 w-1.5 rounded-full bg-current opacity-80`} />
+              {t(`scanInput.networks.${name}`)}
+            </label>
+          )
+        })}
       </div>
 
       {/* Mode toggle */}

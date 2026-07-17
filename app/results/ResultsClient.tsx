@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import type { Finding, Severity } from '@/types/findings'
+import type { Finding, Severity, MultiNetworkResults } from '@/types/findings'
+import NetworkBadge from '@/components/NetworkBadge'
 import { decodeFindingsParam, encodeWorkspace } from '@/lib/share'
 import { exportEmail } from '@/lib/export'
 import { exportJson, exportCsv, downloadMarkdown } from '@/lib/export'
@@ -65,6 +66,8 @@ export default function ResultsClient() {
   const [showTelegramModal, setShowTelegramModal] = useState(false)
   const [showDiscordModal, setShowDiscordModal] = useState(false)
   const [showSlackModal, setShowSlackModal] = useState(false)
+  const [multiNetworkResults, setMultiNetworkResults] = useState<MultiNetworkResults | null>(null)
+  const [activeNetwork, setActiveNetwork] = useState<string | null>(null)
   const [filterState, setFilterState] = useState<FilterState>(() => {
     const severityParam = searchParams.get('severity')
     const fileParam = searchParams.get('file')
@@ -81,6 +84,7 @@ export default function ResultsClient() {
   useEffect(() => {
     const storedFindings = sessionStorage.getItem('sg_findings')
     const sharedParam = searchParams.get('r')
+    const isMultiNetwork = searchParams.get('multi') === '1'
 
     if (sharedParam) {
       const decoded = decodeFindingsParam(sharedParam)
@@ -92,6 +96,19 @@ export default function ResultsClient() {
       const shareableUrl = new URL('/results', window.location.origin)
       shareableUrl.searchParams.set('r', sharedParam)
       setResultsUrl(shareableUrl.toString())
+
+      if (isMultiNetwork) {
+        const storedMulti = sessionStorage.getItem('sg_multi_network_results')
+        if (storedMulti) {
+          try {
+            const parsed = JSON.parse(storedMulti) as MultiNetworkResults
+            setMultiNetworkResults(parsed)
+            if (parsed.length > 0) setActiveNetwork(parsed[0].network)
+          } catch {
+            // ignore parse errors
+          }
+        }
+      }
     } else if (storedFindings) {
       try {
         setFindings(JSON.parse(storedFindings) as Finding[])
@@ -586,9 +603,11 @@ export default function ResultsClient() {
             </div>
           </div>
           <p className="mb-6 text-sm text-slate-500">
-            {findings.length === 0
-              ? 'No issues detected.'
-              : `${findings.length} finding${findings.length !== 1 ? 's' : ''} detected across your contract.`}
+            {multiNetworkResults
+              ? `${findings.length} finding${findings.length !== 1 ? 's' : ''} detected across ${multiNetworkResults.length} networks.`
+              : findings.length === 0
+                ? 'No issues detected.'
+                : `${findings.length} finding${findings.length !== 1 ? 's' : ''} detected across your contract.`}
             {duration && <span className="ml-2 text-slate-600">Scanned in {duration}s</span>}
           </p>
 
@@ -649,7 +668,118 @@ export default function ResultsClient() {
           </div>
         </div>
 
-        {findings.length === 0 ? (
+        {multiNetworkResults ? (
+          <>
+            <div className="mb-8">
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold text-slate-400">Networks:</span>
+                {multiNetworkResults.map((result) => {
+                  const network = NETWORKS[result.network]
+                  const isActive = activeNetwork === result.network
+                  const statusColor =
+                    result.status === 'success'
+                      ? result.findings.length > 0
+                        ? 'border-green-500/40 bg-green-500/10 text-green-400'
+                        : 'border-green-500/20 bg-green-500/5 text-green-300'
+                      : result.status === 'not_found'
+                        ? 'border-slate-500/30 bg-slate-500/10 text-slate-400'
+                        : 'border-red-500/30 bg-red-500/10 text-red-400'
+                  return (
+                    <button
+                      key={result.network}
+                      onClick={() => setActiveNetwork(result.network)}
+                      className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition ${
+                        isActive
+                          ? `${statusColor} ring-1 ring-current`
+                          : 'border-[var(--border)] text-slate-500 hover:text-slate-300'
+                      }`}
+                    >
+                      {network && (
+                        <span className={`h-1.5 w-1.5 rounded-full ${
+                          result.status === 'success'
+                            ? result.findings.length > 0 ? 'bg-green-400' : 'bg-green-300'
+                            : result.status === 'not_found' ? 'bg-slate-500' : 'bg-red-400'
+                        }`} />
+                      )}
+                      <span>{network?.name ?? result.network}</span>
+                      <span className="text-[10px] opacity-70">
+                        {result.status === 'success'
+                          ? `${result.findings.length} finding${result.findings.length !== 1 ? 's' : ''}`
+                          : result.status === 'not_found'
+                            ? 'Not found'
+                            : 'Error'}
+                    </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            {(() => {
+              const activeResult = multiNetworkResults.find(r => r.network === activeNetwork)
+              if (!activeResult) return null
+              const network = NETWORKS[activeResult.network]
+              if (activeResult.status === 'not_found') {
+                return (
+                  <div key={activeResult.network} className="rounded-xl border border-slate-500/20 bg-slate-500/5 p-6 text-center">
+                    <p className="text-sm text-slate-400">
+                      Contract not found on <span className="font-semibold text-slate-300">{network?.name ?? activeResult.network}</span>
+                    </p>
+                  </div>
+                )
+              }
+              if (activeResult.status === 'error') {
+                return (
+                  <div key={activeResult.network} className="rounded-xl border border-red-500/20 bg-red-500/5 p-6 text-center">
+                    <p className="text-sm text-red-400">
+                      Error scanning on <span className="font-semibold">{network?.name ?? activeResult.network}</span>: {activeResult.error}
+                    </p>
+                  </div>
+                )
+              }
+              const networkFindings = activeResult.findings
+              const networkCounts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0, Info: 0 }
+              for (const f of networkFindings) networkCounts[f.severity]++
+              return (
+                <div>
+                  <div className="mb-4 flex items-center gap-3">
+                    {network && <NetworkBadge network={network} />}
+                    <span className="text-sm text-slate-400">
+                      {networkFindings.length} finding{networkFindings.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <div className="mb-6 flex gap-3 flex-wrap">
+                    {(['Critical', 'High', 'Medium', 'Low', 'Info'] as Severity[]).map(s => (
+                      <SummaryCard
+                        key={s}
+                        label={s}
+                        value={networkCounts[s]}
+                        color={
+                          s === 'Critical' ? 'text-rose-400' :
+                          s === 'High' ? 'text-red-400' :
+                          s === 'Medium' ? 'text-amber-400' :
+                          s === 'Low' ? 'text-sky-400' : 'text-slate-400'
+                        }
+                        bg={
+                          s === 'Critical' ? 'bg-rose-500/5' :
+                          s === 'High' ? 'bg-red-500/5' :
+                          s === 'Medium' ? 'bg-amber-500/5' :
+                          s === 'Low' ? 'bg-sky-500/5' : 'bg-slate-500/5'
+                        }
+                        border={
+                          s === 'Critical' ? 'border-rose-500/20' :
+                          s === 'High' ? 'border-red-500/20' :
+                          s === 'Medium' ? 'border-amber-500/20' :
+                          s === 'Low' ? 'border-sky-500/20' : 'border-slate-500/20'
+                        }
+                      />
+                    ))}
+                  </div>
+                  <FindingsTable findings={networkFindings} searchQuery={searchQuery} />
+                </div>
+              )
+            })()}
+          </>
+        ) : findings.length === 0 ? (
           <EmptyState onScanAnother={handleScanAnother} />
         ) : (
           <div>
