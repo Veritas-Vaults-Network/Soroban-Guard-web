@@ -55,13 +55,16 @@ const ACTION_ALIASES: Record<string, EnforcementAction> = {
   claw_back: 'clawback',
   freeze: 'freeze',
   freeze_account: 'freeze',
+  freezeaccount: 'freeze',
   unfreeze: 'unfreeze',
   unfreeze_account: 'unfreeze',
+  unfreezeaccount: 'unfreeze',
   force_transfer: 'force_transfer',
   forcetransfer: 'force_transfer',
   burn_from: 'burn_from',
   burnfrom: 'burn_from',
   regulatory_seizure: 'regulatory_seizure',
+  regulatoryseizure: 'regulatory_seizure',
   seizure: 'regulatory_seizure',
 }
 

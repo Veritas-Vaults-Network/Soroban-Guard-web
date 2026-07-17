@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { fetchContractsByAccount } from '@/lib/stellar'
-import { scanContract } from '@/lib/api'
 import { addScanRecord } from '@/lib/history'
+import { batchScan, BatchScanConfig, BatchScanProgress as ScannerProgress } from '@/lib/batchScanner'
 import ScanProgress from './ScanProgress'
 import type { Finding } from '@/types/findings'
 import type { StellarNetwork } from '@/types/stellar'
@@ -15,6 +15,8 @@ interface Props {
   extraContractIds?: string[]
   /** Called when all scans finish, with aggregated findings */
   onComplete?: (results: BatchResult[]) => void
+  /** Configuration for batch scanning behavior */
+  batchConfig?: BatchScanConfig
 }
 
 export interface BatchResult {
@@ -25,32 +27,63 @@ export interface BatchResult {
 
 type BatchState = 'idle' | 'fetching' | 'scanning' | 'done' | 'error'
 
-export default function BatchScanButton({ publicKey, network, extraContractIds = [], onComplete }: Props) {
+export default function BatchScanButton({
+  publicKey,
+  network,
+  extraContractIds = [],
+  onComplete,
+  batchConfig,
+}: Props) {
   const [state, setState] = useState<BatchState>('idle')
   const [contracts, setContracts] = useState<string[]>([])
   const [current, setCurrent] = useState(0)
   const [results, setResults] = useState<BatchResult[]>([])
   const [error, setError] = useState<string | null>(null)
   const [manualInput, setManualInput] = useState('')
+  const [concurrency, setConcurrency] = useState(0)
   const cancelledRef = useRef(false)
+
+  const handleProgress = useCallback(
+    (progress: ScannerProgress) => {
+      setCurrent(progress.completed)
+      setConcurrency(progress.currentConcurrency)
+
+      // Convert scanner items to BatchResults and update state
+      const newResults: BatchResult[] = progress.items
+        .filter((item) => item.result || item.error)
+        .map((item) => {
+          if (item.result) {
+            const findings = item.result.findings as Finding[]
+            // Record successful scans
+            addScanRecord(publicKey, item.contractId, network.name, findings)
+            return { contractId: item.contractId, findings }
+          }
+          return { contractId: item.contractId, findings: [], error: item.error }
+        })
+
+      setResults(newResults)
+    },
+    [publicKey, network.name]
+  )
 
   async function handleStart() {
     cancelledRef.current = false
     setState('fetching')
     setError(null)
     setResults([])
+    setConcurrency(0)
 
     let walletIds: string[] = []
     try {
       walletIds = await fetchContractsByAccount(publicKey, network)
-    } catch (e) {
+    } catch {
       // Non-fatal: fall through to manual/extra IDs
     }
 
     // Merge wallet contracts + extra IDs + manual input, deduplicated
     const manualIds = manualInput
       .split(/[\n,]+/)
-      .map(s => s.trim())
+      .map((s) => s.trim())
       .filter(Boolean)
 
     const ids = Array.from(new Set([...walletIds, ...extraContractIds, ...manualIds]))
@@ -65,29 +98,26 @@ export default function BatchScanButton({ publicKey, network, extraContractIds =
     setState('scanning')
     setCurrent(0)
 
-    const accumulated: BatchResult[] = []
-
-    for (let i = 0; i < ids.length; i++) {
-      if (cancelledRef.current) break
-      setCurrent(i + 1)
-      try {
-        const result = await scanContract(ids[i], network)
-        const findings = result.findings as Finding[]
-        addScanRecord(publicKey, ids[i], network.name, findings)
-        accumulated.push({ contractId: ids[i], findings })
-      } catch (e) {
-        accumulated.push({
-          contractId: ids[i],
-          findings: [],
-          error: e instanceof Error ? e.message : 'Scan failed',
-        })
-      }
-      setResults([...accumulated])
-    }
+    const items = await batchScan(
+      ids,
+      network,
+      handleProgress,
+      () => cancelledRef.current,
+      batchConfig
+    )
 
     if (!cancelledRef.current) {
+      // Convert final items to BatchResults
+      const finalResults: BatchResult[] = items.map((item) => {
+        if (item.result) {
+          return { contractId: item.contractId, findings: item.result.findings as Finding[] }
+        }
+        return { contractId: item.contractId, findings: [], error: item.error }
+      })
+
+      setResults(finalResults)
       setState('done')
-      onComplete?.(accumulated)
+      onComplete?.(finalResults)
     }
   }
 

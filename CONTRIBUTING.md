@@ -25,6 +25,15 @@ echo "NEXT_PUBLIC_API_URL=http://localhost:3001" > .env.local
 
 `NEXT_PUBLIC_API_URL` should point to a running `soroban-guard-core` instance.
 
+## Feature Flags
+
+Some in-progress features are hidden behind feature flags and default to being turned off. To enable them locally, add the corresponding environment variables to your `.env.local` file:
+
+```bash
+NEXT_PUBLIC_FEATURE_ATTESTATION=true
+NEXT_PUBLIC_FEATURE_I18N=true
+```
+
 ## Running the app
 
 Start the local development server:
