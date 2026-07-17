@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import type { Finding, Severity } from '@/types/findings'
@@ -10,12 +10,17 @@ import EmptyState from '@/components/EmptyState'
 import SeverityBadge from '@/components/SeverityBadge'
 import ThemeToggle from '@/components/ThemeToggle'
 
+type PageStatus = 'loading' | 'revoked' | 'ready'
+
 export default function WorkspacePage() {
   const params = useParams()
   const router = useRouter()
+  const [status, setStatus] = useState<PageStatus>('loading')
   const [findings, setFindings] = useState<Finding[] | null>(null)
   const [source, setSource] = useState<string | null>(null)
   const [sourceOpen, setSourceOpen] = useState(false)
+  const [revoking, setRevoking] = useState(false)
+  const [revoked, setRevoked] = useState(false)
 
   useEffect(() => {
     const token = typeof params.token === 'string' ? params.token : Array.isArray(params.token) ? params.token[0] : ''
@@ -26,9 +31,81 @@ export default function WorkspacePage() {
     }
     setFindings(ws.findings)
     setSource(ws.source)
+
+    fetch(`/api/token/status?token=${encodeURIComponent(token)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.revoked) {
+          setStatus('revoked')
+        } else {
+          setStatus('ready')
+        }
+      })
+      .catch(() => setStatus('ready'))
   }, [params.token, router])
 
-  if (findings === null) {
+  const handleRevoke = useCallback(async () => {
+    const token = typeof params.token === 'string' ? params.token : Array.isArray(params.token) ? params.token[0] : ''
+    if (!token) return
+    setRevoking(true)
+    try {
+      await fetch('/api/token/revoke', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      })
+      setRevoked(true)
+      setStatus('revoked')
+    } catch {
+      // Silent failure for revocation
+    } finally {
+      setRevoking(false)
+    }
+  }, [params.token])
+
+  if (status === 'revoked') {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <header className="border-b border-[var(--border)] bg-[var(--bg)]/80 backdrop-blur-sm">
+          <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
+            <Link href="/" className="flex items-center gap-2 text-sm text-slate-400 transition hover:text-white">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Soroban Guard
+            </Link>
+            <ThemeToggle />
+          </div>
+        </header>
+        <main className="mx-auto flex max-w-lg flex-1 items-center px-4">
+          <div className="w-full text-center">
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10">
+              <svg className="h-8 w-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              </svg>
+            </div>
+            <h1 className="mb-2 text-2xl font-bold text-white">Link Revoked</h1>
+            <p className="mb-8 text-slate-400">
+              {revoked
+                ? 'This shared link has been revoked. Anyone with this URL can no longer view the results.'
+                : 'This shared link was revoked by its owner and is no longer accessible.'}
+            </p>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Back to scanner
+            </Link>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  if (status === 'loading' || findings === null) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <svg className="spinner h-8 w-8 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
@@ -48,6 +125,8 @@ export default function WorkspacePage() {
     return order[a.severity] - order[b.severity]
   })
 
+  const token = typeof params.token === 'string' ? params.token : Array.isArray(params.token) ? params.token[0] : ''
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="border-b border-[var(--border)] bg-[var(--bg)]/80 backdrop-blur-sm">
@@ -62,6 +141,13 @@ export default function WorkspacePage() {
             <span className="rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-300">
               Shared workspace
             </span>
+            <button
+              onClick={handleRevoke}
+              disabled={revoking}
+              className="rounded-lg border border-red-500/30 px-3 py-1.5 text-xs font-medium text-red-400 transition hover:bg-red-500/10 disabled:opacity-50"
+            >
+              {revoking ? 'Revoking…' : 'Revoke link'}
+            </button>
             <ThemeToggle />
           </div>
         </div>
