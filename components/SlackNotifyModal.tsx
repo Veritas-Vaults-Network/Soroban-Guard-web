@@ -4,6 +4,8 @@ import { useId, useState } from 'react'
 import type { Finding } from '@/types/findings'
 import { postToSlack } from '@/lib/slack'
 import { useFocusTrap } from '@/lib/useFocusTrap'
+import { useWallet } from '@/lib/WalletContext'
+import { logAuditEvent } from '@/lib/auditLog'
 
 interface Props {
   findings: Finding[]
@@ -17,12 +19,14 @@ export default function SlackNotifyModal({ findings, source, onClose }: Props) {
   const [error, setError] = useState<string | null>(null)
   const titleId = useId()
   const dialogRef = useFocusTrap<HTMLDivElement>(onClose)
+  const { publicKey } = useWallet()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setStatus('sending')
     setError(null)
     try {
+      await logAuditEvent({ wallet: publicKey, action: 'notify', target: 'slack' })
       await postToSlack(webhookUrl.trim(), findings, source)
       setStatus('done')
     } catch (err) {

@@ -4,6 +4,8 @@ import { useId, useState } from 'react'
 import type { Finding } from '@/types/findings'
 import { createIssuesForFindings } from '@/lib/githubExport'
 import { useFocusTrap } from '@/lib/useFocusTrap'
+import { useWallet } from '@/lib/WalletContext'
+import { logAuditEvent } from '@/lib/auditLog'
 
 interface Props {
   findings: Finding[]
@@ -19,6 +21,7 @@ export default function GithubExportModal({ findings, onClose }: Props) {
   const [error, setError] = useState<string | null>(null)
   const titleId = useId()
   const dialogRef = useFocusTrap<HTMLDivElement>(onClose)
+  const { publicKey } = useWallet()
 
   const busy = progress !== null && urls === null
 
@@ -28,6 +31,7 @@ export default function GithubExportModal({ findings, onClose }: Props) {
     setUrls(null)
     setProgress({ done: 0, total: findings.length })
     try {
+      await logAuditEvent({ wallet: publicKey, action: 'export', target: 'github' })
       const created = await createIssuesForFindings(
         findings,
         owner.trim(),

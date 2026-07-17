@@ -4,6 +4,8 @@ import { useId, useState } from 'react'
 import type { Finding } from '@/types/findings'
 import { postToDiscord } from '@/lib/discord'
 import { useFocusTrap } from '@/lib/useFocusTrap'
+import { useWallet } from '@/lib/WalletContext'
+import { logAuditEvent } from '@/lib/auditLog'
 
 interface Props {
   findings: Finding[]
@@ -17,12 +19,14 @@ export default function DiscordNotifyModal({ findings, source, onClose }: Props)
   const [error, setError] = useState<string | null>(null)
   const titleId = useId()
   const dialogRef = useFocusTrap<HTMLDivElement>(onClose)
+  const { publicKey } = useWallet()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setStatus('sending')
     setError(null)
     try {
+      await logAuditEvent({ wallet: publicKey, action: 'notify', target: 'discord' })
       await postToDiscord(webhookUrl.trim(), findings, source)
       setStatus('done')
     } catch (err) {

@@ -4,6 +4,8 @@ import { useId, useState } from 'react'
 import type { Finding } from '@/types/findings'
 import { createNotionPage } from '@/lib/notion'
 import { useFocusTrap } from '@/lib/useFocusTrap'
+import { useWallet } from '@/lib/WalletContext'
+import { logAuditEvent } from '@/lib/auditLog'
 
 interface Props {
   findings: Finding[]
@@ -18,6 +20,7 @@ export default function NotionExportModal({ findings, onClose }: Props) {
   const [error, setError] = useState<string | null>(null)
   const titleId = useId()
   const dialogRef = useFocusTrap<HTMLDivElement>(onClose)
+  const { publicKey } = useWallet()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -25,6 +28,7 @@ export default function NotionExportModal({ findings, onClose }: Props) {
     setPageUrl(null)
     setLoading(true)
     try {
+      await logAuditEvent({ wallet: publicKey, action: 'export', target: 'notion' })
       const url = await createNotionPage(token.trim(), databaseId.trim(), findings)
       setPageUrl(url)
     } catch (err) {
