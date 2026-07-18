@@ -36,7 +36,6 @@ export default function SeverityBadge({ severity, size = 'md', includeIcon = tru
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full font-semibold tracking-wide ${padding} ${styles[severity]}`}
-      role="status"
       aria-label={`${severity} severity`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${dots[severity]}`} aria-hidden="true" />

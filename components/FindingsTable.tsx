@@ -160,13 +160,15 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize = 2
         </div>
       ) : (
         <>
-          <div className="overflow-hidden rounded-xl border border-[var(--border)]">
+          <div className="overflow-hidden rounded-xl border border-[var(--border)]" role="table" aria-label="Scan findings">
             {/* Sortable table header */}
-            <div className="hidden grid-cols-[120px_1fr_1fr_80px_1fr] gap-4 border-b border-[var(--border)] bg-[var(--bg-tertiary)] px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 sm:grid">
+            <div className="hidden grid-cols-[120px_1fr_1fr_80px_1fr] gap-4 border-b border-[var(--border)] bg-[var(--bg-tertiary)] px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 sm:grid" role="row">
               {columns.map(col => (
                 <button
                   key={col.key}
                   onClick={() => handleSortToggle(col.key)}
+                  role="columnheader"
+                  aria-sort={sortConfig.key === col.key ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                   className={`flex items-center gap-1 text-left transition-colors hover:text-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
                     col.hideOnMobile ? 'hidden lg:flex' : ''
                   }`}
@@ -175,7 +177,7 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize = 2
                   <SortIndicator columnKey={col.key} />
                 </button>
               ))}
-              <span className="text-left">Description</span>
+              <span className="text-left" role="columnheader">Description</span>
             </div>
             {paginatedFindings.map((finding, i) => {
               const globalIndex = start + i
@@ -185,6 +187,7 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize = 2
                 <div key={globalIndex} data-finding-index={globalIndex}>
                   <button
                     onClick={() => handleRowClick(i, globalIndex)}
+                    role="row"
                     className={`w-full border-b border-[var(--border)] px-5 py-4 text-left transition-colors last:border-b-0 hover:bg-[var(--bg-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
                       isExpanded || isMobileOpen ? 'bg-[var(--bg-hover)]' : 'bg-[var(--bg)]'
                     }`}
@@ -201,14 +204,16 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize = 2
                       <ChevronIcon expanded={expandedIndex === globalIndex} />
                     </div>
                     <div className="hidden grid-cols-[120px_1fr_1fr_80px_1fr] items-center gap-4 sm:grid">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2" role="cell">
                         <SeverityBadge severity={finding.severity} size="sm" />
-                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{finding.severity}</span>
+                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide" aria-hidden="true">{finding.severity}</span>
                       </div>
-                      <CheckTooltip checkName={finding.check_name} />
-                      <span className="truncate font-mono text-sm text-slate-300">{finding.function_name}</span>
-                      <span className="font-mono text-sm text-slate-400">{finding.line}</span>
-                      <div className="flex items-center justify-between gap-2">
+                      <div role="cell">
+                        <CheckTooltip checkName={finding.check_name} />
+                      </div>
+                      <span className="truncate font-mono text-sm text-slate-300" role="cell">{finding.function_name}</span>
+                      <span className="font-mono text-sm text-slate-400" role="cell">{finding.line}</span>
+                      <div className="flex items-center justify-between gap-2" role="cell">
                         <span className="line-clamp-1 text-sm text-slate-400">{finding.description}</span>
                         <ChevronIcon expanded={expandedIndex === globalIndex} />
                       </div>

@@ -27,9 +27,13 @@ export default function SeverityDonut({ counts }: Props) {
 
   if (total === 0) return null
 
+  const breakdownText = data.map(item => `${item.name}: ${item.value}`).join(', ')
+  const srText = `Severity distribution donut chart. Total findings: ${total}. Breakdown: ${breakdownText}.`
+
   return (
-    <div className="flex items-center justify-center">
-      <div className="relative h-32 w-32">
+    <figure className="flex items-center justify-center" aria-label="Severity distribution chart">
+      <figcaption className="sr-only">{srText}</figcaption>
+      <div className="relative h-32 w-32" aria-hidden="true">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -52,6 +56,6 @@ export default function SeverityDonut({ counts }: Props) {
           <span className="text-xs text-slate-500">findings</span>
         </div>
       </div>
-    </div>
+    </figure>
   )
 }
