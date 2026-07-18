@@ -11,7 +11,8 @@ import ThemeToggle from '@/components/ThemeToggle'
 import ScanQuotaIndicator from '@/components/ScanQuota'
 import TourTooltip from '@/components/TourTooltip'
 import { useOnboardingTour } from '@/lib/useOnboardingTour'
-import { scanContract, ApiError, TimeoutError } from '@/lib/api'
+import { scanContract, scanContractMultiNetwork, ApiError, TimeoutError } from '@/lib/api'
+import type { MultiNetworkResults } from '@/types/findings'
 import type { ScanQuota } from '@/lib/api'
 import { checkNetworkHealth, fetchContractsByAccount } from '@/lib/stellar'
 import { getScanHistory } from '@/lib/history'
@@ -114,7 +115,11 @@ export default function HomePage() {
       })
   }, [walletKey, walletNetwork])
 
-  async function handleScan(source: string, mode?: string) {
+  async function handleScan(
+    source: string,
+    mode?: string,
+    options?: { slackWebhookUrl?: string; telegramConfig?: { botToken: string; chatId: string }; networks?: string[] },
+  ) {
     // Determine type for addRecent — prefer the explicit mode from ScanInput,
     // fall back to auto-detection for direct contract-ID calls.
     let scanType: RecentScan['type']
@@ -131,14 +136,30 @@ export default function HomePage() {
     setIsTimeout(false)
     setStatusMessage('Scanning your contract…')
     try {
-      const data = await scanContract(source)
-      setStatusMessage(`Scan complete. ${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} detected.`)
-      if (data.quota) setQuota(data.quota)
-      addRecent(scanType, source, scanType === 'contractId' ? walletNetwork.name : undefined)
-      // Store results in sessionStorage so the results page can read them
-      sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
-      const encoded = encodeFindings(data.findings)
-      router.push(`/results?r=${encoded}`)
+      const networks = options?.networks
+      const isMultiNetwork = scanType === 'contractId' && networks && networks.length > 0
+
+      if (isMultiNetwork) {
+        const networkObjects = networks.map(n => NETWORKS[n]).filter(Boolean)
+        setStatusMessage(`Scanning across ${networkObjects.length} networks…`)
+        const multiResults: MultiNetworkResults = await scanContractMultiNetwork(source, networkObjects)
+        const totalFindings = multiResults.reduce((sum, r) => sum + r.findings.length, 0)
+        setStatusMessage(`Scan complete. ${totalFindings} total findings across ${networks.length} networks.`)
+        if (multiResults.some(r => r.findings.length > 0)) {
+          sessionStorage.setItem('sg_multi_network_results', JSON.stringify(multiResults))
+          sessionStorage.setItem('sg_findings', JSON.stringify(multiResults.flatMap(r => r.findings)))
+        }
+        const encoded = encodeFindings(multiResults.flatMap(r => r.findings))
+        router.push(`/results?r=${encoded}&multi=1`)
+      } else {
+        const data = await scanContract(source)
+        setStatusMessage(`Scan complete. ${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} detected.`)
+        if (data.quota) setQuota(data.quota)
+        addRecent(scanType, source, scanType === 'contractId' ? walletNetwork.name : undefined)
+        sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
+        const encoded = encodeFindings(data.findings)
+        router.push(`/results?r=${encoded}`)
+      }
     } catch (err) {
       if (err instanceof TimeoutError) {
         setIsTimeout(true)

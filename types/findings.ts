@@ -17,3 +17,12 @@ export interface ScanResponse {
 export interface ScanRequest {
   source: string
 }
+
+export interface NetworkScanResult {
+  network: string
+  findings: Finding[]
+  status: 'success' | 'not_found' | 'error'
+  error?: string
+}
+
+export type MultiNetworkResults = NetworkScanResult[]
