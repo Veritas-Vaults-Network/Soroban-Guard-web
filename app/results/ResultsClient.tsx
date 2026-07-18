@@ -15,9 +15,11 @@ import { useWallet } from '@/lib/WalletContext'
 import { scanContract } from '@/lib/api'
 import FindingsFilterBar from '@/components/FindingsFilterBar'
 import { filterFindings, type FilterState } from '@/lib/filterFindings'
+import { groupByFile } from '@/lib/groupFindings'
 import FindingsTable from '@/components/FindingsTable'
 import FindingsDiff from '@/components/FindingsDiff'
 import FindingsByFunction from '@/components/FindingsByFunction'
+import FindingsByFile from '@/components/FindingsByFile'
 import FindingsSkeleton from '@/components/FindingsSkeleton'
 import FindingsWordCloud from '@/components/FindingsWordCloud'
 import EmptyState from '@/components/EmptyState'
@@ -53,7 +55,13 @@ export default function ResultsClient() {
   const [prevFindings, setPrevFindings] = useState<Finding[] | null>(null)
   const [showDiff, setShowDiff] = useState(false)
   const [showWordCloud, setShowWordCloud] = useState(false)
-  const [groupView, setGroupView] = useState<'flat' | 'function'>('flat')
+  const [groupView, setGroupView] = useState<'flat' | 'function' | 'file'>('flat')
+  const [muteTrigger, setMuteTrigger] = useState(0)
+
+  function handleMuteChange() {
+    setMuteTrigger(prev => prev + 1)
+  }
+
   const [navIndex, setNavIndex] = useState<number | null>(null)
   const [showShortcutsModal, setShowShortcutsModal] = useState(false)
   const [contractTxs, setContractTxs] = useState<ContractTransaction[]>([])
@@ -842,6 +850,12 @@ export default function ResultsClient() {
                     >
                       Group by function
                     </button>
+                    <button
+                      onClick={() => setGroupView('file')}
+                      className={`border-l border-[var(--border)] px-3 py-1.5 transition ${groupView === 'file' ? 'bg-indigo-500/10 text-indigo-300' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      Group by file
+                    </button>
                   </div>
                 )}
                 {(['Critical', 'High', 'Medium', 'Low'] as Severity[]).map(s =>
@@ -883,26 +897,27 @@ export default function ResultsClient() {
                     </button>
                   )}
                 </div>
+                <FindingsFilterBar
+                  findings={findings}
+                  filterState={filterState}
+                  onFilterChange={setFilterState}
+                  muteTrigger={muteTrigger}
+                />
                 {filteredFindings.length === 0 ? (
                   <p className="py-10 text-center text-sm text-slate-500">No findings match your search.</p>
                 ) : groupView === 'function' ? (
-                  <FindingsByFunction findings={filteredFindings} />
+                  <FindingsByFunction findings={filteredFindings} onMuteChange={handleMuteChange} />
+                ) : groupView === 'file' ? (
+                  <FindingsByFile groupedFindings={groupByFile(filteredFindings)} onMuteChange={handleMuteChange} />
                 ) : (
-                  <>
-                    <FindingsFilterBar
-                      findings={findings}
-                      filterState={filterState}
-                      onFilterChange={setFilterState}
-                    />
-                    <FindingsTable
-                      findings={[...filteredFindings].sort((a, b) => {
-                        const order: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3, Info: 4,
-}
-                        return order[a.severity] - order[b.severity]
-                      })}
-                      searchQuery={searchQuery}
-                    />
-                  </>
+                  <FindingsTable
+                    findings={[...filteredFindings].sort((a, b) => {
+                      const order: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3, Info: 4 }
+                      return order[a.severity] - order[b.severity]
+                    })}
+                    searchQuery={searchQuery}
+                    onMuteChange={handleMuteChange}
+                  />
                 )}
               </>
             )}
