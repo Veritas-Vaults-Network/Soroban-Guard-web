@@ -90,12 +90,55 @@ export default function ScanHeatmap({ entries, selectedDate, onDayClick }: Props
 
   const todayStr = today.toISOString().slice(0, 10)
 
+  const [focusedDate, setFocusedDate] = useState<string>(() => selectedDate || todayStr)
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, day: Date) => {
+    let targetDate = new Date(day)
+    let handled = false
+    if (e.key === 'ArrowLeft') {
+      targetDate.setDate(targetDate.getDate() - 1)
+      handled = true
+    } else if (e.key === 'ArrowRight') {
+      targetDate.setDate(targetDate.getDate() + 1)
+      handled = true
+    } else if (e.key === 'ArrowUp') {
+      targetDate.setDate(targetDate.getDate() - 7)
+      handled = true
+    } else if (e.key === 'ArrowDown') {
+      targetDate.setDate(targetDate.getDate() + 7)
+      handled = true
+    } else if (e.key === 'Home') {
+      targetDate = new Date(start)
+      handled = true
+    } else if (e.key === 'End') {
+      targetDate = new Date(today)
+      handled = true
+    }
+
+    if (handled) {
+      const targetStr = targetDate.toISOString().slice(0, 10)
+      if (targetDate >= start && targetDate <= today) {
+        e.preventDefault()
+        setFocusedDate(targetStr)
+        setTimeout(() => {
+          const btn = document.querySelector(`button[data-date="${targetStr}"]`) as HTMLButtonElement
+          btn?.focus()
+        }, 0)
+      }
+    }
+  }
+
   return (
-    <div className="rounded-xl border border-[#2a2d3a] bg-[#12151f] p-5">
-      <h2 className="mb-4 text-sm font-semibold text-slate-300">Scan activity — last 52 weeks</h2>
+    <figure className="rounded-xl border border-[#2a2d3a] bg-[#12151f] p-5">
+      <figcaption className="mb-4 text-sm font-semibold text-slate-300">Scan activity — last 52 weeks</figcaption>
+
+      {/* Screen reader instructions */}
+      <div className="sr-only" id="heatmap-instructions">
+        Scan activity heatmap grid. Use Arrow keys to navigate between days. Press Enter or Space to select a day.
+      </div>
 
       {/* Month labels row */}
-      <div className="relative mb-1 flex" style={{ paddingLeft: '1.5rem' }}>
+      <div className="relative mb-1 flex" style={{ paddingLeft: '1.5rem' }} aria-hidden="true">
         {monthLabels.map(({ label, col }) => (
           <span
             key={`${label}-${col}`}
@@ -109,7 +152,7 @@ export default function ScanHeatmap({ entries, selectedDate, onDayClick }: Props
 
       <div className="flex gap-[2px]">
         {/* Day-of-week labels — separate column so they don't scroll away */}
-        <div className="flex shrink-0 flex-col gap-[2px]" style={{ width: '1.5rem' }}>
+        <div className="flex shrink-0 flex-col gap-[2px]" style={{ width: '1.5rem' }} aria-hidden="true">
           {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
             <span
               key={i}
@@ -121,8 +164,14 @@ export default function ScanHeatmap({ entries, selectedDate, onDayClick }: Props
         </div>
 
         {/* Scrollable grid */}
-        <div className="overflow-x-auto">
-          <div className="flex gap-[2px]">
+        <div
+          className="overflow-x-auto"
+          role="grid"
+          aria-label="Scan activity grid"
+          aria-readonly="true"
+          aria-describedby="heatmap-instructions"
+        >
+          <div className="flex gap-[2px]" role="row">
             {weeks.map((week, wi) => (
               <div key={wi} className="flex flex-col gap-[2px]">
                 {week.map((day) => {
@@ -132,15 +181,23 @@ export default function ScanHeatmap({ entries, selectedDate, onDayClick }: Props
                   const isFuture = day > new Date()
                   const isSelected = selectedDate === key
                   const label = `${count} scan${count !== 1 ? 's' : ''}, ${severityLabel(sev)} on ${day.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`
+                  const isFocused = focusedDate === key
 
                   return (
                     <button
                       key={key}
+                      data-date={key}
                       onClick={() => {
+                        setFocusedDate(key)
                         if (isFuture || !onDayClick) return
                         onDayClick(isSelected ? null : key)
                       }}
+                      onFocus={() => setFocusedDate(key)}
+                      onKeyDown={(e) => handleKeyDown(e, day)}
+                      tabIndex={isFocused ? 0 : -1}
                       disabled={isFuture}
+                      role="gridcell"
+                      aria-selected={isSelected}
                       className={`h-[14px] w-[14px] rounded-[2px] transition-colors ${
                         isSelected ? 'ring-2 ring-white/60' : ''
                       } ${
@@ -167,7 +224,7 @@ export default function ScanHeatmap({ entries, selectedDate, onDayClick }: Props
       </div>
 
       {/* Legend */}
-      <div className="mt-3 flex items-center gap-2 text-[10px] text-slate-500">
+      <div className="mt-3 flex items-center gap-2 text-[10px] text-slate-500" aria-hidden="true">
         <span>Less</span>
         {(['none', 'Info', 'Low', 'Medium', 'High', 'Critical'] as DaySeverity[]).map(s => (
           <div key={s} className="flex items-center gap-1">
@@ -187,6 +244,6 @@ export default function ScanHeatmap({ entries, selectedDate, onDayClick }: Props
           {tooltip.text}
         </div>
       )}
-    </div>
+    </figure>
   )
 }
