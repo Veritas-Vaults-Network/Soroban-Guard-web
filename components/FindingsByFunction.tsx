@@ -16,7 +16,13 @@ function highestSeverity(findings: Finding[]): Severity {
   )
 }
 
-export default function FindingsByFunction({ findings }: { findings: Finding[] }) {
+export default function FindingsByFunction({
+  findings,
+  onMuteChange,
+}: {
+  findings: Finding[]
+  onMuteChange?: () => void
+}) {
   const groups = groupByFunction(findings)
 
   const sorted = Object.entries(groups).sort(([, a], [, b]) => {
@@ -61,7 +67,7 @@ export default function FindingsByFunction({ findings }: { findings: Finding[] }
             </button>
             {isOpen && (
               <div className="border-t border-[var(--border)]">
-                <FindingsTable findings={items} />
+                <FindingsTable findings={items} onMuteChange={onMuteChange} />
               </div>
             )}
           </div>

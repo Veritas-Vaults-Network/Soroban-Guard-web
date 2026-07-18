@@ -13,9 +13,10 @@ interface Props {
   findings: Finding[]
   filterState: FilterState
   onFilterChange: (state: FilterState) => void
+  muteTrigger?: number
 }
 
-export default function FindingsFilterBar({ findings, filterState, onFilterChange }: Props) {
+export default function FindingsFilterBar({ findings, filterState, onFilterChange, muteTrigger }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const { severities, fileFilter, showMuted } = filterState
@@ -29,7 +30,7 @@ export default function FindingsFilterBar({ findings, filterState, onFilterChang
       counts[f.severity]++
     }
     return counts
-  }, [findings, fileFilter, showMuted])
+  }, [findings, fileFilter, showMuted, muteTrigger])
 
   function toggleSeverity(severity: Severity) {
     const next = new Set(severities)
