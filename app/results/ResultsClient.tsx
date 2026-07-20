@@ -39,6 +39,7 @@ import { fetchContractTransactions, isValidContractId, type ContractTransaction 
 import { NETWORKS } from '@/types/stellar'
 import { isFeatureEnabled } from '@/lib/featureFlags'
 import { logAuditEvent } from '@/lib/auditLog'
+import { attestScan, type AttestationResult } from '@/lib/attestation'
 
 export default function ResultsClient() {
   const router = useRouter()
@@ -75,6 +76,8 @@ export default function ResultsClient() {
   const [showDiscordModal, setShowDiscordModal] = useState(false)
   const [showSlackModal, setShowSlackModal] = useState(false)
   const [multiNetworkResults, setMultiNetworkResults] = useState<MultiNetworkResults | null>(null)
+  const [isAttesting, setIsAttesting] = useState(false)
+  const [attestationResult, setAttestationResult] = useState<AttestationResult | null>(null)
   const [activeNetwork, setActiveNetwork] = useState<string | null>(null)
   const [filterState, setFilterState] = useState<FilterState>(() => {
     const severityParam = searchParams.get('severity')
@@ -310,8 +313,25 @@ export default function ResultsClient() {
   }
 
   async function handleAttest() {
+    if (!walletKey || !scanSource) return
     await logAuditEvent({ wallet: walletKey, action: 'attest', target: 'stellar' })
-    show('Attestation is not available in this build', 'error')
+    setIsAttesting(true)
+    try {
+      const network = NETWORKS[sessionStorage.getItem('sg_network') ?? 'testnet'] ?? NETWORKS.testnet
+      const result = await attestScan(
+        walletKey,
+        scanSource,
+        JSON.stringify(findings),
+        network
+      )
+      setAttestationResult(result)
+      show('Attestation successful!', 'success')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Attestation failed'
+      show(message, 'error')
+    } finally {
+      setIsAttesting(false)
+    }
   }
 
   if (findings === null) {
@@ -366,12 +386,24 @@ export default function ResultsClient() {
             {/* Secondary actions — visible on desktop, collapsed on mobile */}
             <div className="hidden items-center gap-2 sm:flex">
               {findings.length === 0 && walletKey && isFeatureEnabled('attestation') && (
-                <button
-                  onClick={handleAttest}
-                  className="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-300 transition hover:bg-emerald-500/20"
-                >
-                  View attestation on Stellar.expert
-                </button>
+                attestationResult ? (
+                  <a
+                    href={attestationResult.explorerUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-300 transition hover:bg-emerald-500/20"
+                  >
+                    View on Stellar.expert
+                  </a>
+                ) : (
+                  <button
+                    onClick={handleAttest}
+                    disabled={isAttesting}
+                    className="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-300 transition hover:bg-emerald-500/20 disabled:opacity-50"
+                  >
+                    {isAttesting ? 'Attesting...' : 'Attest on Stellar'}
+                  </button>
+                )
               )}
             <a
               href={exportEmail(findings)}
@@ -552,13 +584,27 @@ export default function ResultsClient() {
                     </button>
                   )}
                   {findings.length === 0 && walletKey && isFeatureEnabled('attestation') && (
-                    <button
-                      onClick={() => { handleAttest(); setShowActionsMenu(false) }}
-                      className="w-full px-4 py-2.5 text-left text-sm text-emerald-400 hover:bg-[var(--bg-hover)]"
-                      role="menuitem"
-                    >
-                      Attest on Stellar
-                    </button>
+                    attestationResult ? (
+                      <a
+                        href={attestationResult.explorerUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setShowActionsMenu(false)}
+                        className="block w-full px-4 py-2.5 text-left text-sm text-emerald-400 hover:bg-[var(--bg-hover)]"
+                        role="menuitem"
+                      >
+                        View on Stellar.expert
+                      </a>
+                    ) : (
+                      <button
+                        onClick={() => { handleAttest(); setShowActionsMenu(false) }}
+                        disabled={isAttesting}
+                        className="w-full px-4 py-2.5 text-left text-sm text-emerald-400 hover:bg-[var(--bg-hover)] disabled:opacity-50"
+                        role="menuitem"
+                      >
+                        {isAttesting ? 'Attesting...' : 'Attest on Stellar'}
+                      </button>
+                    )
                   )}
                 </div>
               )}
