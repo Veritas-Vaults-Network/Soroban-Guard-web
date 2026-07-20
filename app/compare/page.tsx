@@ -216,10 +216,12 @@ export default function ComparePage({}: Props) {
                 try {
                   const mod = await import('@/lib/wasmDiff')
                   const res = mod.structuralWasmDiff(a, b)
-                  const pretty = `<pre class=\"text-sm\">${JSON.stringify(res, null, 2)}</pre>`
                   const w = window.open('', '_blank')
                   if (w) {
-                    w.document.body.innerHTML = pretty
+                    const pre = w.document.createElement('pre')
+                    pre.className = 'text-sm'
+                    pre.textContent = JSON.stringify(res, null, 2)
+                    w.document.body.appendChild(pre)
                   }
                 } catch (e) {
                   alert('WASM structural diff not available: ' + (e as Error).message)

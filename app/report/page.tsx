@@ -107,6 +107,7 @@ export default function ReportPage() {
       <div className="page">
         {/* Cover */}
         <div className="cover">
+          {/* eslint-disable-next-line no-raw-html/no-dangerously-set-inner-html -- JUSTIFIED: LOGO_SVG is a static app-authored constant, not user content */}
           <div className="logo" dangerouslySetInnerHTML={{ __html: LOGO_SVG }} />
           <div className="cover-content">
             <h1>Soroban Guard — Security Report</h1>
