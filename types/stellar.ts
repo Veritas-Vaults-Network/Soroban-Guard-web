@@ -34,7 +34,10 @@ export interface WalletState {
   network: StellarNetwork
 }
 
+export const CONTRACT_SCAN_RECORD_SCHEMA_VERSION = 1
+
 export interface ContractScanRecord {
+  schemaVersion: number
   publicKey: string
   contractId: string
   network: string
