@@ -1,4 +1,5 @@
 import type { ContractScanRecord } from '@/types/stellar'
+import { SCORE_VERSION } from '@/lib/score'
 
 const STORAGE_KEY = 'sg_scan_history'
 
@@ -102,6 +103,7 @@ export function addScanRecord(
       lowCount: counts.low,
       findings,
       score,
+      scoreVersion: SCORE_VERSION,
     }
 
     records.unshift(record)

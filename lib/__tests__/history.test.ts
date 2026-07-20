@@ -1,4 +1,5 @@
 import { addScanRecord, getScanHistory, getById, clearScanHistory } from '../history'
+import { SCORE_VERSION } from '../score'
 
 const STORAGE_KEY = 'sg_scan_history'
 
@@ -51,6 +52,12 @@ describe('addScanRecord', () => {
     addScanRecord('PK', 'CTR', 'mainnet', [], 85)
     const stored = JSON.parse(mockLocalStorage.setItem.mock.calls[0][1])
     expect(stored[0].score).toBe(85)
+  })
+
+  it('stamps scoreVersion on new records', () => {
+    addScanRecord('PK', 'CTR', 'mainnet', [], 85)
+    const stored = JSON.parse(mockLocalStorage.setItem.mock.calls[0][1])
+    expect(stored[0].scoreVersion).toBe(SCORE_VERSION)
   })
 
   it('prepends new records (most recent first)', () => {
