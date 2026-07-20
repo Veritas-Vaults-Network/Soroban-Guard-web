@@ -42,5 +42,11 @@ it('muting one finding does not affect another', () => {
 it('persists muted key in localStorage', () => {
   mute(f)
   const stored = JSON.parse(localStorage.getItem('sg_muted_findings')!)
-  expect(stored).toContain('unchecked-auth:src/lib.rs:42')
+  expect(stored).toContain('unchecked-auth:src/lib.rs:transfer')
+})
+
+it('mute survives line-number shift (same function, different line)', () => {
+  mute(f)
+  const shifted = { ...f, line: 99 }
+  expect(isMuted(shifted)).toBe(true)
 })
