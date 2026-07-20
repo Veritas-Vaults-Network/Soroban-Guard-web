@@ -1,10 +1,25 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import DOMPurify from 'dompurify'
 
 interface Props {
   source: string
   highlightLine: number // 1-based
+}
+
+const HLJS_CDN =
+  'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js'
+const HLJS_CDN_INTEGRITY =
+  'sha256-RJn/k21P1WKtylpcvlEtwZ64CULu6GGNr7zrxPeXS9s='
+const HLJS_CSS_CDN =
+  'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css'
+
+function sanitizeHtml(dirty: string): string {
+  return DOMPurify.sanitize(dirty, {
+    ALLOWED_TAGS: ['span', 'br'],
+    ALLOWED_ATTR: ['class'],
+  }) as string
 }
 
 export default function CodeViewer({ source, highlightLine }: Props) {
@@ -26,11 +41,13 @@ export default function CodeViewer({ source, highlightLine }: Props) {
 
     const link = document.createElement('link')
     link.rel = 'stylesheet'
-    link.href = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css'
+    link.href = HLJS_CSS_CDN
     document.head.appendChild(link)
 
     const script = document.createElement('script')
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js'
+    script.src = HLJS_CDN
+    script.integrity = HLJS_CDN_INTEGRITY
+    script.crossOrigin = 'anonymous'
     script.async = true
     script.onload = () => {
       hljsRef.current = (window as any).hljs
@@ -60,8 +77,11 @@ export default function CodeViewer({ source, highlightLine }: Props) {
     try {
       const detected = hljsRef.current.highlightAuto(source)
       const lang = detected.language
-      if (lang) return hljsRef.current.highlight(line, { language: lang }).value
-      return hljsRef.current.highlightAuto(line).value
+      if (lang)
+        return sanitizeHtml(
+          hljsRef.current.highlight(line, { language: lang }).value,
+        )
+      return sanitizeHtml(hljsRef.current.highlightAuto(line).value)
     } catch (e) {
       return escapeHtml(line)
     }
@@ -92,8 +112,10 @@ export default function CodeViewer({ source, highlightLine }: Props) {
                   }`}
                 >
                   {hlReady ? (
+                    /* eslint-disable-next-line no-raw-html/no-dangerously-set-inner-html -- JUSTIFIED: output is DOMPurify-sanitized highlight.js spans */
                     <code className="hljs" dangerouslySetInnerHTML={{ __html: getHighlightedLine(line) || '&nbsp;' }} />
                   ) : (
+                    /* eslint-disable-next-line no-raw-html/no-dangerously-set-inner-html -- JUSTIFIED: value is escaped via escapeHtml() */
                     <code dangerouslySetInnerHTML={{ __html: escapeHtml(line) || '&nbsp;' }} />
                   )}
                 </td>

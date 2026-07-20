@@ -29,6 +29,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <script
+          /* eslint-disable-next-line no-raw-html/no-dangerously-set-inner-html -- JUSTIFIED: static inline script; localStorage value used via setAttribute, not HTML */
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
