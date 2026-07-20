@@ -24,24 +24,37 @@ export default function WorkspacePage() {
 
   useEffect(() => {
     const token = typeof params.token === 'string' ? params.token : Array.isArray(params.token) ? params.token[0] : ''
-    const ws = decodeWorkspace(token)
-    if (!ws) {
+    if (!token) {
       router.replace('/')
       return
     }
-    setFindings(ws.findings)
-    setSource(ws.source)
 
     fetch(`/api/token/status?token=${encodeURIComponent(token)}`)
       .then(r => r.json())
       .then(data => {
         if (data.revoked) {
           setStatus('revoked')
-        } else {
-          setStatus('ready')
+          return
         }
+        const ws = decodeWorkspace(token)
+        if (!ws) {
+          router.replace('/')
+          return
+        }
+        setFindings(ws.findings)
+        setSource(ws.source)
+        setStatus('ready')
       })
-      .catch(() => setStatus('ready'))
+      .catch(() => {
+        const ws = decodeWorkspace(token)
+        if (!ws) {
+          router.replace('/')
+          return
+        }
+        setFindings(ws.findings)
+        setSource(ws.source)
+        setStatus('ready')
+      })
   }, [params.token, router])
 
   const handleRevoke = useCallback(async () => {

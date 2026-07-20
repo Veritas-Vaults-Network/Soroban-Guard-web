@@ -1,3 +1,37 @@
+/**
+ * Token access control design:
+ *
+ * ## Revocation
+ * Tokens can be explicitly revoked via POST /api/token/revoke before natural expiry.
+ * Revoked tokens are stored (hashed) in KV or in-memory and checked on every access.
+ *
+ * ## Scoped permission levels
+ * Current model: single permission level (full read access).
+ *
+ * Design consideration — scoped permissions were considered but intentionally omitted:
+ *
+ * - Workspace tokens are self-contained (findings are base64-encoded in the URL).
+ *   The token IS the data — true scope enforcement is impossible because any
+ *   recipient can decode the payload offline. Adding "view-only" vs "full-access"
+ *   would be meaningless since there is no server-side data to gate.
+ *
+ * - Webhook tokens reference server-side data with a 1-hour TTL. In principle,
+ *   scopes like "read-only" and "admin" (ability to trigger rescans) could be
+ *   attached at creation time. However, the app has no user-account system, so
+ *   there is no way to authenticate who performs a scoped action. Adding scopes
+ *   without authentication would create a false sense of security.
+ *
+ * If user accounts are added in the future, scoped tokens should be revisited:
+ *   - `read` — view findings (current default)
+ *   - `write` — create new webhook payloads / trigger rescans
+ *   - `admin` — revoke tokens, manage permissions
+ *
+ * ## Token leak prevention
+ * - Referrer-Policy: no-referrer is set globally in next.config.js
+ * - CSP frame-ancestors 'none' prevents embedded access
+ * - Tokens are never logged server-side
+ * - hashToken uses a non-reversible digest (not the raw token) for KV keys
+ */
 const KV_PREFIX_REVOKED = 'token_revoked:'
 
 const memRevoked = new Set<string>()
