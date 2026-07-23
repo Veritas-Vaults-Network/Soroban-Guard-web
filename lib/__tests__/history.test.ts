@@ -55,6 +55,12 @@ describe('addScanRecord', () => {
     expect(stored[0].score).toBe(85)
   })
 
+  it('stamps scoreVersion on new records', () => {
+    addScanRecord('PK', 'CTR', 'mainnet', [], 85)
+    const stored = JSON.parse(mockLocalStorage.setItem.mock.calls[0][1])
+    expect(stored[0].scoreVersion).toBe(SCORE_VERSION)
+  })
+
   it('prepends new records (most recent first)', () => {
     addScanRecord('PK', 'CTR1', 'mainnet', [])
     addScanRecord('PK', 'CTR2', 'mainnet', [])

@@ -139,6 +139,7 @@ export function addScanRecord(
       lowCount: counts.low,
       findings,
       score,
+      scoreVersion: SCORE_VERSION,
     }
 
     records.unshift(record)
