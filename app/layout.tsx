@@ -4,6 +4,7 @@ import { WalletProvider } from '@/lib/WalletContext'
 import { ToastProvider } from '@/lib/toast'
 import ToastContainer from '@/components/ToastContainer'
 import ErrorBoundary from '@/components/ErrorBoundary'
+import SplashScreen from '@/components/SplashScreen'
 import { validateEnv } from '@/lib/env'
 
 validateEnv()
@@ -48,16 +49,18 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        <ErrorBoundary>
-          <WalletProvider>
-            <ToastProvider>
-              <main id="main-content" tabIndex={-1}>
-                {children}
-              </main>
-              <ToastContainer />
-            </ToastProvider>
-          </WalletProvider>
-        </ErrorBoundary>
+        <SplashScreen>
+          <ErrorBoundary>
+            <WalletProvider>
+              <ToastProvider>
+                <main id="main-content" tabIndex={-1}>
+                  {children}
+                </main>
+                <ToastContainer />
+              </ToastProvider>
+            </WalletProvider>
+          </ErrorBoundary>
+        </SplashScreen>
       </body>
     </html>
   )
