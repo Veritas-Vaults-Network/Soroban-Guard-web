@@ -1,7 +1,39 @@
 import type { ContractScanRecord } from '@/types/stellar'
-import { SCORE_VERSION } from '@/lib/score'
+import { CONTRACT_SCAN_RECORD_SCHEMA_VERSION } from '@/types/stellar'
 
 const STORAGE_KEY = 'sg_scan_history'
+
+type StoredRecord = Record<string, unknown> & { id?: string }
+
+/**
+ * Migrate a legacy (unversioned / schemaVersion 0) record to the current schema.
+ * Version 0 records lack the `schemaVersion` field entirely; every other field
+ * has been present since the initial release, so the migration only needs to
+ * stamp the version number.
+ */
+function migrateRecord(record: StoredRecord): ContractScanRecord {
+  const schemaVersion = typeof record.schemaVersion === 'number' ? record.schemaVersion : 0
+  if (schemaVersion >= CONTRACT_SCAN_RECORD_SCHEMA_VERSION) {
+    return record as unknown as ContractScanRecord
+  }
+
+  // Version 0 → 1: add schemaVersion field (all other fields are unchanged)
+  return {
+    ...record,
+    schemaVersion: CONTRACT_SCAN_RECORD_SCHEMA_VERSION,
+  } as unknown as ContractScanRecord
+}
+
+/**
+ * Migrate an array of raw stored records to the current schema.
+ * Silently drops entries that cannot be recovered.
+ */
+function migrateRecords(raw: unknown[]): ContractScanRecord[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .filter((entry): entry is StoredRecord => typeof entry === 'object' && entry !== null)
+    .map(migrateRecord)
+}
 
 /**
  * Retrieve all scan history records from localStorage.
@@ -12,7 +44,8 @@ export function getAllScanHistory(): ContractScanRecord[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return []
-    return JSON.parse(raw) as ContractScanRecord[]
+    const parsed: unknown = JSON.parse(raw)
+    return migrateRecords(parsed as unknown[])
   } catch {
     return []
   }
@@ -40,7 +73,7 @@ export function getScanHistory(publicKey: string): ContractScanRecord[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return []
-    const records = JSON.parse(raw) as ContractScanRecord[]
+    const records = migrateRecords(JSON.parse(raw) as unknown[])
     return records.filter(r => r.publicKey === publicKey)
   } catch {
     return []
@@ -57,7 +90,7 @@ export function getById(id: string): ContractScanRecord | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
-    const records = JSON.parse(raw) as ContractScanRecord[]
+    const records = migrateRecords(JSON.parse(raw) as unknown[])
     return records.find(r => r.id === id) || null
   } catch {
     return null
@@ -66,6 +99,8 @@ export function getById(id: string): ContractScanRecord | null {
 
 /**
  * Persist a new scan record to localStorage (capped at 50 entries).
+ * All new records are written with the current schema version.
+ *
  * @param publicKey - Wallet public key that initiated the scan
  * @param contractId - Scanned contract ID
  * @param network - Network name (e.g. 'testnet')
@@ -82,7 +117,7 @@ export function addScanRecord(
   if (typeof window === 'undefined') return
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    const records = raw ? (JSON.parse(raw) as ContractScanRecord[]) : []
+    const records = raw ? migrateRecords(JSON.parse(raw) as unknown[]) : []
 
     const counts = { high: 0, medium: 0, low: 0 }
     for (const f of findings) {
@@ -92,6 +127,7 @@ export function addScanRecord(
     }
 
     const record: ContractScanRecord = {
+      schemaVersion: CONTRACT_SCAN_RECORD_SCHEMA_VERSION,
       id: Date.now().toString(),
       publicKey,
       contractId,

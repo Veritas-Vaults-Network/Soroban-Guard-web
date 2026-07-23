@@ -1,5 +1,5 @@
-import { addScanRecord, getScanHistory, getById, clearScanHistory } from '../history'
-import { SCORE_VERSION } from '../score'
+import { addScanRecord, getScanHistory, getById, clearScanHistory, getAllScanHistory } from '../history'
+import { CONTRACT_SCAN_RECORD_SCHEMA_VERSION } from '@/types/stellar'
 
 const STORAGE_KEY = 'sg_scan_history'
 
@@ -10,6 +10,7 @@ const mockLocalStorage = (() => {
     setItem: jest.fn((key: string, value: string) => { store[key] = value }),
     removeItem: jest.fn((key: string) => { delete store[key] }),
     clear: () => { store = {} },
+    _store: () => store,
   }
 })()
 
@@ -75,6 +76,12 @@ describe('addScanRecord', () => {
     const lastCall = mockLocalStorage.setItem.mock.calls.at(-1)![1]
     expect(JSON.parse(lastCall)).toHaveLength(50)
   })
+
+  it('writes new records with schemaVersion', () => {
+    addScanRecord('PK', 'CTR', 'testnet', [])
+    const stored = JSON.parse(mockLocalStorage.setItem.mock.calls[0][1])
+    expect(stored[0].schemaVersion).toBe(CONTRACT_SCAN_RECORD_SCHEMA_VERSION)
+  })
 })
 
 describe('getScanHistory', () => {
@@ -125,5 +132,84 @@ describe('clearScanHistory', () => {
     addScanRecord('PK', 'CTR1', 'testnet', [])
     clearScanHistory()
     expect(getScanHistory('PK')).toEqual([])
+  })
+})
+
+describe('schema migration', () => {
+  function injectLegacyRecords(records: unknown[]) {
+    mockLocalStorage._store()[STORAGE_KEY] = JSON.stringify(records)
+  }
+
+  it('migrates version-0 (unversioned) records on read', () => {
+    const legacy = {
+      id: '1',
+      publicKey: 'PK',
+      contractId: 'CTR',
+      network: 'testnet',
+      scannedAt: '2024-01-01T00:00:00.000Z',
+      findingCount: 0,
+      highCount: 0,
+      mediumCount: 0,
+      lowCount: 0,
+      findings: [],
+    }
+    injectLegacyRecords([legacy])
+
+    const result = getAllScanHistory()
+    expect(result).toHaveLength(1)
+    expect(result[0].schemaVersion).toBe(CONTRACT_SCAN_RECORD_SCHEMA_VERSION)
+    expect(result[0].contractId).toBe('CTR')
+  })
+
+  it('preserves existing schemaVersion on already-migrated records', () => {
+    const migrated = {
+      schemaVersion: CONTRACT_SCAN_RECORD_SCHEMA_VERSION,
+      id: '1',
+      publicKey: 'PK',
+      contractId: 'CTR',
+      network: 'testnet',
+      scannedAt: '2024-01-01T00:00:00.000Z',
+      findingCount: 0,
+      highCount: 0,
+      mediumCount: 0,
+      lowCount: 0,
+      findings: [],
+    }
+    injectLegacyRecords([migrated])
+
+    const result = getAllScanHistory()
+    expect(result[0].schemaVersion).toBe(CONTRACT_SCAN_RECORD_SCHEMA_VERSION)
+  })
+
+  it('silently drops non-object entries', () => {
+    injectLegacyRecords([null, 42, 'string', { id: '1', publicKey: 'PK', contractId: 'CTR', network: 'testnet', scannedAt: '', findingCount: 0, highCount: 0, mediumCount: 0, lowCount: 0, findings: [] }])
+
+    const result = getAllScanHistory()
+    expect(result).toHaveLength(1)
+  })
+
+  it('returns empty array for corrupted JSON', () => {
+    mockLocalStorage._store()[STORAGE_KEY] = 'not-json'
+    expect(getAllScanHistory()).toEqual([])
+  })
+
+  it('migrates records accessed via getById', () => {
+    const legacy = {
+      id: '42',
+      publicKey: 'PK',
+      contractId: 'CTR',
+      network: 'testnet',
+      scannedAt: '2024-01-01T00:00:00.000Z',
+      findingCount: 0,
+      highCount: 0,
+      mediumCount: 0,
+      lowCount: 0,
+      findings: [],
+    }
+    injectLegacyRecords([legacy])
+
+    const result = getById('42')
+    expect(result).not.toBeNull()
+    expect(result!.schemaVersion).toBe(CONTRACT_SCAN_RECORD_SCHEMA_VERSION)
   })
 })
