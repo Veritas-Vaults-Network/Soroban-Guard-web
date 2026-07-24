@@ -611,7 +611,7 @@ export default function ResultsClient() {
             </div>
             <button
               onClick={handleScanAnother}
-              className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-indigo-500 sm:px-4"
+              className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[#6264f0] sm:px-4"
             >
               <span className="hidden sm:inline">Scan another contract</span>
               <span className="sm:hidden">New scan</span>
@@ -656,13 +656,13 @@ export default function ResultsClient() {
               )}
             </div>
           </div>
-          <p className="mb-6 text-sm text-slate-500">
+          <p className="mb-6 text-sm text-slate-400">
             {multiNetworkResults
               ? `${findings.length} finding${findings.length !== 1 ? 's' : ''} detected across ${multiNetworkResults.length} networks.`
               : findings.length === 0
                 ? 'No issues detected.'
                 : `${findings.length} finding${findings.length !== 1 ? 's' : ''} detected across your contract.`}
-            {duration && <span className="ml-2 text-slate-600">Scanned in {duration}s</span>}
+            {duration && <span className="ml-2 text-slate-400">Scanned in {duration}s</span>}
           </p>
 
           <div className="flex gap-6">
@@ -745,7 +745,7 @@ export default function ResultsClient() {
                       className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition ${
                         isActive
                           ? `${statusColor} ring-1 ring-current`
-                          : 'border-[var(--border)] text-slate-500 hover:text-slate-300'
+                          : 'border-[var(--border)] text-slate-400 hover:text-slate-300'
                       }`}
                     >
                       {network && (
@@ -850,7 +850,7 @@ export default function ResultsClient() {
                   Vulnerability themes
                 </span>
                 <svg
-                  className={`h-4 w-4 text-slate-500 transition-transform duration-200 ${showWordCloud ? 'rotate-180' : ''}`}
+                  className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${showWordCloud ? 'rotate-180' : ''}`}
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -920,7 +920,7 @@ export default function ResultsClient() {
                   <label htmlFor="findings-search" className="sr-only">
                     Search findings
                   </label>
-                  <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                  <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
                   </svg>
                   <input
@@ -929,13 +929,13 @@ export default function ResultsClient() {
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     placeholder="Search by check, function, file, or description..."
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] py-2 pl-9 pr-9 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] py-2 pl-9 pr-9 text-sm text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery('')}
                       aria-label="Clear search"
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -950,7 +950,7 @@ export default function ResultsClient() {
                   muteTrigger={muteTrigger}
                 />
                 {filteredFindings.length === 0 ? (
-                  <p className="py-10 text-center text-sm text-slate-500">No findings match your search.</p>
+                  <p className="py-10 text-center text-sm text-slate-400">No findings match your search.</p>
                 ) : groupView === 'function' ? (
                   <FindingsByFunction findings={filteredFindings} onMuteChange={handleMuteChange} />
                 ) : groupView === 'file' ? (
@@ -978,7 +978,7 @@ export default function ResultsClient() {
             <div className="overflow-hidden rounded-xl border border-[var(--border)]">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-[var(--border)] bg-[var(--bg-secondary)] text-xs text-slate-500">
+                  <tr className="border-b border-[var(--border)] bg-[var(--bg-secondary)] text-xs text-slate-400">
                     <th className="px-4 py-2 text-left font-medium">Hash</th>
                     <th className="px-4 py-2 text-left font-medium">Date</th>
                     <th className="px-4 py-2 text-right font-medium">Ops</th>
@@ -1015,7 +1015,7 @@ export default function ResultsClient() {
       <button
         onClick={handleScanAnother}
         aria-label="Scan another contract"
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-indigo-500 sm:hidden"
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-[#6264f0] sm:hidden"
       >
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -1023,7 +1023,7 @@ export default function ResultsClient() {
         New scan
       </button>
 
-      <footer className="border-t border-[var(--border)] py-6 text-center text-xs text-slate-600">
+      <footer className="border-t border-[var(--border)] py-6 text-center text-xs text-slate-400">
         Soroban Guard · Veritas Vaults Network
       </footer>
 
@@ -1109,7 +1109,7 @@ function SummaryCard({
 }) {
   return (
     <div className={`rounded-xl border ${border || 'border-[var(--border)]'} ${bg} p-4`}>
-      <p className="mb-1 text-xs text-slate-500">{label}</p>
+      <p className="mb-1 text-xs text-slate-400">{label}</p>
       <p className={`text-2xl font-bold ${color}`}>{value}</p>
     </div>
   )

@@ -54,14 +54,14 @@ export default function WalletConnect() {
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
           <ContractIdBadge id={publicKey} className="text-xs text-emerald-400" />
           {network && (
-            <span className="rounded-full bg-[#1a1d27] px-1.5 py-0.5 text-xs text-slate-500">
+            <span className="rounded-full bg-[#1a1d27] px-1.5 py-0.5 text-xs text-slate-400">
               {network.name}
             </span>
           )}
         </div>
         <button
           onClick={disconnect}
-          className="text-xs text-slate-500 hover:text-slate-300"
+          className="text-xs text-slate-400 hover:text-slate-300"
         >
           Disconnect
         </button>

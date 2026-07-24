@@ -20,7 +20,7 @@ export default function ScanQuotaIndicator({ quota }: { quota: ScanQuota }) {
 
   return (
     <div className="mt-4 space-y-1.5">
-      <div className="flex items-center justify-between text-xs text-slate-500">
+      <div className="flex items-center justify-between text-xs text-slate-400">
         <span>
           <span className={low ? 'font-semibold text-red-400' : 'text-slate-400'}>{remaining}</span>
           {' '}of {quota.limit} scans remaining today

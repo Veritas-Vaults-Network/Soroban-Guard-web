@@ -142,7 +142,7 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize = 2
 
   function SortIndicator({ columnKey }: { columnKey: SortKey }) {
     if (sortConfig.key !== columnKey) {
-      return <span className="ml-1 inline-block text-slate-600">&#x21D5;</span>
+      return <span className="ml-1 inline-block text-slate-400">&#x21D5;</span>
     }
     return (
       <span className="ml-1 inline-block text-indigo-400">
@@ -155,14 +155,14 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize = 2
 
     <div>
       {sorted.length === 0 ? (
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-tertiary)] px-5 py-10 text-center text-sm text-slate-500">
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-tertiary)] px-5 py-10 text-center text-sm text-slate-400">
           No findings match your search.
         </div>
       ) : (
         <>
           <div className="overflow-hidden rounded-xl border border-[var(--border)]" role="table" aria-label="Scan findings">
             {/* Sortable table header */}
-            <div className="hidden grid-cols-[120px_1fr_1fr_80px_1fr] gap-4 border-b border-[var(--border)] bg-[var(--bg-tertiary)] px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 sm:grid" role="row">
+            <div className="hidden grid-cols-[120px_1fr_1fr_80px_1fr] gap-4 border-b border-[var(--border)] bg-[var(--bg-tertiary)] px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 sm:grid" role="row">
               {columns.map(col => (
                 <button
                   key={col.key}
@@ -206,7 +206,7 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize = 2
                     <div className="hidden grid-cols-[120px_1fr_1fr_80px_1fr] items-center gap-4 sm:grid">
                       <div className="flex items-center gap-2" role="cell">
                         <SeverityBadge severity={finding.severity} size="sm" />
-                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide" aria-hidden="true">{finding.severity}</span>
+                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide" aria-hidden="true">{finding.severity}</span>
                       </div>
                       <div role="cell">
                         <CheckTooltip checkName={finding.check_name} />
@@ -230,7 +230,7 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize = 2
           </div>
           {totalPages > 1 && (
             <div className="mt-6 flex items-center justify-between">
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-slate-400">
                 Showing {start + 1}&#8211;{Math.min(end, sorted.length)} of {sorted.length}
               </p>
               <div className="flex gap-2">
@@ -269,7 +269,7 @@ export default function FindingsTable({ findings, searchQuery = '', pageSize = 2
 function ChevronIcon({ expanded }: { expanded: boolean }) {
   return (
     <svg
-      className={`h-4 w-4 flex-shrink-0 text-slate-500 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+      className={`h-4 w-4 flex-shrink-0 text-slate-400 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"

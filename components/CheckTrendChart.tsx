@@ -47,12 +47,12 @@ export default function CheckTrendChart({ data, checkName }: Props) {
           <LineChart data={data} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
             <XAxis
               dataKey="date"
-              tick={{ fill: '#64748b', fontSize: 11 }}
+              tick={{ fill: '#94a3b8', fontSize: 11 }}
               axisLine={false}
               tickLine={false}
             />
             <YAxis
-              tick={{ fill: '#64748b', fontSize: 11 }}
+              tick={{ fill: '#94a3b8', fontSize: 11 }}
               axisLine={false}
               tickLine={false}
             />

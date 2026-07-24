@@ -53,7 +53,7 @@ export default function LinearExportModal({ findings, onClose }: Props) {
       <div ref={dialogRef} className="w-full max-w-md rounded-2xl border border-[#2a2d3a] bg-[#0e1117] p-6 shadow-xl">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-base font-semibold text-white">Create Linear Issues</h2>
-          <button onClick={onClose} className="text-slate-500 hover:text-white" aria-label="Close">
+          <button onClick={onClose} className="text-slate-400 hover:text-white" aria-label="Close">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -72,7 +72,7 @@ export default function LinearExportModal({ findings, onClose }: Props) {
                 </li>
               ))}
             </ul>
-            <button onClick={onClose} className="mt-2 w-full rounded-xl bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-indigo-500">
+            <button onClick={onClose} className="mt-2 w-full rounded-xl bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-[#6264f0]">
               Done
             </button>
           </div>
@@ -85,7 +85,7 @@ export default function LinearExportModal({ findings, onClose }: Props) {
               onChange={e => setApiKey(e.target.value)}
               placeholder="Linear API key"
               disabled={busy}
-              className="w-full rounded-lg border border-[#2a2d3a] bg-[#12151f] px-3 py-2 text-sm text-slate-300 placeholder-slate-600 outline-none focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30 disabled:opacity-50"
+              className="w-full rounded-lg border border-[#2a2d3a] bg-[#12151f] px-3 py-2 text-sm text-slate-300 placeholder-slate-400 outline-none focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
             />
             <input
               required
@@ -93,9 +93,9 @@ export default function LinearExportModal({ findings, onClose }: Props) {
               onChange={e => setTeamId(e.target.value)}
               placeholder="Linear team ID"
               disabled={busy}
-              className="w-full rounded-lg border border-[#2a2d3a] bg-[#12151f] px-3 py-2 text-sm text-slate-300 placeholder-slate-600 outline-none focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30 disabled:opacity-50"
+              className="w-full rounded-lg border border-[#2a2d3a] bg-[#12151f] px-3 py-2 text-sm text-slate-300 placeholder-slate-400 outline-none focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
             />
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-400">
               Creates one Linear issue for each finding. The API key is not stored.
             </p>
 
@@ -116,7 +116,7 @@ export default function LinearExportModal({ findings, onClose }: Props) {
             <button
               type="submit"
               disabled={busy || findings.length === 0}
-              className="w-full rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+              className="w-full rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white transition hover:bg-[#6264f0] disabled:cursor-not-allowed disabled:opacity-40"
             >
               {busy ? 'Creating...' : `Create ${findings.length} issue${findings.length !== 1 ? 's' : ''}`}
             </button>

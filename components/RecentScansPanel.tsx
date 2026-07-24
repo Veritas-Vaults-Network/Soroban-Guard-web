@@ -54,7 +54,7 @@ export default function RecentScansPanel({ onLaunch }: Props) {
 
   if (scans.length === 0 && !query) {
     return (
-      <nav aria-label="Recent scans" className="mt-4 py-4 text-center text-sm text-slate-500">
+      <nav aria-label="Recent scans" className="mt-4 py-4 text-center text-sm text-slate-400">
         Your recent scans will appear here.
       </nav>
     )
@@ -69,7 +69,7 @@ export default function RecentScansPanel({ onLaunch }: Props) {
       {/* Search */}
       <div className="mb-3 flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2">
         <svg
-          className="h-4 w-4 shrink-0 text-slate-500"
+          className="h-4 w-4 shrink-0 text-slate-400"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -87,18 +87,18 @@ export default function RecentScansPanel({ onLaunch }: Props) {
           placeholder="Search recent scans…"
           value={query}
           onChange={e => setQuery(e.target.value)}
-          className="w-full bg-transparent text-sm text-slate-300 placeholder-slate-600 outline-none"
+          className="w-full bg-transparent text-sm text-slate-300 placeholder-slate-400 outline-none"
           aria-label="Search recent scans"
         />
       </div>
 
       {filtered.length === 0 && (
-        <p className="py-4 text-center text-sm text-slate-500">No matches found.</p>
+        <p className="py-4 text-center text-sm text-slate-400">No matches found.</p>
       )}
 
       {pinnedScans.length > 0 && (
         <div className="mb-3">
-          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-600">
+          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
             📌 Pinned
           </p>
           <ul className="space-y-1">
@@ -120,7 +120,7 @@ export default function RecentScansPanel({ onLaunch }: Props) {
       {recentScans.length > 0 && (
         <div>
           {pinnedScans.length > 0 && (
-            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-600">
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
               Recent
             </p>
           )}
@@ -173,12 +173,12 @@ function ScanRow({
             {scan.network}
           </span>
         )}
-        <span className="shrink-0 text-xs text-slate-600">{formatRelative(scan.timestamp)}</span>
+        <span className="shrink-0 text-xs text-slate-400">{formatRelative(scan.timestamp)}</span>
       </button>
 
       <button
         onClick={() => (isPinned ? onUnpin(scan.value) : onPin(scan.value))}
-        className="shrink-0 rounded p-1 text-slate-600 transition hover:text-amber-400"
+        className="shrink-0 rounded p-1 text-slate-400 transition hover:text-amber-400"
         aria-label={isPinned ? 'Unpin scan' : 'Pin scan'}
         title={isPinned ? 'Unpin' : 'Pin'}
       >
@@ -187,7 +187,7 @@ function ScanRow({
 
       <button
         onClick={() => onRemove(scan)}
-        className="shrink-0 rounded p-1 text-slate-600 opacity-0 transition hover:text-red-400 group-hover:opacity-100 focus:opacity-100"
+        className="shrink-0 rounded p-1 text-slate-400 opacity-0 transition hover:text-red-400 group-hover:opacity-100 focus:opacity-100"
         aria-label={`Remove ${label} from recent scans`}
         title="Remove"
       >
