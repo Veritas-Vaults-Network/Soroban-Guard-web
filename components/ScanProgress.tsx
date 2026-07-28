@@ -82,7 +82,7 @@ export default function ScanProgress({ loading, batchCurrent, batchTotal }: Prop
       {/* Header with indicator that progress is estimated */}
       <div className="flex items-center justify-between gap-2 px-1">
         {!isBatch && (
-          <span className="text-xs font-medium text-slate-500">Estimated progress</span>
+          <span className="text-xs font-medium text-slate-400">Estimated progress</span>
         )}
         {!isBatch && (
           <div
@@ -90,7 +90,7 @@ export default function ScanProgress({ loading, batchCurrent, batchTotal }: Prop
             title="Progress times are estimated. Actual scan duration depends on contract complexity."
           >
             <svg
-              className="h-4 w-4 text-slate-500 transition-colors group-hover:text-slate-400"
+              className="h-4 w-4 text-slate-400 transition-colors group-hover:text-slate-300"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -152,7 +152,7 @@ export default function ScanProgress({ loading, batchCurrent, batchTotal }: Prop
                     ? 'bg-indigo-600 text-white'
                     : active
                       ? 'bg-indigo-500/30 text-indigo-300 ring-2 ring-indigo-500'
-                      : 'bg-[#1a1d27] text-slate-600 ring-1 ring-[#2a2d3a]'
+                      : 'bg-[#1a1d27] text-slate-400 ring-1 ring-[#2a2d3a]'
                 }`}
               >
                 {done ? (
@@ -169,12 +169,12 @@ export default function ScanProgress({ loading, batchCurrent, batchTotal }: Prop
               </div>
               <span
                 className={`text-xs transition-colors duration-500 ${
-                  done ? 'text-indigo-400' : active ? 'text-white' : 'text-slate-600'
+                  done ? 'text-indigo-400' : active ? 'text-white' : 'text-slate-400'
                 }`}
               >
                 {label}
                 {stepDuration && (
-                  <span className="ml-1 text-slate-500">— {stepDuration}</span>
+                  <span className="ml-1 text-slate-400">— {stepDuration}</span>
                 )}
                 {liveElapsed && (
                   <span className="ml-1 text-slate-400">{liveElapsed}</span>
@@ -187,7 +187,7 @@ export default function ScanProgress({ loading, batchCurrent, batchTotal }: Prop
 
       {/* Percentage label (single scan only) */}
       {!isBatch && (
-        <p className="text-center text-xs text-slate-500">
+        <p className="text-center text-xs text-slate-400">
           {pct}% estimated
         </p>
       )}

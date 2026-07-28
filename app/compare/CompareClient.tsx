@@ -105,7 +105,7 @@ export default function CompareClient() {
             <h2 className="mb-4 text-lg font-semibold text-red-400">New ({newFindings.length})</h2>
             <div className="space-y-4">
               {newFindings.map((f, i) => (
-                <div key={i} className="ring-2 ring-red-500/50">
+                <div key={i} className="ring-2 ring-red-500/80">
                   <FindingCard finding={f} />
                 </div>
               ))}

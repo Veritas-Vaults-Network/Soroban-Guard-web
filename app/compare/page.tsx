@@ -62,16 +62,16 @@ export default function ComparePage({}: Props) {
           </div>
         </header>
         <main className="flex flex-1 flex-col items-center justify-center gap-4 px-4 text-center">
-          <svg className="h-12 w-12 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <svg className="h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7" />
           </svg>
           <p className="text-base font-medium text-slate-300">No scans selected for comparison</p>
-          <p className="max-w-xs text-sm text-slate-500">
+          <p className="max-w-xs text-sm text-slate-400">
             Go to your scan history, select two scans, and use the Compare button to see a side-by-side diff.
           </p>
           <a
             href="/history"
-            className="mt-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500"
+            className="mt-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-[#6264f0]"
           >
             Browse scan history
           </a>
@@ -144,7 +144,7 @@ export default function ComparePage({}: Props) {
             <h2 className="mb-4 text-lg font-semibold text-red-400">New ({newFindings.length})</h2>
             <div className="space-y-4">
               {newFindings.map((f, i) => (
-                <div key={i} className="ring-2 ring-red-500/50">
+                <div key={i} className="ring-2 ring-red-500/80">
                   <FindingCard finding={f} />
                 </div>
               ))}

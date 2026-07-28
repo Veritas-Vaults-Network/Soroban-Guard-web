@@ -284,7 +284,7 @@ export default function HomePage() {
                ) : contractsError ? (
                  <p className="text-sm text-red-400">Error loading contracts.</p>
                ) : contracts.length === 0 ? (
-                 <p className="text-sm text-slate-500">No deployed contracts found.</p>
+                 <p className="text-sm text-slate-400">No deployed contracts found.</p>
                ) : (
                  <div className="flex flex-wrap gap-3">
                    {contracts.map((contract, idx) => (
@@ -341,7 +341,7 @@ export default function HomePage() {
                         <p className="truncate font-mono text-sm text-slate-300">
                           {record.contractId.slice(0, 12)}...{record.contractId.slice(-8)}
                         </p>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-slate-400">
                           {new Date(record.scannedAt).toLocaleDateString()}
                         </p>
                       </div>
@@ -396,7 +396,7 @@ export default function HomePage() {
                      <p className="mb-4 flex-1 text-slate-400 text-center">{contract.description}</p>
                      <div className="w-full">
                        <NetworkBadge network={NETWORKS.testnet} />
-                       <span className="ml-2 font-mono text-xs text-slate-500">
+                       <span className="ml-2 font-mono text-xs text-slate-400">
                          {contract.contractId.slice(0, 8)}...{contract.contractId.slice(-8)}
                        </span>
                      </div>
@@ -476,12 +476,12 @@ export default function HomePage() {
         </section>
       </main>
 
-      <footer className="border-t border-[var(--border)] py-8 text-center text-sm text-slate-600">
+      <footer className="border-t border-[var(--border)] py-8 text-center text-sm text-slate-400">
         <p>
           Built by{' '}
           <a
             href="https://github.com/Veritas-Vaults-Network"
-            className="text-slate-500 hover:text-slate-300"
+            className="text-slate-400 hover:text-slate-300"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -546,7 +546,7 @@ function Step({
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400 ring-1 ring-indigo-500/20">
           {icon}
         </div>
-        <span className="font-mono text-xs font-bold text-slate-600">{number}</span>
+        <span className="font-mono text-xs font-bold text-slate-400">{number}</span>
       </div>
       <h3 className="mb-2 font-semibold text-white">{title}</h3>
       <p className="text-sm leading-relaxed text-slate-400">{description}</p>
@@ -587,7 +587,7 @@ function RepoCard({
           </span>
         )}
       </div>
-      <p className="text-xs leading-relaxed text-slate-500">{description}</p>
+      <p className="text-xs leading-relaxed text-slate-400">{description}</p>
     </a>
   )
 }

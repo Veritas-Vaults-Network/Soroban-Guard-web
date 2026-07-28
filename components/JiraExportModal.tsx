@@ -74,7 +74,7 @@ export default function JiraExportModal({ findings, onClose }: Props) {
       >
         <div className="mb-5 flex items-center justify-between">
           <h2 id={titleId} className="text-base font-semibold text-white">Create Jira Tickets</h2>
-          <button onClick={onClose} className="text-slate-500 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded" aria-label="Close dialog">
+          <button onClick={onClose} className="text-slate-400 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded" aria-label="Close dialog">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -93,7 +93,7 @@ export default function JiraExportModal({ findings, onClose }: Props) {
                 </li>
               ))}
             </ul>
-            <button onClick={onClose} className="mt-2 w-full rounded-xl bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-indigo-500">
+            <button onClick={onClose} className="mt-2 w-full rounded-xl bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-[#6264f0]">
               Done
             </button>
           </div>
@@ -106,7 +106,7 @@ export default function JiraExportModal({ findings, onClose }: Props) {
               onChange={e => setBaseUrl(e.target.value)}
               placeholder="https://your-domain.atlassian.net"
               disabled={busy}
-              className="w-full rounded-lg border border-[#2a2d3a] bg-[#12151f] px-3 py-2 text-sm text-slate-300 placeholder-slate-600 outline-none focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30 disabled:opacity-50"
+              className="w-full rounded-lg border border-[#2a2d3a] bg-[#12151f] px-3 py-2 text-sm text-slate-300 placeholder-slate-400 outline-none focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
             />
             <input
               required
@@ -115,7 +115,7 @@ export default function JiraExportModal({ findings, onClose }: Props) {
               onChange={e => setEmail(e.target.value)}
               placeholder="Jira account email"
               disabled={busy}
-              className="w-full rounded-lg border border-[#2a2d3a] bg-[#12151f] px-3 py-2 text-sm text-slate-300 placeholder-slate-600 outline-none focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30 disabled:opacity-50"
+              className="w-full rounded-lg border border-[#2a2d3a] bg-[#12151f] px-3 py-2 text-sm text-slate-300 placeholder-slate-400 outline-none focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
             />
             <input
               required
@@ -124,7 +124,7 @@ export default function JiraExportModal({ findings, onClose }: Props) {
               onChange={e => setApiToken(e.target.value)}
               placeholder="Jira API token"
               disabled={busy}
-              className="w-full rounded-lg border border-[#2a2d3a] bg-[#12151f] px-3 py-2 text-sm text-slate-300 placeholder-slate-600 outline-none focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30 disabled:opacity-50"
+              className="w-full rounded-lg border border-[#2a2d3a] bg-[#12151f] px-3 py-2 text-sm text-slate-300 placeholder-slate-400 outline-none focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
             />
             <input
               required
@@ -132,10 +132,10 @@ export default function JiraExportModal({ findings, onClose }: Props) {
               onChange={e => setProjectKey(e.target.value.toUpperCase())}
               placeholder="Project key"
               disabled={busy}
-              className="w-full rounded-lg border border-[#2a2d3a] bg-[#12151f] px-3 py-2 text-sm uppercase text-slate-300 placeholder-slate-600 outline-none focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30 disabled:opacity-50"
+              className="w-full rounded-lg border border-[#2a2d3a] bg-[#12151f] px-3 py-2 text-sm uppercase text-slate-300 placeholder-slate-400 outline-none focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
             />
 
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-400">
               Creates tickets for {ticketFindings.length} High/Critical finding{ticketFindings.length !== 1 ? 's' : ''}. The API token is not stored.
             </p>
 
@@ -156,7 +156,7 @@ export default function JiraExportModal({ findings, onClose }: Props) {
             <button
               type="submit"
               disabled={busy || ticketFindings.length === 0}
-              className="w-full rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+              className="w-full rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white transition hover:bg-[#6264f0] disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
             >
               {busy ? 'Creating...' : `Create ${ticketFindings.length} ticket${ticketFindings.length !== 1 ? 's' : ''}`}
             </button>

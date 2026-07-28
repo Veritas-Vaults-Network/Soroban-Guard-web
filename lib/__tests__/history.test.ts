@@ -1,5 +1,6 @@
 import { addScanRecord, getScanHistory, getById, clearScanHistory, getAllScanHistory } from '../history'
 import { CONTRACT_SCAN_RECORD_SCHEMA_VERSION } from '@/types/stellar'
+import { SCORE_VERSION } from '../score'
 
 const STORAGE_KEY = 'sg_scan_history'
 

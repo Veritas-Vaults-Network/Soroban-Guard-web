@@ -1,8 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import 'tailwindcss';
+@config '../tailwind.config.ts';
 
 :root {
   --bg: #0f1117;
@@ -13,6 +11,11 @@
   --text: #e2e8f0;
   --text-secondary: #a1aec7;
   --text-tertiary: #64748b;
+  --warning-text: #fde68a;
+  --warning-text-secondary: #fcd34d;
+  --warning-icon: #fbbf24;
+  --warning-dismiss: #fbbf24;
+  --warning-dismiss-hover: #fcd34d;
 }
 
 html[data-theme='light'] {
@@ -24,6 +27,11 @@ html[data-theme='light'] {
   --text: #1e293b;
   --text-secondary: #475569;
   --text-tertiary: #94a3b8;
+  --warning-text: #78350f;
+  --warning-text-secondary: #92400e;
+  --warning-icon: #b45309;
+  --warning-dismiss: #b45309;
+  --warning-dismiss-hover: #92400e;
 }
 
 html {

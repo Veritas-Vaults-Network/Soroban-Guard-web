@@ -53,7 +53,7 @@ export default function SeverityDonut({ counts }: Props) {
         </ResponsiveContainer>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-2xl font-bold text-white">{total}</span>
-          <span className="text-xs text-slate-500">findings</span>
+          <span className="text-xs text-slate-400">findings</span>
         </div>
       </div>
     </figure>

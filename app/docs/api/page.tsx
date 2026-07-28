@@ -11,7 +11,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 export default function ApiDocsPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-      <Link href="/" className="mb-8 inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-300">
+      <Link href="/" className="mb-8 inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-300">
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
         </svg>
@@ -41,13 +41,13 @@ export default function ApiDocsPage() {
         </p>
 
         <SubHeading>Request</SubHeading>
-        <p className="mb-2 text-sm text-slate-500">Content-Type: application/json</p>
+        <p className="mb-2 text-sm text-slate-400">Content-Type: application/json</p>
         <Code>{`{
   "source": string  // Rust source | GitHub URL | C-address
 }`}</Code>
 
         <SubHeading>Response</SubHeading>
-        <p className="mb-2 text-sm text-slate-500">200 OK — Content-Type: application/json</p>
+        <p className="mb-2 text-sm text-slate-400">200 OK — Content-Type: application/json</p>
         <Code>{`{
   "findings": Finding[]
 }`}</Code>
@@ -88,7 +88,7 @@ export default function ApiDocsPage() {
       <Section title="Error responses">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-[var(--border)] text-left text-slate-500">
+            <tr className="border-b border-[var(--border)] text-left text-slate-400">
               <th className="pb-2 pr-6 font-medium">Status</th>
               <th className="pb-2 font-medium">Meaning</th>
             </tr>
@@ -128,7 +128,7 @@ export default function ApiDocsPage() {
         </p>
 
         <SubHeading>POST /api/webhook</SubHeading>
-        <p className="mb-2 text-sm text-slate-500">Content-Type: application/json</p>
+        <p className="mb-2 text-sm text-slate-400">Content-Type: application/json</p>
         <Code>{`{
   "findings": Finding[]   // same shape as POST /scan response
 }`}</Code>
@@ -170,7 +170,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function SubHeading({ children }: { children: React.ReactNode }) {
-  return <h3 className="mb-2 mt-6 text-sm font-semibold uppercase tracking-wider text-slate-500">{children}</h3>
+  return <h3 className="mb-2 mt-6 text-sm font-semibold uppercase tracking-wider text-slate-400">{children}</h3>
 }
 
 function Code({ children }: { children: React.ReactNode }) {

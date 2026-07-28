@@ -142,7 +142,7 @@ export default function ScanHeatmap({ entries, selectedDate, onDayClick }: Props
         {monthLabels.map(({ label, col }) => (
           <span
             key={`${label}-${col}`}
-            className="absolute text-[10px] text-slate-500"
+            className="absolute text-[10px] text-slate-400"
             style={{ left: `calc(1.5rem + ${col} * 14px)` }}
           >
             {label}
@@ -156,7 +156,7 @@ export default function ScanHeatmap({ entries, selectedDate, onDayClick }: Props
           {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
             <span
               key={i}
-              className="flex h-[14px] items-center justify-end pr-1 text-[9px] text-slate-600"
+              className="flex h-[14px] items-center justify-end pr-1 text-[9px] text-slate-400"
             >
               {i % 2 === 1 ? d : ''}
             </span>
@@ -224,7 +224,7 @@ export default function ScanHeatmap({ entries, selectedDate, onDayClick }: Props
       </div>
 
       {/* Legend */}
-      <div className="mt-3 flex items-center gap-2 text-[10px] text-slate-500" aria-hidden="true">
+      <div className="mt-3 flex items-center gap-2 text-[10px] text-slate-400" aria-hidden="true">
         <span>Less</span>
         {(['none', 'Info', 'Low', 'Medium', 'High', 'Critical'] as DaySeverity[]).map(s => (
           <div key={s} className="flex items-center gap-1">

@@ -101,7 +101,7 @@ export default function CodeViewer({ source, highlightLine }: Props) {
                 className={isHighlight ? 'bg-amber-500/15' : undefined}
               >
                 <td
-                  className="select-none px-3 py-0.5 text-right font-mono text-slate-600 w-10 shrink-0"
+                  className="select-none px-3 py-0.5 text-right font-mono text-slate-400 w-10 shrink-0"
                   aria-hidden="true"
                 >
                   {lineNum}

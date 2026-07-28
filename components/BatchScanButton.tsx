@@ -141,7 +141,7 @@ export default function BatchScanButton({
           onChange={e => setManualInput(e.target.value)}
           placeholder="Paste contract IDs (one per line or comma-separated) — optional"
           rows={3}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-xs font-mono text-slate-300 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+          className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-xs font-mono text-slate-300 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
         />
         <button
           onClick={handleStart}
@@ -213,7 +213,7 @@ export default function BatchScanButton({
 
       <button
         onClick={() => { setState('idle'); setContracts([]); setCurrent(0); setResults([]) }}
-        className="text-xs text-slate-500 hover:text-slate-300 transition"
+        className="text-xs text-slate-400 hover:text-slate-300 transition"
       >
         Dismiss
       </button>

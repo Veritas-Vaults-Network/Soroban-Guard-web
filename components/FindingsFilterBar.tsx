@@ -82,7 +82,7 @@ export default function FindingsFilterBar({ findings, filterState, onFilterChang
             >
               <SeverityBadge severity={severity} size="sm" includeIcon={false} />
               <span>{severity}</span>
-              <span className="ml-0.5 rounded-md bg-[var(--bg)] px-1.5 py-0.5 text-[10px] tabular-nums text-slate-500">
+              <span className="ml-0.5 rounded-md bg-[var(--bg)] px-1.5 py-0.5 text-[10px] tabular-nums text-slate-400">
                 {count}
               </span>
             </button>
@@ -93,7 +93,7 @@ export default function FindingsFilterBar({ findings, filterState, onFilterChang
       {/* File name filter */}
       <div className="relative min-w-[160px]">
         <svg
-          className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500"
+          className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -107,12 +107,12 @@ export default function FindingsFilterBar({ findings, filterState, onFilterChang
           value={fileFilter}
           onChange={e => handleFileChange(e.target.value)}
           placeholder="Filter by file..."
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] py-1.5 pl-8 pr-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] py-1.5 pl-8 pr-2 text-xs text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
         {fileFilter && (
           <button
             onClick={() => handleFileChange('')}
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
           >
             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -138,7 +138,7 @@ export default function FindingsFilterBar({ findings, filterState, onFilterChang
       {hasActiveFilters && (
         <button
           onClick={handleClear}
-          className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs text-slate-500 transition-colors hover:text-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs text-slate-400 transition-colors hover:text-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
         >
           Clear filters
         </button>

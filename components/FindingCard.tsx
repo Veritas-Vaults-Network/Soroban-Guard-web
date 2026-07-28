@@ -149,7 +149,7 @@ export default function FindingCard({ finding, onMuteChange }: Props) {
       <div className="mt-4 flex items-center justify-between">
         <button
           onClick={handleMuteToggle}
-          className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+          className="text-xs text-slate-400 hover:text-slate-300 transition-colors"
         >
           {muted ? "Unmute this finding" : "Mute this finding"}
         </button>
@@ -157,7 +157,7 @@ export default function FindingCard({ finding, onMuteChange }: Props) {
           href={`https://github.com/Veritas-Vaults-Network/soroban-guard-core/issues/new?title=${encodeURIComponent(`False positive: ${finding.check_name}`)}&body=${encodeURIComponent(finding.description)}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+          className="text-xs text-slate-400 hover:text-slate-300 transition-colors"
         >
           Report false positive
         </a>
@@ -177,7 +177,7 @@ function Detail({
 }) {
   return (
     <div className="rounded-md bg-[#1a1d27] px-3 py-2">
-      <p className="mb-0.5 text-xs text-slate-500">{label}</p>
+      <p className="mb-0.5 text-xs text-slate-400">{label}</p>
       <p
         className={`truncate text-sm text-slate-200 ${mono ? "font-mono" : ""}`}
         title={value}

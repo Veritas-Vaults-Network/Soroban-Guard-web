@@ -86,7 +86,7 @@ export default function HistoryClient() {
       </div>
 
       {entries.length === 0 ? (
-        <p className="text-sm text-slate-500">No scan history yet.</p>
+        <p className="text-sm text-slate-400">No scan history yet.</p>
       ) : (
         <>
           {entries.length >= 7 && (
@@ -114,18 +114,18 @@ export default function HistoryClient() {
               >
                 <div className="flex items-center justify-between">
                   <span className="truncate font-mono text-sm text-slate-300">{e.source}</span>
-                  <span className="ml-4 shrink-0 text-xs text-slate-500">
+                  <span className="ml-4 shrink-0 text-xs text-slate-400">
                     {new Date(e.date).toLocaleDateString()}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-slate-400">
                   {e.findings.length} finding{e.findings.length !== 1 ? 's' : ''}
                 </p>
                 <div className="mt-3 flex items-center gap-2">
-                  <svg className="h-3.5 w-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                  <svg className="h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <span className="text-xs text-slate-500">Rescan:</span>
+                  <span className="text-xs text-slate-400">Rescan:</span>
                   {(['never', 'daily', 'weekly'] as const).map(opt => (
                     <button
                       key={opt}
@@ -133,7 +133,7 @@ export default function HistoryClient() {
                       className={`rounded-md px-2 py-0.5 text-xs font-medium transition ${
                         (opt === 'never' && !schedules[e.id]) || schedules[e.id] === opt
                           ? 'bg-indigo-500/20 text-indigo-300'
-                          : 'text-slate-500 hover:text-slate-300'
+                          : 'text-slate-400 hover:text-slate-300'
                       }`}
                     >
                       {opt.charAt(0).toUpperCase() + opt.slice(1)}
