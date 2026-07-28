@@ -1,0 +1,10 @@
+# Soroban Guard — Security contact (RFC 9116)
+# https://securitytxt.org
+
+Contact: mailto:security@veritas-vaults.network
+Contact: https://github.com/Veritas-Vaults-Network/Soroban-Guard-web/security/advisories/new
+Expires: 2027-01-01T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://soroban-guard.veritas-vaults.network/.well-known/security.txt
+Policy: https://github.com/Veritas-Vaults-Network/Soroban-Guard-web/blob/main/SECURITY.md
+Acknowledgments: https://github.com/Veritas-Vaults-Network/Soroban-Guard-web/blob/main/SECURITY.md#acknowledgments
