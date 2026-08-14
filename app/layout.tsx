@@ -4,6 +4,7 @@ import { WalletProvider } from '@/lib/WalletContext'
 import { ToastProvider } from '@/lib/toast'
 import ToastContainer from '@/components/ToastContainer'
 import ErrorBoundary from '@/components/ErrorBoundary'
+import SplashScreen from '@/components/SplashScreen'
 import { validateEnv } from '@/lib/env'
 
 validateEnv()
@@ -29,10 +30,12 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <script
+          /* eslint-disable-next-line no-raw-html/no-dangerously-set-inner-html -- JUSTIFIED: static inline script; localStorage value used via setAttribute, not HTML */
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
-                const theme = localStorage.getItem('sg_theme') || 'dark';
+                const stored = localStorage.getItem('sg_theme');
+                const theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
                 document.documentElement.setAttribute('data-theme', theme);
               })();
             `,
@@ -46,16 +49,18 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        <ErrorBoundary>
-          <WalletProvider>
-            <ToastProvider>
-              <main id="main-content" tabIndex={-1}>
-                {children}
-              </main>
-              <ToastContainer />
-            </ToastProvider>
-          </WalletProvider>
-        </ErrorBoundary>
+        <SplashScreen>
+          <ErrorBoundary>
+            <WalletProvider>
+              <ToastProvider>
+                <main id="main-content" tabIndex={-1}>
+                  {children}
+                </main>
+                <ToastContainer />
+              </ToastProvider>
+            </WalletProvider>
+          </ErrorBoundary>
+        </SplashScreen>
       </body>
     </html>
   )

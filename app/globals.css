@@ -1,8 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import 'tailwindcss';
+@config '../tailwind.config.ts';
 
 :root {
   --bg: #0f1117;
@@ -13,6 +11,11 @@
   --text: #e2e8f0;
   --text-secondary: #a1aec7;
   --text-tertiary: #64748b;
+  --warning-text: #fde68a;
+  --warning-text-secondary: #fcd34d;
+  --warning-icon: #fbbf24;
+  --warning-dismiss: #fbbf24;
+  --warning-dismiss-hover: #fcd34d;
 }
 
 html[data-theme='light'] {
@@ -24,6 +27,11 @@ html[data-theme='light'] {
   --text: #1e293b;
   --text-secondary: #475569;
   --text-tertiary: #94a3b8;
+  --warning-text: #78350f;
+  --warning-text-secondary: #92400e;
+  --warning-icon: #b45309;
+  --warning-dismiss: #b45309;
+  --warning-dismiss-hover: #92400e;
 }
 
 html {
@@ -56,6 +64,113 @@ body {
 
 html[data-theme='light'] ::-webkit-scrollbar-thumb:hover {
   background: #cbd5e1;
+}
+
+/* Splash screen */
+.splash-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  animation: splashFadeOut 0.4s ease-in 1.4s forwards;
+}
+
+.splash-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+}
+
+.splash-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  animation: splashZoomIn 0.6s ease-out forwards;
+  opacity: 0;
+}
+
+.splash-logo-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 5rem;
+  height: 5rem;
+  border-radius: 1rem;
+  background: #6366f1;
+}
+
+.splash-shield {
+  width: 2.5rem;
+  height: 2.5rem;
+  color: white;
+}
+
+.splash-wordmark {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.splash-progress {
+  width: 12rem;
+  height: 3px;
+  border-radius: 9999px;
+  background: var(--border);
+  overflow: hidden;
+  opacity: 0;
+  animation: splashFadeIn 0.3s ease-out 0.4s forwards;
+}
+
+.splash-progress-bar {
+  height: 100%;
+  border-radius: 9999px;
+  background: #6366f1;
+  animation: splashProgress 1.2s ease-in-out 0.4s forwards;
+}
+
+.splash-content-hidden {
+  opacity: 0;
+}
+
+.splash-content-visible {
+  opacity: 1;
+  animation: splashContentFadeIn 0.3s ease-out forwards;
+}
+
+@keyframes splashZoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes splashFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes splashProgress {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+@keyframes splashFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; pointer-events: none; }
+}
+
+@keyframes splashContentFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* Screen reader only */

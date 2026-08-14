@@ -9,6 +9,8 @@ const mockPush = jest.fn()
 const mockRouter = { replace: mockReplace, push: mockPush }
 let mockToken = ''
 
+global.fetch = jest.fn(() => Promise.resolve({ json: () => Promise.resolve({ revoked: false }), ok: true })) as unknown as jest.Mock
+
 jest.mock('next/navigation', () => ({
   useParams: () => ({ token: mockToken }),
   useRouter: () => mockRouter,

@@ -4,6 +4,8 @@ import { useId, useState } from 'react'
 import type { Finding } from '@/types/findings'
 import { postToSlack } from '@/lib/slack'
 import { useFocusTrap } from '@/lib/useFocusTrap'
+import { useWallet } from '@/lib/WalletContext'
+import { logAuditEvent } from '@/lib/auditLog'
 
 interface Props {
   findings: Finding[]
@@ -17,12 +19,14 @@ export default function SlackNotifyModal({ findings, source, onClose }: Props) {
   const [error, setError] = useState<string | null>(null)
   const titleId = useId()
   const dialogRef = useFocusTrap<HTMLDivElement>(onClose)
+  const { publicKey } = useWallet()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setStatus('sending')
     setError(null)
     try {
+      await logAuditEvent({ wallet: publicKey, action: 'notify', target: 'slack' })
       await postToSlack(webhookUrl.trim(), findings, source)
       setStatus('done')
     } catch (err) {
@@ -46,7 +50,7 @@ export default function SlackNotifyModal({ findings, source, onClose }: Props) {
       >
         <div className="mb-5 flex items-center justify-between">
           <h2 id={titleId} className="text-base font-semibold text-white">Send to Slack</h2>
-          <button onClick={onClose} aria-label="Close dialog" className="rounded text-slate-500 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+          <button onClick={onClose} aria-label="Close dialog" className="rounded text-slate-400 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -56,7 +60,7 @@ export default function SlackNotifyModal({ findings, source, onClose }: Props) {
         {status === 'done' ? (
           <div className="space-y-3">
             <p className="text-sm text-emerald-400">✓ Scan results sent to Slack</p>
-            <button onClick={onClose} className="w-full rounded-xl bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-indigo-500">
+            <button onClick={onClose} className="w-full rounded-xl bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-[#6264f0]">
               Done
             </button>
           </div>
@@ -68,14 +72,14 @@ export default function SlackNotifyModal({ findings, source, onClose }: Props) {
               onChange={e => setWebhookUrl(e.target.value)}
               placeholder="Slack Incoming Webhook URL"
               disabled={status === 'sending'}
-              className="w-full rounded-lg border border-[#2a2d3a] bg-[#12151f] px-3 py-2 text-sm text-slate-300 placeholder-slate-600 outline-none focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30 disabled:opacity-50"
+              className="w-full rounded-lg border border-[#2a2d3a] bg-[#12151f] px-3 py-2 text-sm text-slate-300 placeholder-slate-400 outline-none focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
             />
-            <p className="text-xs text-slate-500">Webhook URL is never stored or sent to our servers.</p>
+            <p className="text-xs text-slate-400">Webhook URL is never stored or sent to our servers.</p>
             {error && <p className="text-xs text-rose-400">{error}</p>}
             <button
               type="submit"
               disabled={status === 'sending'}
-              className="w-full rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+              className="w-full rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white transition hover:bg-[#6264f0] disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
             >
               {status === 'sending' ? 'Sending…' : 'Send notification'}
             </button>

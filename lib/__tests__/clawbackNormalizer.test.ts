@@ -4,7 +4,7 @@ import {
   parseEnforcementEvent,
   normalizeEnforcementEvents,
 } from '../clawbackNormalizer'
-import type { RawEnforcementEvent } from '../clawbackNormalizer'
+import type { EnforcementAction, RawEnforcementEvent } from '../clawbackNormalizer'
 
 const baseEvent: RawEnforcementEvent = {
   action: 'clawback',
@@ -43,6 +43,27 @@ describe('buildSummary', () => {
   it('appends reference when provided', () => {
     const summary = buildSummary('clawback', 'GABC...', 'GXYZ...', '500', 'bonds', 'CASE-2024-001')
     expect(summary).toContain('Reference: CASE-2024-001')
+  })
+
+  it('builds canonical summaries for all enforcement actions', () => {
+    const expected: Array<{
+      action: EnforcementAction
+      contains: string
+      preposition: string
+    }> = [
+      { action: 'clawback', contains: 'executed a regulatory clawback of', preposition: 'from address' },
+      { action: 'freeze', contains: 'froze the account holding', preposition: 'at address' },
+      { action: 'unfreeze', contains: 'unfroze the account holding', preposition: 'at address' },
+      { action: 'force_transfer', contains: 'executed a forced transfer of', preposition: 'from address' },
+      { action: 'burn_from', contains: 'burned', preposition: 'from address' },
+      { action: 'regulatory_seizure', contains: 'executed a regulatory seizure of', preposition: 'from address' },
+    ]
+
+    for (const { action, contains, preposition } of expected) {
+      const summary = buildSummary(action, 'GABC...', 'GXYZ...', '1', 'units')
+      expect(summary).toContain(contains)
+      expect(summary).toContain(preposition)
+    }
   })
 
   it('formats large amounts with thousands separators', () => {
@@ -103,6 +124,39 @@ describe('parseEnforcementEvent', () => {
     expect(result!.summary).toContain('Reference: REG-001')
   })
 
+  it('builds a summary when optional fields are missing', () => {
+    const result = parseEnforcementEvent({
+      ...baseEvent,
+      timestamp: undefined,
+      reference: undefined,
+    })
+    expect(result).not.toBeNull()
+    expect(result!.timestamp).toBeUndefined()
+    expect(result!.reference).toBeUndefined()
+    expect(result!.summary).toContain('executed a regulatory clawback of')
+    expect(result!.summary).not.toContain('Reference:')
+  })
+
+  it('normalises all recognised action aliases to their canonical action', () => {
+    const aliasMap: Record<string, EnforcementAction> = {
+      claw_back: 'clawback',
+      freeze_account: 'freeze',
+      freezeaccount: 'freeze',
+      unfreeze_account: 'unfreeze',
+      unfreezeaccount: 'unfreeze',
+      forcetransfer: 'force_transfer',
+      burnfrom: 'burn_from',
+      seizure: 'regulatory_seizure',
+      regulatoryseizure: 'regulatory_seizure',
+    }
+
+    for (const [alias, canonical] of Object.entries(aliasMap)) {
+      const result = parseEnforcementEvent({ ...baseEvent, action: alias })
+      expect(result).not.toBeNull()
+      expect(result!.action).toBe(canonical)
+    }
+  })
+
   it('is case-insensitive for action names', () => {
     const result = parseEnforcementEvent({ ...baseEvent, action: 'CLAWBACK' })
     expect(result!.action).toBe('clawback')
@@ -144,5 +198,21 @@ describe('normalizeEnforcementEvents', () => {
     ]
     const result = normalizeEnforcementEvents(events)
     result.forEach(e => expect(e.summary.length).toBeGreaterThan(0))
+  })
+
+  it('normalises a mix of canonical actions and aliases', () => {
+    const events: RawEnforcementEvent[] = [
+      { ...baseEvent, action: 'clawback' },
+      { ...baseEvent, action: 'freeze_account' },
+      { ...baseEvent, action: 'burnfrom' },
+      { ...baseEvent, action: 'seizure' },
+    ]
+    const result = normalizeEnforcementEvents(events)
+    expect(result.map(e => e.action)).toEqual([
+      'clawback',
+      'freeze',
+      'burn_from',
+      'regulatory_seizure',
+    ])
   })
 })

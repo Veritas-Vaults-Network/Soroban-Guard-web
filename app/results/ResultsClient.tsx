@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import type { Finding, Severity } from '@/types/findings'
+import type { Finding, Severity, MultiNetworkResults } from '@/types/findings'
+import NetworkBadge from '@/components/NetworkBadge'
 import { decodeFindingsParam, encodeWorkspace } from '@/lib/share'
 import { exportEmail } from '@/lib/export'
 import { exportJson, exportCsv, downloadMarkdown } from '@/lib/export'
@@ -14,9 +15,11 @@ import { useWallet } from '@/lib/WalletContext'
 import { scanContract } from '@/lib/api'
 import FindingsFilterBar from '@/components/FindingsFilterBar'
 import { filterFindings, type FilterState } from '@/lib/filterFindings'
+import { groupByFile } from '@/lib/groupFindings'
 import FindingsTable from '@/components/FindingsTable'
 import FindingsDiff from '@/components/FindingsDiff'
 import FindingsByFunction from '@/components/FindingsByFunction'
+import FindingsByFile from '@/components/FindingsByFile'
 import FindingsSkeleton from '@/components/FindingsSkeleton'
 import FindingsWordCloud from '@/components/FindingsWordCloud'
 import EmptyState from '@/components/EmptyState'
@@ -34,6 +37,9 @@ import SlackNotifyModal from '@/components/SlackNotifyModal'
 import ResultsQRCode from '@/components/ResultsQRCode'
 import { fetchContractTransactions, isValidContractId, type ContractTransaction } from '@/lib/stellar'
 import { NETWORKS } from '@/types/stellar'
+import { isFeatureEnabled } from '@/lib/featureFlags'
+import { logAuditEvent } from '@/lib/auditLog'
+import { attestScan, type AttestationResult } from '@/lib/attestation'
 
 export default function ResultsClient() {
   const router = useRouter()
@@ -50,7 +56,13 @@ export default function ResultsClient() {
   const [prevFindings, setPrevFindings] = useState<Finding[] | null>(null)
   const [showDiff, setShowDiff] = useState(false)
   const [showWordCloud, setShowWordCloud] = useState(false)
-  const [groupView, setGroupView] = useState<'flat' | 'function'>('flat')
+  const [groupView, setGroupView] = useState<'flat' | 'function' | 'file'>('flat')
+  const [muteTrigger, setMuteTrigger] = useState(0)
+
+  function handleMuteChange() {
+    setMuteTrigger(prev => prev + 1)
+  }
+
   const [navIndex, setNavIndex] = useState<number | null>(null)
   const [showShortcutsModal, setShowShortcutsModal] = useState(false)
   const [contractTxs, setContractTxs] = useState<ContractTransaction[]>([])
@@ -63,6 +75,10 @@ export default function ResultsClient() {
   const [showTelegramModal, setShowTelegramModal] = useState(false)
   const [showDiscordModal, setShowDiscordModal] = useState(false)
   const [showSlackModal, setShowSlackModal] = useState(false)
+  const [multiNetworkResults, setMultiNetworkResults] = useState<MultiNetworkResults | null>(null)
+  const [isAttesting, setIsAttesting] = useState(false)
+  const [attestationResult, setAttestationResult] = useState<AttestationResult | null>(null)
+  const [activeNetwork, setActiveNetwork] = useState<string | null>(null)
   const [filterState, setFilterState] = useState<FilterState>(() => {
     const severityParam = searchParams.get('severity')
     const fileParam = searchParams.get('file')
@@ -79,6 +95,7 @@ export default function ResultsClient() {
   useEffect(() => {
     const storedFindings = sessionStorage.getItem('sg_findings')
     const sharedParam = searchParams.get('r')
+    const isMultiNetwork = searchParams.get('multi') === '1'
 
     if (sharedParam) {
       const decoded = decodeFindingsParam(sharedParam)
@@ -90,6 +107,19 @@ export default function ResultsClient() {
       const shareableUrl = new URL('/results', window.location.origin)
       shareableUrl.searchParams.set('r', sharedParam)
       setResultsUrl(shareableUrl.toString())
+
+      if (isMultiNetwork) {
+        const storedMulti = sessionStorage.getItem('sg_multi_network_results')
+        if (storedMulti) {
+          try {
+            const parsed = JSON.parse(storedMulti) as MultiNetworkResults
+            setMultiNetworkResults(parsed)
+            if (parsed.length > 0) setActiveNetwork(parsed[0].network)
+          } catch {
+            // ignore parse errors
+          }
+        }
+      }
     } else if (storedFindings) {
       try {
         setFindings(JSON.parse(storedFindings) as Finding[])
@@ -241,7 +271,8 @@ export default function ResultsClient() {
     flashCopied('CLI command copied to clipboard')
   }
 
-  function handleDownloadPdf() {
+  async function handleDownloadPdf() {
+    await logAuditEvent({ wallet: walletKey, action: 'export', target: 'pdf' })
     generatePdfReport(findings ?? [], {
       source: scanSource ?? 'Unknown',
       scannedAt: new Date().toISOString(),
@@ -250,7 +281,9 @@ export default function ResultsClient() {
     })
   }
 
-  function handleDownloadSarif() {    const content = exportSarif(findings ?? [])
+  async function handleDownloadSarif() {
+    await logAuditEvent({ wallet: walletKey, action: 'export', target: 'sarif' })
+    const content = exportSarif(findings ?? [])
     const blob = new Blob([content], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -279,8 +312,26 @@ export default function ResultsClient() {
     setShowQrModal(true)
   }
 
-  function handleAttest() {
-    show('Attestation is not available in this build', 'error')
+  async function handleAttest() {
+    if (!walletKey || !scanSource) return
+    await logAuditEvent({ wallet: walletKey, action: 'attest', target: 'stellar' })
+    setIsAttesting(true)
+    try {
+      const network = NETWORKS[sessionStorage.getItem('sg_network') ?? 'testnet'] ?? NETWORKS.testnet
+      const result = await attestScan(
+        walletKey,
+        scanSource,
+        JSON.stringify(findings),
+        network
+      )
+      setAttestationResult(result)
+      show('Attestation successful!', 'success')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Attestation failed'
+      show(message, 'error')
+    } finally {
+      setIsAttesting(false)
+    }
   }
 
   if (findings === null) {
@@ -334,16 +385,29 @@ export default function ResultsClient() {
             )}
             {/* Secondary actions — visible on desktop, collapsed on mobile */}
             <div className="hidden items-center gap-2 sm:flex">
-              {findings.length === 0 && walletKey && (
-                <button
-                  onClick={handleAttest}
-                  className="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-300 transition hover:bg-emerald-500/20"
-                >
-                  View attestation on Stellar.expert
-                </button>
+              {findings.length === 0 && walletKey && isFeatureEnabled('attestation') && (
+                attestationResult ? (
+                  <a
+                    href={attestationResult.explorerUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-300 transition hover:bg-emerald-500/20"
+                  >
+                    View on Stellar.expert
+                  </a>
+                ) : (
+                  <button
+                    onClick={handleAttest}
+                    disabled={isAttesting}
+                    className="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-300 transition hover:bg-emerald-500/20 disabled:opacity-50"
+                  >
+                    {isAttesting ? 'Attesting...' : 'Attest on Stellar'}
+                  </button>
+                )
               )}
             <a
               href={exportEmail(findings)}
+              onClick={() => { void logAuditEvent({ wallet: walletKey, action: 'export', target: 'email' }) }}
               className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
             >
               Email summary
@@ -361,19 +425,28 @@ export default function ResultsClient() {
               Download PDF
             </button>
             <button
-              onClick={() => exportJson(findings)}
+              onClick={() => {
+                void logAuditEvent({ wallet: walletKey, action: 'export', target: 'json' })
+                exportJson(findings)
+              }}
               className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
             >
               Download JSON
             </button>
             <button
-              onClick={() => exportCsv(findings)}
+              onClick={() => {
+                void logAuditEvent({ wallet: walletKey, action: 'export', target: 'csv' })
+                exportCsv(findings)
+              }}
               className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
             >
               Download CSV
             </button>
             <button
-              onClick={() => downloadMarkdown(findings, { source: scanSource ?? 'Unknown', scannedAt: new Date().toISOString() })}
+              onClick={() => {
+                void logAuditEvent({ wallet: walletKey, action: 'export', target: 'markdown' })
+                downloadMarkdown(findings, { source: scanSource ?? 'Unknown', scannedAt: new Date().toISOString() })
+              }}
               className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-slate-400 transition hover:text-white"
             >
               Download Markdown
@@ -510,21 +583,35 @@ export default function ResultsClient() {
                       Export to Jira
                     </button>
                   )}
-                  {findings.length === 0 && walletKey && (
-                    <button
-                      onClick={() => { handleAttest(); setShowActionsMenu(false) }}
-                      className="w-full px-4 py-2.5 text-left text-sm text-emerald-400 hover:bg-[var(--bg-hover)]"
-                      role="menuitem"
-                    >
-                      Attest on Stellar
-                    </button>
+                  {findings.length === 0 && walletKey && isFeatureEnabled('attestation') && (
+                    attestationResult ? (
+                      <a
+                        href={attestationResult.explorerUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setShowActionsMenu(false)}
+                        className="block w-full px-4 py-2.5 text-left text-sm text-emerald-400 hover:bg-[var(--bg-hover)]"
+                        role="menuitem"
+                      >
+                        View on Stellar.expert
+                      </a>
+                    ) : (
+                      <button
+                        onClick={() => { handleAttest(); setShowActionsMenu(false) }}
+                        disabled={isAttesting}
+                        className="w-full px-4 py-2.5 text-left text-sm text-emerald-400 hover:bg-[var(--bg-hover)] disabled:opacity-50"
+                        role="menuitem"
+                      >
+                        {isAttesting ? 'Attesting...' : 'Attest on Stellar'}
+                      </button>
+                    )
                   )}
                 </div>
               )}
             </div>
             <button
               onClick={handleScanAnother}
-              className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-indigo-500 sm:px-4"
+              className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[#6264f0] sm:px-4"
             >
               <span className="hidden sm:inline">Scan another contract</span>
               <span className="sm:hidden">New scan</span>
@@ -569,11 +656,13 @@ export default function ResultsClient() {
               )}
             </div>
           </div>
-          <p className="mb-6 text-sm text-slate-500">
-            {findings.length === 0
-              ? 'No issues detected.'
-              : `${findings.length} finding${findings.length !== 1 ? 's' : ''} detected across your contract.`}
-            {duration && <span className="ml-2 text-slate-600">Scanned in {duration}s</span>}
+          <p className="mb-6 text-sm text-slate-400">
+            {multiNetworkResults
+              ? `${findings.length} finding${findings.length !== 1 ? 's' : ''} detected across ${multiNetworkResults.length} networks.`
+              : findings.length === 0
+                ? 'No issues detected.'
+                : `${findings.length} finding${findings.length !== 1 ? 's' : ''} detected across your contract.`}
+            {duration && <span className="ml-2 text-slate-400">Scanned in {duration}s</span>}
           </p>
 
           <div className="flex gap-6">
@@ -633,7 +722,118 @@ export default function ResultsClient() {
           </div>
         </div>
 
-        {findings.length === 0 ? (
+        {multiNetworkResults ? (
+          <>
+            <div className="mb-8">
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold text-slate-400">Networks:</span>
+                {multiNetworkResults.map((result) => {
+                  const network = NETWORKS[result.network]
+                  const isActive = activeNetwork === result.network
+                  const statusColor =
+                    result.status === 'success'
+                      ? result.findings.length > 0
+                        ? 'border-green-500/40 bg-green-500/10 text-green-400'
+                        : 'border-green-500/20 bg-green-500/5 text-green-300'
+                      : result.status === 'not_found'
+                        ? 'border-slate-500/30 bg-slate-500/10 text-slate-400'
+                        : 'border-red-500/30 bg-red-500/10 text-red-400'
+                  return (
+                    <button
+                      key={result.network}
+                      onClick={() => setActiveNetwork(result.network)}
+                      className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition ${
+                        isActive
+                          ? `${statusColor} ring-1 ring-current`
+                          : 'border-[var(--border)] text-slate-400 hover:text-slate-300'
+                      }`}
+                    >
+                      {network && (
+                        <span className={`h-1.5 w-1.5 rounded-full ${
+                          result.status === 'success'
+                            ? result.findings.length > 0 ? 'bg-green-400' : 'bg-green-300'
+                            : result.status === 'not_found' ? 'bg-slate-500' : 'bg-red-400'
+                        }`} />
+                      )}
+                      <span>{network?.name ?? result.network}</span>
+                      <span className="text-[10px] opacity-70">
+                        {result.status === 'success'
+                          ? `${result.findings.length} finding${result.findings.length !== 1 ? 's' : ''}`
+                          : result.status === 'not_found'
+                            ? 'Not found'
+                            : 'Error'}
+                    </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            {(() => {
+              const activeResult = multiNetworkResults.find(r => r.network === activeNetwork)
+              if (!activeResult) return null
+              const network = NETWORKS[activeResult.network]
+              if (activeResult.status === 'not_found') {
+                return (
+                  <div key={activeResult.network} className="rounded-xl border border-slate-500/20 bg-slate-500/5 p-6 text-center">
+                    <p className="text-sm text-slate-400">
+                      Contract not found on <span className="font-semibold text-slate-300">{network?.name ?? activeResult.network}</span>
+                    </p>
+                  </div>
+                )
+              }
+              if (activeResult.status === 'error') {
+                return (
+                  <div key={activeResult.network} className="rounded-xl border border-red-500/20 bg-red-500/5 p-6 text-center">
+                    <p className="text-sm text-red-400">
+                      Error scanning on <span className="font-semibold">{network?.name ?? activeResult.network}</span>: {activeResult.error}
+                    </p>
+                  </div>
+                )
+              }
+              const networkFindings = activeResult.findings
+              const networkCounts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0, Info: 0 }
+              for (const f of networkFindings) networkCounts[f.severity]++
+              return (
+                <div>
+                  <div className="mb-4 flex items-center gap-3">
+                    {network && <NetworkBadge network={network} />}
+                    <span className="text-sm text-slate-400">
+                      {networkFindings.length} finding{networkFindings.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <div className="mb-6 flex gap-3 flex-wrap">
+                    {(['Critical', 'High', 'Medium', 'Low', 'Info'] as Severity[]).map(s => (
+                      <SummaryCard
+                        key={s}
+                        label={s}
+                        value={networkCounts[s]}
+                        color={
+                          s === 'Critical' ? 'text-rose-400' :
+                          s === 'High' ? 'text-red-400' :
+                          s === 'Medium' ? 'text-amber-400' :
+                          s === 'Low' ? 'text-sky-400' : 'text-slate-400'
+                        }
+                        bg={
+                          s === 'Critical' ? 'bg-rose-500/5' :
+                          s === 'High' ? 'bg-red-500/5' :
+                          s === 'Medium' ? 'bg-amber-500/5' :
+                          s === 'Low' ? 'bg-sky-500/5' : 'bg-slate-500/5'
+                        }
+                        border={
+                          s === 'Critical' ? 'border-rose-500/20' :
+                          s === 'High' ? 'border-red-500/20' :
+                          s === 'Medium' ? 'border-amber-500/20' :
+                          s === 'Low' ? 'border-sky-500/20' : 'border-slate-500/20'
+                        }
+                      />
+                    ))}
+                  </div>
+                  <FindingsTable findings={networkFindings} searchQuery={searchQuery} />
+                </div>
+              )
+            })()}
+          </>
+        ) : findings.length === 0 ? (
           <EmptyState onScanAnother={handleScanAnother} />
         ) : (
           <div>
@@ -650,7 +850,7 @@ export default function ResultsClient() {
                   Vulnerability themes
                 </span>
                 <svg
-                  className={`h-4 w-4 text-slate-500 transition-transform duration-200 ${showWordCloud ? 'rotate-180' : ''}`}
+                  className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${showWordCloud ? 'rotate-180' : ''}`}
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -696,6 +896,12 @@ export default function ResultsClient() {
                     >
                       Group by function
                     </button>
+                    <button
+                      onClick={() => setGroupView('file')}
+                      className={`border-l border-[var(--border)] px-3 py-1.5 transition ${groupView === 'file' ? 'bg-indigo-500/10 text-indigo-300' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      Group by file
+                    </button>
                   </div>
                 )}
                 {(['Critical', 'High', 'Medium', 'Low'] as Severity[]).map(s =>
@@ -714,7 +920,7 @@ export default function ResultsClient() {
                   <label htmlFor="findings-search" className="sr-only">
                     Search findings
                   </label>
-                  <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                  <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
                   </svg>
                   <input
@@ -723,13 +929,13 @@ export default function ResultsClient() {
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     placeholder="Search by check, function, file, or description..."
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] py-2 pl-9 pr-9 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] py-2 pl-9 pr-9 text-sm text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery('')}
                       aria-label="Clear search"
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -737,26 +943,27 @@ export default function ResultsClient() {
                     </button>
                   )}
                 </div>
+                <FindingsFilterBar
+                  findings={findings}
+                  filterState={filterState}
+                  onFilterChange={setFilterState}
+                  muteTrigger={muteTrigger}
+                />
                 {filteredFindings.length === 0 ? (
-                  <p className="py-10 text-center text-sm text-slate-500">No findings match your search.</p>
+                  <p className="py-10 text-center text-sm text-slate-400">No findings match your search.</p>
                 ) : groupView === 'function' ? (
-                  <FindingsByFunction findings={filteredFindings} />
+                  <FindingsByFunction findings={filteredFindings} onMuteChange={handleMuteChange} />
+                ) : groupView === 'file' ? (
+                  <FindingsByFile groupedFindings={groupByFile(filteredFindings)} onMuteChange={handleMuteChange} />
                 ) : (
-                  <>
-                    <FindingsFilterBar
-                      findings={findings}
-                      filterState={filterState}
-                      onFilterChange={setFilterState}
-                    />
-                    <FindingsTable
-                      findings={[...filteredFindings].sort((a, b) => {
-                        const order: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3, Info: 4,
-}
-                        return order[a.severity] - order[b.severity]
-                      })}
-                      searchQuery={searchQuery}
-                    />
-                  </>
+                  <FindingsTable
+                    findings={[...filteredFindings].sort((a, b) => {
+                      const order: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3, Info: 4 }
+                      return order[a.severity] - order[b.severity]
+                    })}
+                    searchQuery={searchQuery}
+                    onMuteChange={handleMuteChange}
+                  />
                 )}
               </>
             )}
@@ -771,7 +978,7 @@ export default function ResultsClient() {
             <div className="overflow-hidden rounded-xl border border-[var(--border)]">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-[var(--border)] bg-[var(--bg-secondary)] text-xs text-slate-500">
+                  <tr className="border-b border-[var(--border)] bg-[var(--bg-secondary)] text-xs text-slate-400">
                     <th className="px-4 py-2 text-left font-medium">Hash</th>
                     <th className="px-4 py-2 text-left font-medium">Date</th>
                     <th className="px-4 py-2 text-right font-medium">Ops</th>
@@ -808,7 +1015,7 @@ export default function ResultsClient() {
       <button
         onClick={handleScanAnother}
         aria-label="Scan another contract"
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-indigo-500 sm:hidden"
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-[#6264f0] sm:hidden"
       >
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -816,7 +1023,7 @@ export default function ResultsClient() {
         New scan
       </button>
 
-      <footer className="border-t border-[var(--border)] py-6 text-center text-xs text-slate-600">
+      <footer className="border-t border-[var(--border)] py-6 text-center text-xs text-slate-400">
         Soroban Guard · SorobanGuard
       </footer>
 
@@ -902,7 +1109,7 @@ function SummaryCard({
 }) {
   return (
     <div className={`rounded-xl border ${border || 'border-[var(--border)]'} ${bg} p-4`}>
-      <p className="mb-1 text-xs text-slate-500">{label}</p>
+      <p className="mb-1 text-xs text-slate-400">{label}</p>
       <p className={`text-2xl font-bold ${color}`}>{value}</p>
     </div>
   )

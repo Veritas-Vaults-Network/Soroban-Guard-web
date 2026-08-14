@@ -4,6 +4,8 @@ import { useId, useState } from 'react'
 import type { Finding } from '@/types/findings'
 import { createIssuesForFindings } from '@/lib/githubExport'
 import { useFocusTrap } from '@/lib/useFocusTrap'
+import { useWallet } from '@/lib/WalletContext'
+import { logAuditEvent } from '@/lib/auditLog'
 
 interface Props {
   findings: Finding[]
@@ -19,6 +21,7 @@ export default function GithubExportModal({ findings, onClose }: Props) {
   const [error, setError] = useState<string | null>(null)
   const titleId = useId()
   const dialogRef = useFocusTrap<HTMLDivElement>(onClose)
+  const { publicKey } = useWallet()
 
   const busy = progress !== null && urls === null
 
@@ -28,6 +31,7 @@ export default function GithubExportModal({ findings, onClose }: Props) {
     setUrls(null)
     setProgress({ done: 0, total: findings.length })
     try {
+      await logAuditEvent({ wallet: publicKey, action: 'export', target: 'github' })
       const created = await createIssuesForFindings(
         findings,
         owner.trim(),
@@ -57,7 +61,7 @@ export default function GithubExportModal({ findings, onClose }: Props) {
       >
         <div className="mb-5 flex items-center justify-between">
           <h2 id={titleId} className="text-base font-semibold text-white">Create GitHub Issues</h2>
-          <button onClick={onClose} className="text-slate-500 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded" aria-label="Close dialog">
+          <button onClick={onClose} className="text-slate-400 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded" aria-label="Close dialog">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -76,7 +80,7 @@ export default function GithubExportModal({ findings, onClose }: Props) {
                 </li>
               ))}
             </ul>
-            <button onClick={onClose} className="mt-2 w-full rounded-xl bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-indigo-500">
+            <button onClick={onClose} className="mt-2 w-full rounded-xl bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-[#6264f0]">
               Done
             </button>
           </div>
@@ -89,16 +93,16 @@ export default function GithubExportModal({ findings, onClose }: Props) {
                 onChange={e => setOwner(e.target.value)}
                 placeholder="owner"
                 disabled={busy}
-                className="flex-1 rounded-lg border border-[#2a2d3a] bg-[#12151f] px-3 py-2 text-sm text-slate-300 placeholder-slate-600 outline-none focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30 disabled:opacity-50"
+                className="flex-1 rounded-lg border border-[#2a2d3a] bg-[#12151f] px-3 py-2 text-sm text-slate-300 placeholder-slate-400 outline-none focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
               />
-              <span className="flex items-center text-slate-500">/</span>
+              <span className="flex items-center text-slate-400">/</span>
               <input
                 required
                 value={repo}
                 onChange={e => setRepo(e.target.value)}
                 placeholder="repo"
                 disabled={busy}
-                className="flex-1 rounded-lg border border-[#2a2d3a] bg-[#12151f] px-3 py-2 text-sm text-slate-300 placeholder-slate-600 outline-none focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30 disabled:opacity-50"
+                className="flex-1 rounded-lg border border-[#2a2d3a] bg-[#12151f] px-3 py-2 text-sm text-slate-300 placeholder-slate-400 outline-none focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
               />
             </div>
             <input
@@ -108,9 +112,9 @@ export default function GithubExportModal({ findings, onClose }: Props) {
               onChange={e => setToken(e.target.value)}
               placeholder="GitHub Personal Access Token"
               disabled={busy}
-              className="w-full rounded-lg border border-[#2a2d3a] bg-[#12151f] px-3 py-2 text-sm text-slate-300 placeholder-slate-600 outline-none focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30 disabled:opacity-50"
+              className="w-full rounded-lg border border-[#2a2d3a] bg-[#12151f] px-3 py-2 text-sm text-slate-300 placeholder-slate-400 outline-none focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
             />
-            <p className="text-xs text-slate-500">Token requires <code className="rounded bg-[#1a1d27] px-1 text-slate-400">repo</code> scope. It is never stored.</p>
+            <p className="text-xs text-slate-400">Token requires <code className="rounded bg-[#1a1d27] px-1 text-slate-400">repo</code> scope. It is never stored.</p>
 
             {error && <p className="text-xs text-rose-400">{error}</p>}
 
@@ -129,7 +133,7 @@ export default function GithubExportModal({ findings, onClose }: Props) {
             <button
               type="submit"
               disabled={busy}
-              className="w-full rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+              className="w-full rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white transition hover:bg-[#6264f0] disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
             >
               {busy ? 'Creating…' : `Create ${findings.length} issue${findings.length !== 1 ? 's' : ''}`}
             </button>

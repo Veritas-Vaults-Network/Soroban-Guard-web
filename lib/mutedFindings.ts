@@ -3,10 +3,12 @@ import type { Finding } from '@/types/findings'
 const STORAGE_KEY = 'sg_muted_findings'
 
 /**
- * Generates a unique key for a finding based on check_name, file_path, and line.
+ * Generates a stable identity key for a finding based on check_name, file_path,
+ * and function_name — omitting line so that muted findings survive line-number
+ * shifts caused by unrelated upstream edits.
  */
 function getFindingKey(finding: Finding): string {
-  return `${finding.check_name}:${finding.file_path}:${finding.line}`
+  return `${finding.check_name}:${finding.file_path}:${finding.function_name}`
 }
 
 /**

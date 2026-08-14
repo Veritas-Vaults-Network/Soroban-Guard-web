@@ -14,6 +14,10 @@ const securityHeaders = [
       "form-action 'self'",
     ].join('; '),
   },
+  {
+    key: 'Referrer-Policy',
+    value: 'no-referrer',
+  },
 ]
 
 const nextConfig = {

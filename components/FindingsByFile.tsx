@@ -42,7 +42,7 @@ export default function FindingsByFile({ groupedFindings, onMuteChange }: Props)
             >
               <div className="flex items-center gap-3">
                 <svg
-                  className={`h-4 w-4 flex-shrink-0 text-slate-500 transition-transform ${
+                  className={`h-4 w-4 flex-shrink-0 text-slate-400 transition-transform ${
                     isExpanded ? 'rotate-90' : ''
                   }`}
                   fill="none"

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { Finding } from '@/types/findings'
 import { requireApiKey } from '@/lib/apiAuth'
+import { isTokenRevoked, revokeToken } from '@/lib/tokenStore'
 
 const TTL_MS = 60 * 60 * 1000 // 1 hour
 const TTL_S = 60 * 60
@@ -42,6 +43,10 @@ export async function GET(req: NextRequest) {
 
   const token = req.nextUrl.searchParams.get('token')
   if (!token) return NextResponse.json({ error: 'Missing token' }, { status: 400 })
+
+  if (await isTokenRevoked(token)) {
+    return NextResponse.json({ error: 'Token revoked' }, { status: 410 })
+  }
 
   const entry = await cacheGet(token)
   if (!entry || entry.expiresAt <= Date.now()) {

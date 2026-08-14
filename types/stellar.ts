@@ -34,7 +34,10 @@ export interface WalletState {
   network: StellarNetwork
 }
 
+export const CONTRACT_SCAN_RECORD_SCHEMA_VERSION = 1
+
 export interface ContractScanRecord {
+  schemaVersion: number
   publicKey: string
   contractId: string
   network: string
@@ -46,6 +49,7 @@ export interface ContractScanRecord {
   id: string
   findings: Array<{ severity: string; check_name: string; description: string; function_name: string; file_path: string; line: number }>
   score?: number
+  scoreVersion?: number
 }
 
 // Soroban contract metadata returned from Horizon

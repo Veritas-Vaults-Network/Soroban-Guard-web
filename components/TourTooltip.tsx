@@ -216,7 +216,7 @@ export default function TourTooltip({
         <div className="flex items-center justify-between gap-2">
           <button
             onClick={onSkip}
-            className="text-xs text-slate-500 underline-offset-2 hover:text-slate-300 hover:underline"
+            className="text-xs text-slate-400 underline-offset-2 hover:text-slate-300 hover:underline"
           >
             Skip tour
           </button>
@@ -231,7 +231,7 @@ export default function TourTooltip({
             )}
             <button
               onClick={onNext}
-              className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-500"
+              className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#6264f0]"
             >
               {stepIndex < total - 1 ? 'Next →' : 'Done'}
             </button>

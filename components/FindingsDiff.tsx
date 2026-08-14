@@ -27,7 +27,7 @@ function DiffRow({ finding, variant }: { finding: Finding; variant: 'resolved' |
       ? 'text-green-400 font-bold'
       : variant === 'added'
         ? 'text-red-400 font-bold'
-        : 'text-slate-600'
+        : 'text-slate-400'
 
   return (
     <div className={`flex items-start gap-3 rounded-lg border px-4 py-3 ${rowClass}`}>
@@ -37,7 +37,7 @@ function DiffRow({ finding, variant }: { finding: Finding; variant: 'resolved' |
           <SeverityBadge severity={finding.severity} size="sm" />
           <span className={`text-sm font-medium ${textClass}`}>{finding.check_name}</span>
         </div>
-        <p className={`mt-1 text-xs ${variant === 'resolved' ? 'text-slate-500 line-through' : 'text-slate-400'}`}>
+        <p className={`mt-1 text-xs ${variant === 'resolved' ? 'text-slate-400 line-through' : 'text-slate-400'}`}>
           {finding.file_path}:{finding.line} · {finding.function_name}
         </p>
       </div>
@@ -60,12 +60,12 @@ function Section({
     <div>
       <h3 className="mb-2 text-sm font-semibold text-slate-400">
         {title}{' '}
-        <span className="ml-1 rounded-full bg-[#1a1d27] px-2 py-0.5 text-xs text-slate-500">
+        <span className="ml-1 rounded-full bg-[#1a1d27] px-2 py-0.5 text-xs text-slate-400">
           {findings.length}
         </span>
       </h3>
       {findings.length === 0 ? (
-        <p className="rounded-lg border border-[var(--border)] px-4 py-3 text-sm text-slate-500">{emptyText}</p>
+        <p className="rounded-lg border border-[var(--border)] px-4 py-3 text-sm text-slate-400">{emptyText}</p>
       ) : (
         <div className="flex flex-col gap-2">
           {findings.map((f, i) => (

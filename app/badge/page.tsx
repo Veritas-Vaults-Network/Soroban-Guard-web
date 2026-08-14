@@ -36,7 +36,7 @@ export default function BadgePage() {
       <div className="space-y-4 rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-6">
         <div>
           <label htmlFor="contractId" className="mb-1.5 block text-xs font-medium text-slate-400">
-            Contract ID <span className="text-slate-600">(optional)</span>
+            Contract ID <span className="text-slate-400">(optional)</span>
           </label>
           <input
             id="contractId"
@@ -44,7 +44,7 @@ export default function BadgePage() {
             value={contractId}
             onChange={e => setContractId(e.target.value.trim().toUpperCase())}
             placeholder="CABC…XYZ"
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 font-mono text-sm text-slate-300 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 font-mono text-sm text-slate-300 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             spellCheck={false}
           />
         </div>

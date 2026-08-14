@@ -1,0 +1,17 @@
+{
+  "name": "soroban-guard-sdk",
+  "version": "1.0.0",
+  "description": "SDK client for Soroban Guard API",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^6"
+  }
+}

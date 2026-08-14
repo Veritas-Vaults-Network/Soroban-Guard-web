@@ -16,7 +16,13 @@ function highestSeverity(findings: Finding[]): Severity {
   )
 }
 
-export default function FindingsByFunction({ findings }: { findings: Finding[] }) {
+export default function FindingsByFunction({
+  findings,
+  onMuteChange,
+}: {
+  findings: Finding[]
+  onMuteChange?: () => void
+}) {
   const groups = groupByFunction(findings)
 
   const sorted = Object.entries(groups).sort(([, a], [, b]) => {
@@ -50,9 +56,9 @@ export default function FindingsByFunction({ findings }: { findings: Finding[] }
                 <span className="truncate font-mono text-sm font-medium text-slate-200">{name}</span>
               </div>
               <div className="flex items-center gap-3 shrink-0">
-                <span className="text-xs text-slate-500">{items.length} finding{items.length !== 1 ? 's' : ''}</span>
+                <span className="text-xs text-slate-400">{items.length} finding{items.length !== 1 ? 's' : ''}</span>
                 <svg
-                  className={`h-4 w-4 text-slate-500 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                  className={`h-4 w-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
                   fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -61,7 +67,7 @@ export default function FindingsByFunction({ findings }: { findings: Finding[] }
             </button>
             {isOpen && (
               <div className="border-t border-[var(--border)]">
-                <FindingsTable findings={items} />
+                <FindingsTable findings={items} onMuteChange={onMuteChange} />
               </div>
             )}
           </div>

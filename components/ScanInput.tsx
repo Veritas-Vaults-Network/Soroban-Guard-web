@@ -30,6 +30,7 @@ interface Props {
     options?: {
       slackWebhookUrl?: string;
       telegramConfig?: { botToken: string; chatId: string };
+      networks?: string[];
     },
   ) => void;
   loading: boolean;
@@ -138,7 +139,7 @@ export default function ScanInput({
       ? (localStorage.getItem(TG_CHAT_ID_KEY) ?? "")
       : "",
   );
-  const [selectedNetwork, setSelectedNetwork] = useState(NETWORKS.testnet);
+  const [selectedNetworks, setSelectedNetworks] = useState<string[]>([NETWORKS.testnet.name]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const normalizedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -151,9 +152,10 @@ export default function ScanInput({
 
   useEffect(() => {
     if (!contractValid) { setWasmSize(null); return; }
-    const network = (typeof selectedNetwork !== "undefined" ? selectedNetwork : null) ?? NETWORKS.testnet;
+    const networkName = selectedNetworks[0] ?? NETWORKS.testnet.name;
+    const network = NETWORKS[networkName] ?? NETWORKS.testnet;
     getContractWasmSize(contractId, network).then(setWasmSize);
-  }, [contractId, contractValid]);
+  }, [contractId, contractValid, selectedNetworks]);
 
   function handleContractIdChange(raw: string) {
     setExtractedFromUrl(false);
@@ -262,6 +264,7 @@ export default function ScanInput({
         tgBotToken && tgChatId
           ? { botToken: tgBotToken, chatId: tgChatId }
           : undefined,
+      networks: mode === 'contractId' && selectedNetworks.length > 0 ? selectedNetworks : undefined,
     };
     if (mode === "ipfs") {
       if (ipfsPreview) onScan(ipfsPreview, mode, options);
@@ -309,24 +312,42 @@ export default function ScanInput({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Network selector */}
-      <div data-tour-id="network-selector" className="flex items-center gap-2">
-        <label htmlFor="network-selector" className="text-xs text-slate-400">
-          {t('scanInput.network')}
-        </label>
-        <select
-          id="network-selector"
-          value={selectedNetwork.name}
-          onChange={(e) => {
-            const network = NETWORKS[e.target.value]
-            if (network) setSelectedNetwork(network)
-          }}
-          className="rounded-lg border border-[#2a2d3a] bg-[#12151f] px-2 py-1 text-xs text-slate-300 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
-        >
-          <option value="mainnet">{t('scanInput.networks.mainnet')}</option>
-          <option value="testnet">{t('scanInput.networks.testnet')}</option>
-          <option value="futurenet">{t('scanInput.networks.futurenet')}</option>
-        </select>
+      {/* Network multi-selector */}
+      <div data-tour-id="network-selector" className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-slate-400">{t('scanInput.network')}</span>
+        {(['mainnet', 'testnet', 'futurenet'] as const).map((name) => {
+          const network = NETWORKS[name]
+          const checked = selectedNetworks.includes(name)
+          return (
+            <label
+              key={name}
+              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium transition ${
+                checked
+                  ? name === 'mainnet'
+                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                    : name === 'testnet'
+                      ? 'border-amber-500/30 bg-amber-500/10 text-amber-400'
+                      : 'border-violet-500/30 bg-violet-500/10 text-violet-400'
+                  : 'border-[#2a2d3a] text-slate-400 hover:text-slate-300'
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={() => {
+                  setSelectedNetworks(prev =>
+                    checked
+                      ? prev.filter(n => n !== name)
+                      : [...prev, name],
+                  )
+                }}
+                className="sr-only"
+              />
+              <span className={`h-1.5 w-1.5 rounded-full bg-current opacity-80`} />
+              {t(`scanInput.networks.${name}`)}
+            </label>
+          )
+        })}
       </div>
 
       {/* Mode toggle */}
@@ -428,7 +449,7 @@ export default function ScanInput({
             onKeyDown={handleKeyDown}
             placeholder={`#![no_std]\nuse soroban_sdk::{contract, contractimpl, Env};\n\n#[contract]\npub struct MyContract;\n\n#[contractimpl]\nimpl MyContract {\n    pub fn hello(env: Env) -> String {\n        // paste your contract here...\n    }\n}`}
             rows={16}
-            className="code-textarea w-full resize-y rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
+            className="code-textarea w-full resize-y rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 text-slate-300 placeholder-slate-400 outline-none transition focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500"
             spellCheck={false}
             disabled={loading}
           />
@@ -440,7 +461,7 @@ export default function ScanInput({
                   ? "text-red-400"
                   : code.length > MAX_CHARS / 2
                     ? "text-amber-400"
-                    : "text-slate-600"
+                    : "text-slate-400"
               }`}
             >
               {t('scanInput.code.charCount', {
@@ -468,10 +489,10 @@ export default function ScanInput({
             onChange={(e) => setRepoUrl(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="https://github.com/org/repo"
-            className={`w-full rounded-xl border px-4 py-3 text-slate-300 placeholder-slate-600 outline-none transition bg-[#12151f] ${
+            className={`w-full rounded-xl border px-4 py-3 text-slate-300 placeholder-slate-400 outline-none transition bg-[#12151f] ${
               repoUrl && !repoValidation.valid
-                ? "border-red-500/50 focus:border-red-500/60 focus:ring-1 focus:ring-red-500/30"
-                : "border-[#2a2d3a] focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
+                ? "border-red-500/50 focus:border-red-500/60 focus:ring-2 focus:ring-red-500"
+                : "border-[#2a2d3a] focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500"
             }`}
             disabled={loading}
           />
@@ -493,7 +514,7 @@ export default function ScanInput({
             </div>
           )}
           {!repoError && (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-400">
               {t('scanInput.github.hint').split('.rs').map((part, i, arr) =>
                 i < arr.length - 1 ? (
                   <span key={i}>{part}<code className="rounded bg-[#1a1d27] px-1 text-slate-400">.rs</code></span>
@@ -513,7 +534,7 @@ export default function ScanInput({
               onChange={(e) => handleContractIdChange(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
-              className="w-full rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 font-mono text-sm text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
+              className="w-full rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 font-mono text-sm text-slate-300 placeholder-slate-400 outline-none transition focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500"
               disabled={loading}
               spellCheck={false}
             />
@@ -533,7 +554,7 @@ export default function ScanInput({
               WASM size: {wasmSize.toLocaleString()} bytes ({(wasmSize / 1024).toFixed(1)} KB)
             </p>
           )}
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-400">
             {t('scanInput.contractId.hint')}
           </p>
         </div>
@@ -546,7 +567,7 @@ export default function ScanInput({
               onChange={(e) => handleCidChange(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Qm… or bafy…"
-              className="flex-1 rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 font-mono text-sm text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
+              className="flex-1 rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 font-mono text-sm text-slate-300 placeholder-slate-400 outline-none transition focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500"
               disabled={loading || ipfsFetching}
               spellCheck={false}
             />
@@ -586,7 +607,7 @@ export default function ScanInput({
           </div>
           {ipfsError && <p className="text-xs text-rose-400">{ipfsError}</p>}
           {!ipfsError && !ipfsPreview && (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-400">
               {t('scanInput.ipfs.hint').split('Qm…').map((part, i, arr) =>
                 i < arr.length - 1 ? (
                   <span key={i}>{part}<code className="rounded bg-[#1a1d27] px-1 text-slate-400">Qm…</code></span>
@@ -630,7 +651,7 @@ export default function ScanInput({
               }}
               onKeyDown={handleKeyDown}
               placeholder="https://gist.github.com/user/abc123"
-              className="flex-1 rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
+              className="flex-1 rounded-xl border border-[#2a2d3a] bg-[#12151f] px-4 py-3 text-slate-300 placeholder-slate-400 outline-none transition focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500"
               disabled={loading || gistFetching}
             />
             <button
@@ -669,7 +690,7 @@ export default function ScanInput({
           </div>
           {gistError && <p className="text-xs text-rose-400">{gistError}</p>}
           {!gistError && gistFiles.length === 0 && (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-400">
               {t('scanInput.gist.hint')}
             </p>
           )}
@@ -678,7 +699,7 @@ export default function ScanInput({
             <div className="space-y-1">
               <label
                 htmlFor="gist-file-select"
-                className="text-xs text-slate-500"
+                className="text-xs text-slate-400"
               >
                 {t('scanInput.gist.selectFile')}
               </label>
@@ -780,7 +801,7 @@ export default function ScanInput({
               }}
               placeholder={t('scanInput.advanced.slackPlaceholder')}
               disabled={loading}
-              className="w-full rounded-lg border border-[#2a2d3a] bg-[#0a0c0f] px-3 py-2 text-sm text-slate-300 placeholder-slate-600 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30 disabled:opacity-50"
+              className="w-full rounded-lg border border-[#2a2d3a] bg-[#0a0c0f] px-3 py-2 text-sm text-slate-300 placeholder-slate-400 outline-none transition focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
             />
             <p className="text-xs font-medium text-slate-400 mt-3">
               {t('scanInput.advanced.telegramLabel')}
@@ -794,7 +815,7 @@ export default function ScanInput({
                   localStorage.setItem(TG_BOT_TOKEN_KEY, e.target.value);
                 }}
                 placeholder={t('scanInput.advanced.telegramBotPlaceholder')}
-                className="w-full rounded-lg border border-[#2a2d3a] bg-[#0d0f17] px-3 py-2 text-xs text-slate-300 placeholder-slate-600 outline-none focus:border-indigo-500/60"
+                className="w-full rounded-lg border border-[#2a2d3a] bg-[#0d0f17] px-3 py-2 text-xs text-slate-300 placeholder-slate-400 outline-none focus:border-indigo-500/60"
                 disabled={loading}
               />
               <input
@@ -805,10 +826,10 @@ export default function ScanInput({
                   localStorage.setItem(TG_CHAT_ID_KEY, e.target.value);
                 }}
                 placeholder={t('scanInput.advanced.telegramChatPlaceholder')}
-                className="w-full rounded-lg border border-[#2a2d3a] bg-[#0d0f17] px-3 py-2 text-xs text-slate-300 placeholder-slate-600 outline-none focus:border-indigo-500/60"
+                className="w-full rounded-lg border border-[#2a2d3a] bg-[#0d0f17] px-3 py-2 text-xs text-slate-300 placeholder-slate-400 outline-none focus:border-indigo-500/60"
                 disabled={loading}
               />
-              <p className="text-xs text-slate-600">
+              <p className="text-xs text-slate-400">
                 {t('scanInput.advanced.telegramHint')}
               </p>
             </div>
@@ -844,7 +865,7 @@ export default function ScanInput({
           <button
             type="submit"
             disabled={!canSubmit}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#6264f0] disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
           >
             {isRateLimited ? (
               <>
@@ -911,7 +932,7 @@ export default function ScanInput({
             className={`flex items-center justify-center rounded-xl border px-3 py-3 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
               notificationsEnabled
                 ? "border-indigo-500/60 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20"
-                : "border-[#2a2d3a] bg-[#12151f] text-slate-500 hover:text-slate-300"
+                : "border-[#2a2d3a] bg-[#12151f] text-slate-400 hover:text-slate-300"
             }`}
           >
             {notificationsEnabled ? (
@@ -945,7 +966,7 @@ export default function ScanInput({
             )}
           </button>
         </div>
-        <p className="text-center text-xs text-slate-600">{t('scanInput.submit.shortcut')}</p>
+        <p className="text-center text-xs text-slate-400">{t('scanInput.submit.shortcut')}</p>
       </div>
     </form>
   );

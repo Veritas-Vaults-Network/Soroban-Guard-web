@@ -34,7 +34,7 @@ export default function NetworkSelector({ value, onChange }: Props) {
         id="network-selector"
         value={value.name}
         onChange={handleChange}
-        className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-2 py-1 text-xs text-slate-300 outline-none transition focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30"
+        className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-2 py-1 text-xs text-slate-300 outline-none transition focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500"
       >
         <option value="mainnet">Mainnet</option>
         <option value="testnet">Testnet</option>

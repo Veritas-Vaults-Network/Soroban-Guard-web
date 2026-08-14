@@ -1,11 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import { computeAnalytics, checkTrend, allCheckNames } from '../analytics'
 import type { ContractScanRecord } from '@/types/stellar'
+import { CONTRACT_SCAN_RECORD_SCHEMA_VERSION } from '@/types/stellar'
 
 function makeRecord(
   overrides: Partial<ContractScanRecord> & { findings?: ContractScanRecord['findings'] },
 ): ContractScanRecord {
   return {
+    schemaVersion: CONTRACT_SCAN_RECORD_SCHEMA_VERSION,
     id: 'id-1',
     publicKey: 'GPUB',
     contractId: 'C1',

@@ -11,7 +11,8 @@ import ThemeToggle from '@/components/ThemeToggle'
 import ScanQuotaIndicator from '@/components/ScanQuota'
 import TourTooltip from '@/components/TourTooltip'
 import { useOnboardingTour } from '@/lib/useOnboardingTour'
-import { scanContract, ApiError, TimeoutError } from '@/lib/api'
+import { scanContract, scanContractMultiNetwork, ApiError, TimeoutError } from '@/lib/api'
+import type { MultiNetworkResults } from '@/types/findings'
 import type { ScanQuota } from '@/lib/api'
 import { checkNetworkHealth, fetchContractsByAccount } from '@/lib/stellar'
 import { getScanHistory } from '@/lib/history'
@@ -114,7 +115,11 @@ export default function HomePage() {
       })
   }, [walletKey, walletNetwork])
 
-  async function handleScan(source: string, mode?: string) {
+  async function handleScan(
+    source: string,
+    mode?: string,
+    options?: { slackWebhookUrl?: string; telegramConfig?: { botToken: string; chatId: string }; networks?: string[] },
+  ) {
     // Determine type for addRecent — prefer the explicit mode from ScanInput,
     // fall back to auto-detection for direct contract-ID calls.
     let scanType: RecentScan['type']
@@ -131,14 +136,30 @@ export default function HomePage() {
     setIsTimeout(false)
     setStatusMessage('Scanning your contract…')
     try {
-      const data = await scanContract(source)
-      setStatusMessage(`Scan complete. ${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} detected.`)
-      if (data.quota) setQuota(data.quota)
-      addRecent(scanType, source, scanType === 'contractId' ? walletNetwork.name : undefined)
-      // Store results in sessionStorage so the results page can read them
-      sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
-      const encoded = encodeFindings(data.findings)
-      router.push(`/results?r=${encoded}`)
+      const networks = options?.networks
+      const isMultiNetwork = scanType === 'contractId' && networks && networks.length > 0
+
+      if (isMultiNetwork) {
+        const networkObjects = networks.map(n => NETWORKS[n]).filter(Boolean)
+        setStatusMessage(`Scanning across ${networkObjects.length} networks…`)
+        const multiResults: MultiNetworkResults = await scanContractMultiNetwork(source, networkObjects)
+        const totalFindings = multiResults.reduce((sum, r) => sum + r.findings.length, 0)
+        setStatusMessage(`Scan complete. ${totalFindings} total findings across ${networks.length} networks.`)
+        if (multiResults.some(r => r.findings.length > 0)) {
+          sessionStorage.setItem('sg_multi_network_results', JSON.stringify(multiResults))
+          sessionStorage.setItem('sg_findings', JSON.stringify(multiResults.flatMap(r => r.findings)))
+        }
+        const encoded = encodeFindings(multiResults.flatMap(r => r.findings))
+        router.push(`/results?r=${encoded}&multi=1`)
+      } else {
+        const data = await scanContract(source)
+        setStatusMessage(`Scan complete. ${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} detected.`)
+        if (data.quota) setQuota(data.quota)
+        addRecent(scanType, source, scanType === 'contractId' ? walletNetwork.name : undefined)
+        sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
+        const encoded = encodeFindings(data.findings)
+        router.push(`/results?r=${encoded}`)
+      }
     } catch (err) {
       if (err instanceof TimeoutError) {
         setIsTimeout(true)
@@ -263,7 +284,7 @@ export default function HomePage() {
                ) : contractsError ? (
                  <p className="text-sm text-red-400">Error loading contracts.</p>
                ) : contracts.length === 0 ? (
-                 <p className="text-sm text-slate-500">No deployed contracts found.</p>
+                 <p className="text-sm text-slate-400">No deployed contracts found.</p>
                ) : (
                  <div className="flex flex-wrap gap-3">
                    {contracts.map((contract, idx) => (
@@ -320,7 +341,7 @@ export default function HomePage() {
                         <p className="truncate font-mono text-sm text-slate-300">
                           {record.contractId.slice(0, 12)}...{record.contractId.slice(-8)}
                         </p>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-slate-400">
                           {new Date(record.scannedAt).toLocaleDateString()}
                         </p>
                       </div>
@@ -375,7 +396,7 @@ export default function HomePage() {
                      <p className="mb-4 flex-1 text-slate-400 text-center">{contract.description}</p>
                      <div className="w-full">
                        <NetworkBadge network={NETWORKS.testnet} />
-                       <span className="ml-2 font-mono text-xs text-slate-500">
+                       <span className="ml-2 font-mono text-xs text-slate-400">
                          {contract.contractId.slice(0, 8)}...{contract.contractId.slice(-8)}
                        </span>
                      </div>
@@ -435,18 +456,18 @@ export default function HomePage() {
             </h2>
             <div className="grid gap-4 sm:grid-cols-3">
               <RepoCard
-                name="Guard-Web"
+                name="soroban-guard-web"
                 description="This dashboard — the frontend for scanning and reviewing findings."
                 href="https://github.com/SorobanGuard/Guard-Web"
                 active
               />
               <RepoCard
-                name="Guard-CLI"
-                description="Rust static-analysis CLI that performs the same checks as the scan API."
+                name="soroban-guard-core"
+                description="Rust/Axum REST API that performs the static analysis."
                 href="https://github.com/SorobanGuard/Guard-CLI"
               />
               <RepoCard
-                name="Guard---Contracts"
+                name="soroban-guard-contracts"
                 description="Example Soroban contracts used for testing the scanner."
                 href="https://github.com/SorobanGuard/Guard---Contracts"
               />
@@ -455,12 +476,12 @@ export default function HomePage() {
         </section>
       </main>
 
-      <footer className="border-t border-[var(--border)] py-8 text-center text-sm text-slate-600">
+      <footer className="border-t border-[var(--border)] py-8 text-center text-sm text-slate-400">
         <p>
           Built by{' '}
           <a
             href="https://github.com/SorobanGuard"
-            className="text-slate-500 hover:text-slate-300"
+            className="text-slate-400 hover:text-slate-300"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -525,7 +546,7 @@ function Step({
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400 ring-1 ring-indigo-500/20">
           {icon}
         </div>
-        <span className="font-mono text-xs font-bold text-slate-600">{number}</span>
+        <span className="font-mono text-xs font-bold text-slate-400">{number}</span>
       </div>
       <h3 className="mb-2 font-semibold text-white">{title}</h3>
       <p className="text-sm leading-relaxed text-slate-400">{description}</p>
@@ -566,7 +587,7 @@ function RepoCard({
           </span>
         )}
       </div>
-      <p className="text-xs leading-relaxed text-slate-500">{description}</p>
+      <p className="text-xs leading-relaxed text-slate-400">{description}</p>
     </a>
   )
 }

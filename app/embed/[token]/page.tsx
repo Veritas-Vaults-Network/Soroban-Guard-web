@@ -60,7 +60,7 @@ export default function EmbedPage({ params }: Props) {
           {/* Counts */}
           <div style={{ display: 'flex', gap: 6 }}>
             {(['High', 'Medium', 'Low'] as const).map(sev => {
-              const colors: Record<string, string> = { High: '#ef4444', Medium: '#f59e0b', Low: '#38bdf8' }
+              const colors: Record<string, string> = { High: '#f87171', Medium: '#f59e0b', Low: '#38bdf8' }
               return (
                 <div key={sev} style={{
                   flex: 1,
@@ -70,7 +70,7 @@ export default function EmbedPage({ params }: Props) {
                   textAlign: 'center',
                 }}>
                   <div style={{ color: colors[sev], fontSize: 14, fontWeight: 700 }}>{counts[sev]}</div>
-                  <div style={{ color: '#64748b', fontSize: 9, marginTop: 1 }}>{sev}</div>
+                  <div style={{ color: '#94a3b8', fontSize: 9, marginTop: 1 }}>{sev}</div>
                 </div>
               )
             })}
@@ -78,12 +78,12 @@ export default function EmbedPage({ params }: Props) {
 
           {/* Footer */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ color: '#475569', fontSize: 9 }}>Scanned {scanDate}</span>
+            <span style={{ color: '#94a3b8', fontSize: 9 }}>Scanned {scanDate}</span>
             <a
               href="https://github.com/SorobanGuard/Guard-Web"
               target="_blank"
               rel="noopener noreferrer"
-              style={{ color: '#6366f1', fontSize: 9, textDecoration: 'none' }}
+              style={{ color: '#818cf8', fontSize: 9, textDecoration: 'none' }}
             >
               Powered by Soroban Guard
             </a>

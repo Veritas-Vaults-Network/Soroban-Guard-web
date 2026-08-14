@@ -52,21 +52,21 @@ export default function AnalyticsClient() {
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 sm:px-6">
         <h1 className="mb-2 text-2xl font-bold text-white">Portfolio Analytics</h1>
-        <p className="mb-8 text-sm text-slate-500">Aggregate statistics across all scans in your history.</p>
+        <p className="mb-8 text-sm text-slate-400">Aggregate statistics across all scans in your history.</p>
 
         {isEmpty ? (
           <div className="flex flex-col items-center justify-center rounded-xl border border-[var(--border)] bg-[#12151f] py-20 text-center">
-            <svg className="mb-4 h-10 w-10 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <svg className="mb-4 h-10 w-10 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
             <p className="text-sm font-medium text-slate-400">Not enough data yet</p>
-            <p className="mt-1 text-xs text-slate-600">
+            <p className="mt-1 text-xs text-slate-400">
               Run at least {MIN_RECORDS} scans to see analytics.{' '}
               {records.length > 0 && `(${records.length} of ${MIN_RECORDS} so far)`}
             </p>
             <Link
               href="/"
-              className="mt-6 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500"
+              className="mt-6 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-[#6264f0]"
             >
               Scan a contract
             </Link>
@@ -90,7 +90,7 @@ export default function AnalyticsClient() {
             <div className="rounded-xl border border-[var(--border)] bg-[#12151f] p-6">
               <h2 className="mb-5 text-sm font-semibold text-slate-300">Top 5 most frequent checks</h2>
               {analytics.topChecks.length === 0 ? (
-                <p className="text-sm text-slate-500">No findings recorded yet.</p>
+                <p className="text-sm text-slate-400">No findings recorded yet.</p>
               ) : (
                 <div className="overflow-x-auto">
                   <div className="min-w-[280px]">
@@ -120,7 +120,7 @@ export default function AnalyticsClient() {
                     </select>
                   </div>
                   {trendData.length < 2 ? (
-                    <p className="text-sm text-slate-500">Not enough data points to show a trend for this check.</p>
+                    <p className="text-sm text-slate-400">Not enough data points to show a trend for this check.</p>
                   ) : (
                     <div className="overflow-x-auto">
                       <div className="min-w-[280px]">
@@ -135,7 +135,7 @@ export default function AnalyticsClient() {
         )}
       </main>
 
-      <footer className="border-t border-[var(--border)] py-6 text-center text-xs text-slate-600">
+      <footer className="border-t border-[var(--border)] py-6 text-center text-xs text-slate-400">
         Soroban Guard · SorobanGuard
       </footer>
     </div>
@@ -145,7 +145,7 @@ export default function AnalyticsClient() {
 function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[#12151f] px-5 py-4">
-      <p className="mb-1 text-xs text-slate-500">{label}</p>
+      <p className="mb-1 text-xs text-slate-400">{label}</p>
       <p className={`text-3xl font-bold ${color}`}>{value}</p>
     </div>
   )
@@ -159,7 +159,7 @@ function TopChecksChart({ checks }: { checks: { name: string; count: number }[] 
         <li key={name}>
           <div className="mb-1 flex items-center justify-between text-xs">
             <span className="font-mono text-slate-300">{name}</span>
-            <span className="text-slate-500">{count}</span>
+            <span className="text-slate-400">{count}</span>
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-[#1a1d27]">
             <div

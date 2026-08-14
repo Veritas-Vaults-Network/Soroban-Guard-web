@@ -4,6 +4,8 @@ import { useId, useState } from 'react'
 import type { Finding } from '@/types/findings'
 import { createNotionPage } from '@/lib/notion'
 import { useFocusTrap } from '@/lib/useFocusTrap'
+import { useWallet } from '@/lib/WalletContext'
+import { logAuditEvent } from '@/lib/auditLog'
 
 interface Props {
   findings: Finding[]
@@ -18,6 +20,7 @@ export default function NotionExportModal({ findings, onClose }: Props) {
   const [error, setError] = useState<string | null>(null)
   const titleId = useId()
   const dialogRef = useFocusTrap<HTMLDivElement>(onClose)
+  const { publicKey } = useWallet()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -25,6 +28,7 @@ export default function NotionExportModal({ findings, onClose }: Props) {
     setPageUrl(null)
     setLoading(true)
     try {
+      await logAuditEvent({ wallet: publicKey, action: 'export', target: 'notion' })
       const url = await createNotionPage(token.trim(), databaseId.trim(), findings)
       setPageUrl(url)
     } catch (err) {
@@ -49,7 +53,7 @@ export default function NotionExportModal({ findings, onClose }: Props) {
       >
         <div className="mb-5 flex items-center justify-between">
           <h2 id={titleId} className="text-base font-semibold text-white">Export to Notion</h2>
-          <button onClick={onClose} className="text-slate-500 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded" aria-label="Close dialog">
+          <button onClick={onClose} className="text-slate-400 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded" aria-label="Close dialog">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -69,7 +73,7 @@ export default function NotionExportModal({ findings, onClose }: Props) {
             </a>
             <button
               onClick={onClose}
-              className="w-full rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+              className="w-full rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-[#6264f0]"
             >
               Done
             </button>
@@ -87,9 +91,9 @@ export default function NotionExportModal({ findings, onClose }: Props) {
                 value={token}
                 onChange={e => setToken(e.target.value)}
                 placeholder="secret_..."
-                className="w-full rounded-lg border border-[#2a2d3a] bg-[#161922] px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-lg border border-[#2a2d3a] bg-[#161922] px-3 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
-              <p className="mt-1 text-xs text-slate-600">Never stored — used only for this request.</p>
+              <p className="mt-1 text-xs text-slate-400">Never stored — used only for this request.</p>
             </div>
             <div>
               <label className="mb-1 block text-xs text-slate-400" htmlFor="notion-db">
@@ -102,14 +106,14 @@ export default function NotionExportModal({ findings, onClose }: Props) {
                 value={databaseId}
                 onChange={e => setDatabaseId(e.target.value)}
                 placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                className="w-full rounded-lg border border-[#2a2d3a] bg-[#161922] px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-lg border border-[#2a2d3a] bg-[#161922] px-3 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
             {error && <p className="text-xs text-red-400">{error}</p>}
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+              className="w-full rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white transition hover:bg-[#6264f0] disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
             >
               {loading ? 'Creating page…' : 'Create Notion page'}
             </button>

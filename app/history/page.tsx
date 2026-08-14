@@ -13,12 +13,21 @@ import {
   getSchedule,
   type ScheduleInterval,
 } from "@/lib/schedule";
+import { useWallet } from '@/lib/WalletContext'
 
 interface HistoryEntry {
   id: string;
   date: string;
   source: string;
   findings: Finding[];
+}
+
+interface AuditEntry {
+  id: string;
+  actor: string;
+  action: string;
+  target: string;
+  timestamp: string;
 }
 
 const STORAGE_KEY = "sg_history";
@@ -33,7 +42,10 @@ function loadHistory(): HistoryEntry[] {
 
 export default function HistoryPage() {
   const router = useRouter()
+  const { publicKey } = useWallet()
   const [entries, setEntries] = useState<HistoryEntry[]>([])
+  const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([])
+  const [auditLoading, setAuditLoading] = useState(true)
   const [loading, setLoading] = useState(true)
   const [showConfirm, setShowConfirm] = useState(false)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -59,6 +71,35 @@ export default function HistoryPage() {
     setSchedules(initial)
     setLoading(false)
   }, [])
+
+  useEffect(() => {
+    if (!publicKey) {
+      setAuditEntries([])
+      setAuditLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setAuditLoading(true)
+    fetch(`/api/audit?wallet=${encodeURIComponent(publicKey)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (!cancelled) {
+          setAuditEntries((data.entries ?? []) as AuditEntry[])
+          setAuditLoading(false)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAuditEntries([])
+          setAuditLoading(false)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [publicKey])
 
   function clearHistory() {
     localStorage.removeItem(STORAGE_KEY);
@@ -161,6 +202,39 @@ export default function HistoryPage() {
         </div>
       </div>
 
+      <section className="mb-8 rounded-2xl border border-[#2a2d3a] bg-[#12151f] p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Wallet activity trail</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              {publicKey ? 'Your connected wallet actions are stored here for review.' : 'Connect a wallet to view your own audit trail.'}
+            </p>
+          </div>
+        </div>
+
+        {auditLoading ? (
+          <div className="text-sm text-slate-400">Loading audit trail…</div>
+        ) : auditEntries.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-[#2a2d3a] px-4 py-6 text-sm text-slate-400">
+            No audit events recorded yet.
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {auditEntries.map(entry => (
+              <li key={entry.id} className="rounded-lg border border-[#2a2d3a] bg-[#0e1117] px-3 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-slate-200">{entry.action} → {entry.target}</p>
+                    <p className="text-xs text-slate-400">{entry.actor}</p>
+                  </div>
+                  <span className="text-xs text-slate-400">{new Date(entry.timestamp).toLocaleString()}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       {entries.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-[#2a2d3a] bg-[#12151f] py-16 px-4 text-center">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-500/10 ring-1 ring-slate-500/30">
@@ -182,13 +256,13 @@ export default function HistoryPage() {
           <h2 className="mb-2 text-lg font-semibold text-slate-200">
             No scan history yet
           </h2>
-          <p className="mb-6 max-w-sm text-sm text-slate-500">
+          <p className="mb-6 max-w-sm text-sm text-slate-400">
             Start by scanning your first smart contract to build your security
             history and track vulnerabilities over time.
           </p>
           <Link
             href="/"
-            className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500"
+            className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#6264f0]"
           >
             Run first scan
           </Link>
@@ -242,17 +316,17 @@ export default function HistoryPage() {
                   <span className="truncate font-mono text-sm text-slate-300">
                     {e.source}
                   </span>
-                  <span className="ml-4 shrink-0 text-xs text-slate-500">
+                  <span className="ml-4 shrink-0 text-xs text-slate-400">
                     {new Date(e.date).toLocaleDateString()}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-slate-400">
                   {e.findings.length} finding
                   {e.findings.length !== 1 ? "s" : ""}
                 </p>
                 <div className="mt-3 flex items-center gap-2">
                   <svg
-                    className="h-3.5 w-3.5 text-slate-500"
+                    className="h-3.5 w-3.5 text-slate-400"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -265,7 +339,7 @@ export default function HistoryPage() {
                       d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
-                  <span className="text-xs text-slate-500">Rescan:</span>
+                  <span className="text-xs text-slate-400">Rescan:</span>
                   {(["never", "daily", "weekly"] as const).map((opt) => (
                     <button
                       key={opt}
@@ -274,7 +348,7 @@ export default function HistoryPage() {
                         (opt === "never" && !schedules[e.id]) ||
                         schedules[e.id] === opt
                           ? "bg-indigo-500/20 text-indigo-300"
-                          : "text-slate-500 hover:text-slate-300"
+                          : "text-slate-400 hover:text-slate-300"
                       }`}
                     >
                       {opt.charAt(0).toUpperCase() + opt.slice(1)}

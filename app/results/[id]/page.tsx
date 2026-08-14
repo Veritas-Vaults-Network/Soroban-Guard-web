@@ -80,7 +80,7 @@ export default async function PermalinkPage({ params }: Props) {
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:px-6">
         <div className="mb-8">
           <h1 className="mb-2 text-2xl font-bold text-white">Scan Results</h1>
-          <p className="mb-6 text-sm text-slate-500">
+          <p className="mb-6 text-sm text-slate-400">
             {list.length === 0
               ? 'No issues detected.'
               : `${list.length} finding${list.length !== 1 ? 's' : ''} detected.`}
@@ -88,7 +88,7 @@ export default async function PermalinkPage({ params }: Props) {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {(['Critical', 'High', 'Medium', 'Low'] as Severity[]).map(s => (
               <div key={s} className="rounded-xl border border-[var(--border)] bg-[#1a1d27] px-5 py-4">
-                <p className="mb-1 text-xs text-slate-500">{s}</p>
+                <p className="mb-1 text-xs text-slate-400">{s}</p>
                 <p className="text-3xl font-bold text-white">{counts[s]}</p>
               </div>
             ))}
@@ -96,7 +96,7 @@ export default async function PermalinkPage({ params }: Props) {
         </div>
 
         {list.length === 0 ? (
-          <p className="py-10 text-center text-sm text-slate-500">No findings to display.</p>
+          <p className="py-10 text-center text-sm text-slate-400">No findings to display.</p>
         ) : (
           <>
             <div className="mb-3 flex items-center justify-between">
@@ -112,7 +112,7 @@ export default async function PermalinkPage({ params }: Props) {
         )}
       </main>
 
-      <footer className="border-t border-[var(--border)] py-6 text-center text-xs text-slate-600">
+      <footer className="border-t border-[var(--border)] py-6 text-center text-xs text-slate-400">
         Soroban Guard · SorobanGuard
       </footer>
     </div>

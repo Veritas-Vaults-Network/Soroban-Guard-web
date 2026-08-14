@@ -13,3 +13,18 @@ export function groupByFunction(findings: Finding[]): Record<string, Finding[]> 
   }
   return groups
 }
+
+/**
+ * Group findings by their file path.
+ * @param findings - Array of scan findings
+ * @returns Object mapping file path to its findings
+ */
+export function groupByFile(findings: Finding[]): Record<string, Finding[]> {
+  const groups: Record<string, Finding[]> = {}
+  for (const f of findings) {
+    const key = f.file_path.trim() || 'Unknown file'
+    ;(groups[key] ??= []).push(f)
+  }
+  return groups
+}
+
