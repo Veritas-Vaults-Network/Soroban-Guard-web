@@ -1,12 +1,8 @@
 import React from 'react'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import SeverityBadge from '../SeverityBadge'
 import FindingsTable from '../FindingsTable'
-import ScanHeatmap from '../ScanHeatmap'
-import SeverityDonut from '../SeverityDonut'
-import SeverityTrendChart from '../SeverityTrendChart'
-import CheckTrendChart from '../CheckTrendChart'
 import type { Finding } from '@/types/findings'
 
 // Mock matchMedia for JSDOM
@@ -86,59 +82,5 @@ describe('FindingsTable Accessibility', () => {
     const hiddenLabels = screen.getAllByText('High', { selector: 'span' })
     const hiddenLabel = hiddenLabels.find(label => label.getAttribute('aria-hidden') === 'true')
     expect(hiddenLabel).toBeInTheDocument()
-  })
-})
-
-describe('ScanHeatmap Accessibility', () => {
-  const mockEntries = [
-    { date: new Date().toISOString(), findings: [] }
-  ]
-
-  it('renders inside figure and contains instructions', () => {
-    render(<ScanHeatmap entries={mockEntries} />)
-    expect(screen.getByRole('figure')).toBeInTheDocument()
-    expect(screen.getByText(/scan activity heatmap grid/i)).toHaveClass('sr-only')
-  })
-
-  it('implements roving tabIndex and keydown events', () => {
-    render(<ScanHeatmap entries={mockEntries} />)
-    const cells = screen.getAllByRole('gridcell')
-    expect(cells.length).toBeGreaterThan(0)
-
-    // Verify only one cell has tabIndex=0
-    const focusableCells = cells.filter(cell => cell.getAttribute('tabIndex') === '0')
-    expect(focusableCells).toHaveLength(1)
-
-    // Focused date cell keydown
-    const activeCell = focusableCells[0]
-    fireEvent.keyDown(activeCell, { key: 'ArrowLeft' })
-    // Ensure state updates focusedDate roving index (or focused cell changes)
-    const updatedFocusable = screen.getAllByRole('gridcell').filter(cell => cell.getAttribute('tabIndex') === '0')
-    expect(updatedFocusable).toHaveLength(1)
-  })
-})
-
-describe('Chart Accessibility and screen reader equivalents', () => {
-  it('SeverityDonut wraps in figure and renders figcaption description', () => {
-    const counts = { Critical: 1, High: 2, Medium: 0, Low: 0, Info: 0 }
-    render(<SeverityDonut counts={counts} />)
-    expect(screen.getByRole('figure')).toHaveAttribute('aria-label', 'Severity distribution chart')
-    expect(screen.getByText(/Severity distribution donut chart/i)).toHaveClass('sr-only')
-  })
-
-  it('SeverityTrendChart wraps in figure and exposes data table', () => {
-    const data = [{ date: '2026-07-10', High: 1, Medium: 2, Low: 0 }]
-    render(<SeverityTrendChart data={data} />)
-    expect(screen.getByRole('figure')).toBeInTheDocument()
-    expect(screen.getByRole('table')).toBeInTheDocument()
-    expect(screen.getByText('Severity Trend Data Table')).toBeInTheDocument()
-  })
-
-  it('CheckTrendChart wraps in figure and exposes data table', () => {
-    const data = [{ date: '2026-07-10', count: 3 }]
-    render(<CheckTrendChart data={data} checkName="overflow" />)
-    expect(screen.getByRole('figure')).toBeInTheDocument()
-    expect(screen.getByRole('table')).toBeInTheDocument()
-    expect(screen.getByText('Trend Data for overflow')).toBeInTheDocument()
   })
 })

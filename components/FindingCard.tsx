@@ -5,7 +5,6 @@ import type { Finding } from "@/types/findings";
 import SeverityBadge from "./SeverityBadge";
 import CheckTooltip from "./CheckTooltip";
 import CodeViewer from "./CodeViewer";
-import { loadSourceCode } from "@/lib/codeStore";
 import { mute, unmute, isMuted } from "@/lib/mutedFindings";
 
 interface Props {
@@ -20,7 +19,7 @@ export default function FindingCard({ finding, onMuteChange }: Props) {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    setSource(loadSourceCode());
+    setSource(sessionStorage.getItem("sg_source_code"));
     setMuted(isMuted(finding));
   }, [finding]);
 

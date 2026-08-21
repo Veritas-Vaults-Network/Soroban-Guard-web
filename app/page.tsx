@@ -4,9 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import ScanInput from '@/components/ScanInput'
 import ErrorBoundary from '@/components/ErrorBoundary'
-import WalletConnect from '@/components/WalletConnect'
 import NetworkBadge from '@/components/NetworkBadge'
-import NetworkHealthBanner from '@/components/NetworkHealthBanner'
 import ThemeToggle from '@/components/ThemeToggle'
 import ScanQuotaIndicator from '@/components/ScanQuota'
 import TourTooltip from '@/components/TourTooltip'
@@ -14,10 +12,7 @@ import { useOnboardingTour } from '@/lib/useOnboardingTour'
 import { scanContract, scanContractMultiNetwork, ApiError, TimeoutError } from '@/lib/api'
 import type { MultiNetworkResults } from '@/types/findings'
 import type { ScanQuota } from '@/lib/api'
-import { checkNetworkHealth, fetchContractsByAccount } from '@/lib/stellar'
-import { getScanHistory } from '@/lib/history'
 import { encodeFindings } from '@/lib/share'
-import { useWallet } from '@/lib/WalletContext'
 import { FEATURED_CONTRACTS } from '@/lib/featuredContracts'
 import type { ContractScanRecord } from '@/types/stellar'
 import { NETWORKS } from '@/types/stellar'
@@ -60,19 +55,13 @@ const TOUR_STEPS = [
 
 export default function HomePage() {
   const router = useRouter()
-  const { publicKey: walletKey, network: walletNetwork } = useWallet()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isTimeout, setIsTimeout] = useState(false)
   const [lastSource, setLastSource] = useState('')
-  const [networkHealthy, setNetworkHealthy] = useState(true)
   const [statusMessage, setStatusMessage] = useState('')
-  const [scanHistory, setScanHistory] = useState<ContractScanRecord[]>([])
   const [quota, setQuota] = useState<ScanQuota | null>(null)
   const [rateLimitCountdown, setRateLimitCountdown] = useState(0)
-  const [contracts, setContracts] = useState<string[]>([])
-  const [contractsLoading, setContractsLoading] = useState(false)
-  const [contractsError, setContractsError] = useState<string | null>(null)
 
   const tour = useOnboardingTour(TOUR_STEPS)
 
@@ -92,28 +81,6 @@ export default function HomePage() {
     return () => clearInterval(id)
   }, [quota])
 
-  useEffect(() => {
-    if (!walletKey) return
-    setScanHistory(getScanHistory(walletKey))
-    checkNetworkHealth(walletNetwork).then(healthy => {
-      setNetworkHealthy(healthy)
-    })
-  }, [walletKey, walletNetwork])
-
-  useEffect(() => {
-    if (!walletKey) return
-    setContractsLoading(true)
-    setContractsError(null)
-    fetchContractsByAccount(walletKey, walletNetwork)
-      .then(data => {
-        setContracts(data)
-        setContractsLoading(false)
-      })
-      .catch(err => {
-        setContractsError(err instanceof Error ? err.message : 'Unknown error')
-        setContractsLoading(false)
-      })
-  }, [walletKey, walletNetwork])
 
   async function handleScan(
     source: string,
@@ -155,7 +122,7 @@ export default function HomePage() {
         const data = await scanContract(source)
         setStatusMessage(`Scan complete. ${data.findings.length} finding${data.findings.length !== 1 ? 's' : ''} detected.`)
         if (data.quota) setQuota(data.quota)
-        addRecent(scanType, source, scanType === 'contractId' ? walletNetwork.name : undefined)
+        addRecent(scanType, source, scanType === 'contractId' ? NETWORKS.testnet.name : undefined)
         sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
         const encoded = encodeFindings(data.findings)
         router.push(`/results?r=${encoded}`)
@@ -177,20 +144,6 @@ export default function HomePage() {
     }
   }
 
-  async function handleHistoryClick(contractId: string) {
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await scanContract(contractId)
-      sessionStorage.setItem('sg_findings', JSON.stringify(data.findings))
-      router.push('/results')
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unexpected error'
-      setError(msg)
-    } finally {
-      setLoading(false)
-    }
-  }
   return (
     <div className="flex min-h-screen flex-col">
       <div
@@ -203,13 +156,6 @@ export default function HomePage() {
       </div>
 
       {/* Network health banner */}
-      {walletKey && !networkHealthy && (
-        <NetworkHealthBanner
-          network={walletNetwork.name}
-          onDismiss={() => setNetworkHealthy(true)}
-          checkHealth={() => checkNetworkHealth(walletNetwork)}
-        />
-      )}
 
       {/* Nav */}
       <header className="border-b border-[var(--border)] bg-[var(--bg)]/80 backdrop-blur-sm">
@@ -236,9 +182,6 @@ export default function HomePage() {
               <ThemeToggle />
             </span>
             {quota && <ScanQuotaIndicator quota={quota} />}
-            <span data-tour-id="wallet-connect">
-              <WalletConnect />
-            </span>
           </div>
         </div>
       </header>
@@ -250,21 +193,7 @@ export default function HomePage() {
             <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
             Soroban Smart Contract Security
           </div>
-          {walletKey && (
-            <div className="mb-3 flex flex-col items-center gap-3">
-              <NetworkBadge network={walletNetwork} />
-              {walletNetwork.name === 'futurenet' && (
-                <div className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-4 py-2.5 text-sm text-violet-300">
-                  <p className="flex items-start gap-2">
-                    <svg className="mt-0.5 h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    <span>You are connected to Futurenet. This network is experimental and contract data may be incomplete.</span>
-                  </p>
-                </div>
-              )}
-            </div>
-          )}          <h1 className="mb-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
+<h1 className="mb-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
             Find vulnerabilities{' '}
             <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">
               before attackers do
@@ -276,36 +205,6 @@ export default function HomePage() {
             risks, and more.
           </p>
 
-           {walletKey && (
-             <div className="mb-6">
-               <h3 className="mb-3 text-lg font-semibold text-white">Your deployed contracts</h3>
-               {contractsLoading ? (
-                 <p className="text-sm text-slate-400">Loading...</p>
-               ) : contractsError ? (
-                 <p className="text-sm text-red-400">Error loading contracts.</p>
-               ) : contracts.length === 0 ? (
-                 <p className="text-sm text-slate-400">No deployed contracts found.</p>
-               ) : (
-                 <div className="flex flex-wrap gap-3">
-                   {contracts.map((contract, idx) => (
-                     <button
-                       key={idx}
-                       onClick={() => handleScan(contract)}
-                       disabled={loading}
-                       className="rounded-lg border border-[#2a2d3a] bg-[#12151f] p-3 text-left transition hover:border-indigo-500/40 hover:bg-[#1a1d27] disabled:opacity-50 flex items-center gap-2"
-                     >
-                       <NetworkBadge network={walletNetwork} />
-                       <div className="min-w-0 flex-1">
-                         <p className="truncate font-mono text-sm text-slate-300">
-                           {contract.slice(0, 12)}...{contract.slice(-8)}
-                         </p>
-                       </div>
-                     </button>
-                   ))}
-                 </div>
-               )}
-             </div>
-           )}
            {/* Scan card */}
           <div data-tour-id="scan-input" className="rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-6 text-left shadow-2xl">
             <ErrorBoundary>
@@ -325,52 +224,6 @@ export default function HomePage() {
           </div>
 
           {/* Recent scans */}
-          {walletKey && scanHistory.length > 0 && (
-            <div className="mt-8 rounded-2xl border border-[#2a2d3a] bg-[#1a1d27] p-6">
-              <h3 className="mb-4 text-lg font-semibold text-white">Your recent scans</h3>
-              <div className="space-y-2">
-                {scanHistory.slice(0, 5).map((record, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleHistoryClick(record.contractId)}
-                    disabled={loading}
-                    className="w-full rounded-lg border border-[#2a2d3a] bg-[#12151f] p-3 text-left transition hover:border-indigo-500/40 hover:bg-[#1a1d27] disabled:opacity-50"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-mono text-sm text-slate-300">
-                          {record.contractId.slice(0, 12)}...{record.contractId.slice(-8)}
-                        </p>
-                        <p className="text-xs text-slate-400">
-                          {new Date(record.scannedAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <NetworkBadge network={NETWORKS[record.network]} />
-                        <div className="flex gap-1">
-                          {record.highCount > 0 && (
-                            <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs text-red-400">
-                              {record.highCount}H
-                            </span>
-                          )}
-                          {record.mediumCount > 0 && (
-                            <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-400">
-                              {record.mediumCount}M
-                            </span>
-                          )}
-                          {record.lowCount > 0 && (
-                            <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-xs text-sky-400">
-                              {record.lowCount}L
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-             </div>
-           )}
          </section>
 
          {/* Featured contracts */}
