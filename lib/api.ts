@@ -1,12 +1,43 @@
 import { SorobanGuardClient, ApiError, TimeoutError } from 'soroban-guard-sdk'
 import type { ScanQuota, ScanResult } from 'soroban-guard-sdk'
 import type { StellarNetwork } from '@/types/stellar'
-import type { NetworkScanResult, MultiNetworkResults } from '@/types/findings'
+import type { MultiNetworkResults, Finding } from '@/types/findings'
 
 export { ApiError, TimeoutError }
 export type { ScanQuota, ScanResult }
 
 const client = new SorobanGuardClient()
+
+export type BatchItemStatus = 'pending' | 'running' | 'done' | 'failed'
+
+export interface BatchScanItem {
+  id: string
+  source: string
+  mode?: 'code' | 'github' | 'contractId'
+  network?: StellarNetwork
+  status: BatchItemStatus
+  findings?: Finding[]
+  error?: string
+  retryAfter?: number
+}
+
+export interface BatchScanOptions {
+  /** Cap on concurrent in-flight scans. Default is 3. */
+  concurrencyLimit?: number
+  /** Callback fired whenever an item's status or results change */
+  onItemStatusChange?: (item: BatchScanItem) => void
+  /** Global network override */
+  network?: StellarNetwork
+  /** Optional custom scan function (for testing/injection) */
+  scanFn?: (source: string, network?: StellarNetwork) => Promise<ScanResult>
+}
+
+export interface BatchScanResult {
+  items: BatchScanItem[]
+  totalFindings: number
+  successCount: number
+  failureCount: number
+}
 
 /**
  * Submit source code to the Soroban Guard API for scanning.
@@ -66,4 +97,79 @@ export async function scanContractMultiNetwork(
     }
   })
 }
+
+/**
+ * Submit a batch of contract sources for scanning with bounded concurrency and per-item status tracking.
+ * One failing contract will NOT sink the overall batch; partial results are preserved.
+ *
+ * @param sources Array of contract sources or IDs
+ * @param options Options including concurrencyLimit (default: 3) and onItemStatusChange callback
+ */
+export async function scanContractBatch(
+  sources: string[],
+  options?: BatchScanOptions,
+): Promise<BatchScanResult> {
+  const limit = Math.max(1, options?.concurrencyLimit ?? 3)
+  const scanFn = options?.scanFn ?? scanContract
+
+  const items: BatchScanItem[] = sources.map((source, idx) => ({
+    id: `batch-item-${idx}-${Math.random().toString(36).slice(2, 7)}`,
+    source,
+    status: 'pending',
+    network: options?.network,
+  }))
+
+  const queue = [...items]
+
+  const processItem = async (item: BatchScanItem) => {
+    item.status = 'running'
+    options?.onItemStatusChange?.({ ...item })
+
+    try {
+      const result = await scanFn(item.source, item.network)
+      item.findings = result.findings
+      item.status = 'done'
+    } catch (err) {
+      item.status = 'failed'
+      if (err instanceof ApiError) {
+        item.error = err.message || `HTTP ${err.status}`
+        if (err.status === 429 && err.retryAfter !== undefined) {
+          item.retryAfter = err.retryAfter
+        }
+      } else if (err instanceof TimeoutError) {
+        item.error = err.message
+      } else if (err instanceof Error) {
+        item.error = err.message
+      } else {
+        item.error = 'Scan failed'
+      }
+    } finally {
+      options?.onItemStatusChange?.({ ...item })
+    }
+  }
+
+  const workerCount = Math.min(limit, items.length)
+  const workers = Array.from({ length: workerCount }, async () => {
+    while (queue.length > 0) {
+      const nextItem = queue.shift()
+      if (nextItem) {
+        await processItem(nextItem)
+      }
+    }
+  })
+
+  await Promise.all(workers)
+
+  const successCount = items.filter((i) => i.status === 'done').length
+  const failureCount = items.filter((i) => i.status === 'failed').length
+  const totalFindings = items.reduce((sum, i) => sum + (i.findings?.length ?? 0), 0)
+
+  return {
+    items,
+    totalFindings,
+    successCount,
+    failureCount,
+  }
+}
+
 

@@ -10,7 +10,7 @@ const coreWebVitalsRules = nextPlugin.configs['core-web-vitals'].rules ?? {}
 
 module.exports = [
   {
-    ignores: ['.next/**', 'node_modules/**'],
+    ignores: ['.next/**', 'node_modules/**', 'packages/*/dist/**', 'packages/sdk/dist/**'],
   },
   {
     files: ['**/*.{js,jsx,ts,tsx}'],

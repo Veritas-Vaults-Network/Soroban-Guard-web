@@ -4,12 +4,15 @@ import type { RecentScan } from '../recentScans'
 const STORAGE_KEY = 'sg_recent_scans'
 const PINNED_KEY = 'sg_pinned_scans'
 
+const createFn = <T extends (...args: any[]) => any>(impl?: T) =>
+  typeof jest !== 'undefined' ? jest.fn(impl) : (globalThis as any).vi.fn(impl)
+
 const mockLocalStorage = (() => {
   let store: Record<string, string> = {}
   return {
-    getItem: jest.fn((key: string) => store[key] ?? null),
-    setItem: jest.fn((key: string, value: string) => { store[key] = value }),
-    removeItem: jest.fn((key: string) => { delete store[key] }),
+    getItem: createFn((key: string) => store[key] ?? null),
+    setItem: createFn((key: string, value: string) => { store[key] = value }),
+    removeItem: createFn((key: string) => { delete store[key] }),
     clear: () => { store = {} },
   }
 })()
@@ -20,7 +23,8 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockLocalStorage.clear()
-  jest.clearAllMocks()
+  if (typeof jest !== 'undefined') jest.clearAllMocks()
+  else if ((globalThis as any).vi) (globalThis as any).vi.clearAllMocks()
 })
 
 describe('getRecent', () => {
