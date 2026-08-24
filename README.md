@@ -116,6 +116,8 @@ Install [Freighter](https://freighter.app) in your browser to enable wallet feat
 
 Copy `.env.example` to `.env.local` and fill in the values.
 
+> **Production (Vercel):** `NEXT_PUBLIC_API_URL` is inlined at build time, so it must be set in the [Vercel project settings](https://vercel.com/docs/projects/environment-variables) or via `vercel env add NEXT_PUBLIC_API_URL`. Adding it to `.env.local` alone is not enough for production deployments.
+
 ## Internal API Authentication
 
 `POST/GET /api/results` and `POST/GET /api/webhook` are internal routes used to share scan results across page navigations and deliver webhook payloads.

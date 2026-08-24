@@ -23,3 +23,35 @@ export function validateEnv(): void {
     )
   }
 }
+
+/**
+ * Client-side reachability check for the scanner backend.
+ * Returns a user-facing warning string if the backend appears unreachable,
+ * or null if it is healthy.
+ */
+export async function checkBackendReachability(): Promise<string | null> {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL
+
+  if (!apiUrl) {
+    return 'NEXT_PUBLIC_API_URL is not configured. The scanner backend is unreachable.'
+  }
+
+  try {
+    new URL(apiUrl)
+  } catch {
+    return `NEXT_PUBLIC_API_URL is malformed: "${apiUrl}". The scanner backend is unreachable.`
+  }
+
+  try {
+    const res = await fetch(`${apiUrl.replace(/\/$/, '')}/health`, {
+      signal: AbortSignal.timeout(5000),
+    })
+    if (!res.ok) {
+      return `The scanner backend responded with status ${res.status}.`
+    }
+  } catch {
+    return 'The scanner backend is unavailable.'
+  }
+
+  return null
+}

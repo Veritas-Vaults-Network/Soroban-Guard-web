@@ -24,6 +24,7 @@ const config: Config = {
     '/lib/__tests__/wallet',
     '/lib/__tests__/schedule',
     '/lib/__tests__/httpClient',
+    '/lib/__tests__/apiHealth',
     '/components/WalletConnect\\.test\\.tsx',
   ],
   transform: {

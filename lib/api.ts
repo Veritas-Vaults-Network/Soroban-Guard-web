@@ -9,6 +9,32 @@ export type { ScanQuota, ScanResult }
 const client = new SorobanGuardClient()
 
 /**
+ * Get the API base URL from the client (browser) environment.
+ */
+export function getApiBaseUrl(): string {
+  if (typeof window === 'undefined') {
+    return 'http://localhost:3001'
+  }
+  return (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001').replace(/\/$/, '')
+}
+
+/**
+ * Check whether the Soroban Guard API backend is reachable.
+ * @returns True if /health responds with 200 within 5 seconds
+ */
+export async function checkApiHealth(): Promise<boolean> {
+  try {
+    const baseUrl = getApiBaseUrl()
+    const res = await fetch(`${baseUrl}/health`, {
+      signal: AbortSignal.timeout(5000),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+/**
  * Submit source code to the Soroban Guard API for scanning.
  * @param source - Contract source code or identifier
  * @param network - Optional Stellar network to target
