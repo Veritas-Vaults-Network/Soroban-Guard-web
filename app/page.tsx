@@ -14,7 +14,6 @@ import type { MultiNetworkResults } from '@/types/findings'
 import type { ScanQuota } from '@/lib/api'
 import { encodeFindings } from '@/lib/share'
 import { FEATURED_CONTRACTS } from '@/lib/featuredContracts'
-import type { ContractScanRecord } from '@/types/stellar'
 import { NETWORKS } from '@/types/stellar'
 import { addRecent } from '@/lib/recentScans'
 import RecentScansPanel from '@/components/RecentScansPanel'
@@ -170,6 +169,12 @@ export default function HomePage() {
             >
               <GithubIcon />
               SorobanGuard
+            </a>
+            <a
+              href="/history"
+              className="rounded-lg px-3 py-1.5 text-sm text-slate-400 ring-1 ring-[var(--border)] transition hover:text-white"
+            >
+              Scan History
             </a>
             <button
               onClick={tour.start}

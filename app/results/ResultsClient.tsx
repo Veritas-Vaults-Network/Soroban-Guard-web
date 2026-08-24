@@ -17,7 +17,7 @@ import { decodeFindingsParam } from '@/lib/share'
 import { getAllScanHistory } from '@/lib/history'
 import { diffFindings } from '@/lib/diffFindings'
 import { filterFindings, type FilterState } from '@/lib/filterFindings'
-import { groupByFile, groupByFunction } from '@/lib/groupFindings'
+import { groupByFile } from '@/lib/groupFindings'
 import { calculateScore, getScoreColor } from '@/lib/score'
 import { scanContract } from '@/lib/api'
 import { useToast } from '@/lib/toast'
@@ -281,6 +281,12 @@ export default function ResultsClient() {
             {showDiff ? 'Hide diff' : 'Compare with previous'}
           </button>
         )}
+        <button
+          onClick={() => router.push('/history')}
+          className="rounded-md border border-slate-700 px-3 py-1.5 text-sm"
+        >
+          View history & trend
+        </button>
         <button
           onClick={() => router.push('/')}
           className="rounded-md border border-slate-700 px-3 py-1.5 text-sm"
