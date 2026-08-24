@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { ToastProvider } from '@/lib/toast'
+import { WalletProvider } from '@/lib/WalletContext'
 import ToastContainer from '@/components/ToastContainer'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import SplashScreen from '@/components/SplashScreen'
@@ -50,12 +51,14 @@ export default function RootLayout({
         </a>
         <SplashScreen>
           <ErrorBoundary>
-            <ToastProvider>
-                <main id="main-content" tabIndex={-1}>
-                  {children}
-                </main>
-                <ToastContainer />
-            </ToastProvider>
+            <WalletProvider>
+              <ToastProvider>
+                  <main id="main-content" tabIndex={-1}>
+                    {children}
+                  </main>
+                  <ToastContainer />
+              </ToastProvider>
+            </WalletProvider>
           </ErrorBoundary>
         </SplashScreen>
       </body>

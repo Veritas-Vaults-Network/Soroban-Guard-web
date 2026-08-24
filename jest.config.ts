@@ -24,7 +24,6 @@ const config: Config = {
     '/lib/__tests__/wallet',
     '/lib/__tests__/schedule',
     '/lib/__tests__/httpClient',
-    '/components/WalletConnect\\.test\\.tsx',
   ],
   transform: {
     '^.+\.(ts|tsx)$': ['ts-jest', { tsconfig: { jsx: 'react-jsx', rootDir: '.' } }],

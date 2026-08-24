@@ -17,6 +17,7 @@
     "test:unit:watch": "vitest lib/"
   },
   "dependencies": {
+    "@stellar/freighter-api": "^6.0.1",
     "@types/dompurify": "^3.0.5",
     "@vercel/kv": "^3.0.0",
     "dompurify": "^3.4.12",
