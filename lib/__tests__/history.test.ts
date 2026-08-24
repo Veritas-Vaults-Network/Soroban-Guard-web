@@ -4,12 +4,15 @@ import { SCORE_VERSION } from '../score'
 
 const STORAGE_KEY = 'sg_scan_history'
 
+declare const vi: any
+const testRunner = typeof jest !== 'undefined' ? jest : vi
+
 const mockLocalStorage = (() => {
   let store: Record<string, string> = {}
   return {
-    getItem: jest.fn((key: string) => store[key] ?? null),
-    setItem: jest.fn((key: string, value: string) => { store[key] = value }),
-    removeItem: jest.fn((key: string) => { delete store[key] }),
+    getItem: testRunner.fn((key: string) => store[key] ?? null),
+    setItem: testRunner.fn((key: string, value: string) => { store[key] = value }),
+    removeItem: testRunner.fn((key: string) => { delete store[key] }),
     clear: () => { store = {} },
     _store: () => store,
   }
@@ -21,7 +24,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockLocalStorage.clear()
-  jest.clearAllMocks()
+  testRunner.clearAllMocks()
 })
 
 const sampleFindings = [
