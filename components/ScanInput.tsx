@@ -236,7 +236,7 @@ export default function ScanInput({
           />
           <div
             id="scan-code-help"
-            className="mt-1 flex justify-between text-xs text-slate-500"
+            className="mt-1 flex justify-between text-xs text-slate-400"
           >
             <button
               type="button"
