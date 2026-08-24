@@ -15,3 +15,25 @@ export function requireApiKey(req: NextRequest): NextResponse | null {
   }
   return null
 }
+
+/**
+ * Returns a 401 response if CRON_SECRET (or API_SECRET_KEY) is configured and
+ * the request does not supply a matching `Authorization: Bearer <secret>` or `X-Cron-Secret` header.
+ * Returns null when authorized.
+ */
+export function requireCronSecret(req: NextRequest): NextResponse | null {
+  const secret = process.env.CRON_SECRET || process.env.API_SECRET_KEY
+  if (!secret) return null // no secret configured → allow all (local dev)
+
+  const authHeader = req.headers.get('authorization')
+  const cronHeader = req.headers.get('x-cron-secret')
+
+  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
+
+  if (bearerToken === secret || cronHeader === secret) {
+    return null
+  }
+
+  return NextResponse.json({ error: 'Unauthorized scheduled scan trigger' }, { status: 401 })
+}
+
