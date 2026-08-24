@@ -22,6 +22,7 @@ import { calculateScore, getScoreColor } from '@/lib/score'
 import { scanContract } from '@/lib/api'
 import { useToast } from '@/lib/toast'
 import { NETWORKS } from '@/types/stellar'
+import ExportModal from '@/components/ExportModal'
 
 const ALL_SEVERITIES: Severity[] = ['Critical', 'High', 'Medium', 'Low', 'Info']
 
@@ -45,6 +46,7 @@ export default function ResultsClient() {
 
   const [groupView, setGroupView] = useState<GroupView>('flat')
   const [showDiff, setShowDiff] = useState(false)
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [muteTrigger, setMuteTrigger] = useState(0)
   const [navIndex, setNavIndex] = useState<number | null>(null)
 
@@ -265,6 +267,12 @@ export default function ResultsClient() {
         >
           {isRescanning ? 'Rescanning…' : 'Rescan'}
         </button>
+        <button
+          onClick={() => setIsExportModalOpen(true)}
+          className="rounded-md border border-indigo-500/40 bg-indigo-500/10 px-3 py-1.5 text-sm font-medium text-indigo-300 transition hover:bg-indigo-500/20"
+        >
+          Export findings
+        </button>
         {resultsUrl && (
           <button
             onClick={handleCopyLink}
@@ -355,6 +363,13 @@ export default function ResultsClient() {
           onMuteChange={handleMuteChange}
         />
       )}
+
+      <ExportModal
+        open={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        findings={visibleFindings}
+        scanSource={scanSource}
+      />
     </main>
   )
 }
