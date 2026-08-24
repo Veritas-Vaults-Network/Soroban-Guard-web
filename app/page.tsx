@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import ScanInput from '@/components/ScanInput'
+import WalletConnect from '@/components/WalletConnect'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import NetworkBadge from '@/components/NetworkBadge'
 import ThemeToggle from '@/components/ThemeToggle'
@@ -186,6 +187,7 @@ export default function HomePage() {
             <span data-tour-id="theme-toggle">
               <ThemeToggle />
             </span>
+            <WalletConnect compact />
             {quota && <ScanQuotaIndicator quota={quota} />}
           </div>
         </div>
@@ -198,7 +200,7 @@ export default function HomePage() {
             <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
             Soroban Smart Contract Security
           </div>
-<h1 className="mb-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
+          <h1 className="mb-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
             Find vulnerabilities{' '}
             <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">
               before attackers do
@@ -209,6 +211,11 @@ export default function HomePage() {
             common security pitfalls — integer overflows, unchecked auth, reentrancy
             risks, and more.
           </p>
+
+          {/* Wallet connect panel */}
+          <div data-tour-id="wallet-connect" className="mb-6">
+            <WalletConnect onSelectContract={(contractId) => handleScan(contractId, 'contractId')} />
+          </div>
 
            {/* Scan card */}
           <div data-tour-id="scan-input" className="rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-6 text-left shadow-2xl">
