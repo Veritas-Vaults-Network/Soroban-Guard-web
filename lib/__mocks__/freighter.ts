@@ -27,7 +27,7 @@ export class FreighterMock implements MockFreighterAPI {
 
   constructor(options: MockFreighterOptions = {}) {
     this.connected = options.connected ?? true
-    this.publicKey = options.publicKey ?? 'GAXBWN3FBLVMNYG2JPQJUGZQAGQCW6KTHF32M4SWVJQMXLMX3PKFNM'
+    this.publicKey = options.publicKey ?? 'GBRPGEPDTAFBHESHIJZG56KZEXIUKERKWDNSQNUX47DILGAQD6C5NX3V'
     this.network = options.network ?? 'testnet'
     this.networkPassphrase = options.networkPassphrase ?? 'Test SDF Network ; September 2015'
     this.networkUrl = options.networkUrl ?? 'https://horizon-testnet.stellar.org'
