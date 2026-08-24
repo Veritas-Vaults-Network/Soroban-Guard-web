@@ -3,18 +3,19 @@
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import ScanInput from '@/components/ScanInput'
+import WalletConnect from '@/components/WalletConnect'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import NetworkBadge from '@/components/NetworkBadge'
 import ThemeToggle from '@/components/ThemeToggle'
 import ScanQuotaIndicator from '@/components/ScanQuota'
 import TourTooltip from '@/components/TourTooltip'
 import { useOnboardingTour } from '@/lib/useOnboardingTour'
-import { scanContract, scanContractMultiNetwork, ApiError, TimeoutError } from '@/lib/api'
+import { scanContract, scanContractMultiNetwork, scanContractBatch, ApiError, TimeoutError } from '@/lib/api'
 import type { MultiNetworkResults } from '@/types/findings'
-import type { ScanQuota } from '@/lib/api'
+import type { ScanQuota, BatchScanItem, BatchScanResult } from '@/lib/api'
+import BatchScanProgress from '@/components/BatchScanProgress'
 import { encodeFindings } from '@/lib/share'
 import { FEATURED_CONTRACTS } from '@/lib/featuredContracts'
-import type { ContractScanRecord } from '@/types/stellar'
 import { NETWORKS } from '@/types/stellar'
 import { addRecent } from '@/lib/recentScans'
 import RecentScansPanel from '@/components/RecentScansPanel'
@@ -58,11 +59,12 @@ export default function HomePage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isTimeout, setIsTimeout] = useState(false)
-  const [lastSource, setLastSource] = useState('')
   const [statusMessage, setStatusMessage] = useState('')
   const [quota, setQuota] = useState<ScanQuota | null>(null)
   const [rateLimitCountdown, setRateLimitCountdown] = useState(0)
+
+  const [batchItems, setBatchItems] = useState<BatchScanItem[]>([])
+  const [batchResult, setBatchResult] = useState<BatchScanResult | null>(null)
 
   const tour = useOnboardingTour(TOUR_STEPS)
 
@@ -82,14 +84,62 @@ export default function HomePage() {
     return () => clearInterval(id)
   }, [quota])
 
+  async function handleBatchScan(
+    sources: string[],
+    options?: { networks?: string[] },
+  ) {
+    if (sources.length === 0) return
+    setLoading(true)
+    setError(null)
+    setBatchResult(null)
+    setStatusMessage(`Starting batch scan for ${sources.length} contracts…`)
+
+    const initialItems: BatchScanItem[] = sources.map((source, idx) => ({
+      id: `batch-item-${idx}`,
+      source,
+      status: 'pending',
+    }))
+    setBatchItems(initialItems)
+
+    try {
+      const result = await scanContractBatch(sources, {
+        concurrencyLimit: 3,
+        network: options?.networks?.[0] ? NETWORKS[options.networks[0]] : undefined,
+        onItemStatusChange: (updatedItem) => {
+          setBatchItems((prev) => {
+            const exists = prev.some((i) => i.source === updatedItem.source)
+            if (exists) {
+              return prev.map((i) => (i.source === updatedItem.source ? updatedItem : i))
+            }
+            return [...prev, updatedItem]
+          })
+        },
+      })
+      setBatchResult(result)
+      setStatusMessage(
+        `Batch scan complete. ${result.successCount} succeeded, ${result.failureCount} failed. Total findings: ${result.totalFindings}.`,
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Batch scan error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function handleViewBatchResults() {
+    const allFindings = (batchResult?.items ?? batchItems).flatMap((item) => item.findings ?? [])
+    if (allFindings.length > 0) {
+      sessionStorage.setItem('sg_findings', JSON.stringify(allFindings))
+    }
+    const encoded = encodeFindings(allFindings)
+    router.push(`/results?r=${encoded}`)
+  }
 
   async function handleScan(
     source: string,
     mode?: string,
     options?: { slackWebhookUrl?: string; telegramConfig?: { botToken: string; chatId: string }; networks?: string[] },
   ) {
-    // Determine type for addRecent — prefer the explicit mode from ScanInput,
-    // fall back to auto-detection for direct contract-ID calls.
     let scanType: RecentScan['type']
     if (mode === 'contractId') scanType = 'contractId'
     else if (mode === 'github') scanType = 'github'
@@ -98,10 +148,8 @@ export default function HomePage() {
     else if (source.startsWith('https://github.com/') || source.includes('github.com/')) scanType = 'github'
     else scanType = 'code'
 
-    setLastSource(source)
     setLoading(true)
     setError(null)
-    setIsTimeout(false)
     setStatusMessage('Scanning your contract…')
     try {
       const networks = options?.networks
@@ -130,7 +178,6 @@ export default function HomePage() {
       }
     } catch (err) {
       if (err instanceof TimeoutError) {
-        setIsTimeout(true)
         setError(err.message)
       } else if (err instanceof ApiError && err.status === 429) {
         const retryAfter = err.retryAfter ?? 60
@@ -175,6 +222,12 @@ export default function HomePage() {
               <GithubIcon />
               SorobanGuard
             </a>
+            <a
+              href="/history"
+              className="rounded-lg px-3 py-1.5 text-sm text-slate-400 ring-1 ring-[var(--border)] transition hover:text-white"
+            >
+              Scan History
+            </a>
             <button
               onClick={tour.start}
               className="rounded-lg px-3 py-1.5 text-sm text-slate-400 ring-1 ring-[var(--border)] transition hover:text-white"
@@ -185,6 +238,7 @@ export default function HomePage() {
             <span data-tour-id="theme-toggle">
               <ThemeToggle />
             </span>
+            <WalletConnect compact />
             {quota && <ScanQuotaIndicator quota={quota} />}
           </div>
         </div>
@@ -197,7 +251,7 @@ export default function HomePage() {
             <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
             Soroban Smart Contract Security
           </div>
-<h1 className="mb-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
+          <h1 className="mb-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
             Find vulnerabilities{' '}
             <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">
               before attackers do
@@ -209,11 +263,30 @@ export default function HomePage() {
             risks, and more.
           </p>
 
+          {/* Wallet connect panel */}
+          <div data-tour-id="wallet-connect" className="mb-6">
+            <WalletConnect onSelectContract={(contractId) => handleScan(contractId, 'contractId')} />
+          </div>
+
            {/* Scan card */}
           <div data-tour-id="scan-input" className="rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-6 text-left shadow-2xl">
             <ErrorBoundary>
-              <ScanInput onScan={handleScan} loading={loading} countdown={rateLimitCountdown} />
+              <ScanInput
+                onScan={handleScan}
+                onBatchScan={handleBatchScan}
+                loading={loading}
+                countdown={rateLimitCountdown}
+              />
             </ErrorBoundary>
+
+            {batchItems.length > 0 && (
+              <BatchScanProgress
+                items={batchItems}
+                batchResult={batchResult}
+                loading={loading}
+                onViewResults={handleViewBatchResults}
+              />
+            )}
 
             {error && (
               <div className="mt-4 flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">

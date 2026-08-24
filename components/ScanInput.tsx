@@ -7,12 +7,16 @@ import { NETWORKS } from "@/types/stellar";
 
 const MAX_CHARS = 500_000;
 
-type InputMode = "code" | "github" | "contractId";
+type InputMode = "code" | "github" | "contractId" | "batch";
 
 interface Props {
   onScan: (
     source: string,
     mode: InputMode,
+    options?: { networks?: string[] },
+  ) => void;
+  onBatchScan?: (
+    sources: string[],
     options?: { networks?: string[] },
   ) => void;
   loading: boolean;
@@ -48,10 +52,12 @@ const MODES: { id: InputMode; label: string }[] = [
   { id: "code", label: "Paste code" },
   { id: "github", label: "GitHub URL" },
   { id: "contractId", label: "Contract ID" },
+  { id: "batch", label: "Batch Scan" },
 ];
 
 export default function ScanInput({
   onScan,
+  onBatchScan,
   loading,
   countdown = 0,
   initialValue = "",
@@ -72,6 +78,9 @@ export default function ScanInput({
   const [contractId, setContractId] = useState(
     resolvedInitialMode === "contractId" ? initialValue : "",
   );
+  const [batchText, setBatchText] = useState(
+    resolvedInitialMode === "batch" ? initialValue : "",
+  );
 
   const [normalized, setNormalized] = useState(false);
   const [extractedFromUrl, setExtractedFromUrl] = useState(false);
@@ -89,6 +98,11 @@ export default function ScanInput({
     repoUrl.length > 0 && !repoValidation.valid
       ? repoValidation.error
       : undefined;
+
+  const parsedBatchSources = batchText
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
 
   useEffect(() => {
     if (!contractValid) {
@@ -139,11 +153,26 @@ export default function ScanInput({
       ? code.trim().length > 0 && code.length <= MAX_CHARS
       : mode === "github"
         ? repoUrl.trim().length > 0 && repoValidation.valid
-        : contractId.trim().length > 0 && contractValid);
+        : mode === "contractId"
+          ? contractId.trim().length > 0 && contractValid
+          : parsedBatchSources.length > 0);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSubmit) return;
+
+    if (mode === "batch") {
+      if (onBatchScan) {
+        onBatchScan(parsedBatchSources, {
+          networks: selectedNetworks.length > 0 ? selectedNetworks : undefined,
+        });
+      } else {
+        onScan(parsedBatchSources.join("\n"), "batch", {
+          networks: selectedNetworks.length > 0 ? selectedNetworks : undefined,
+        });
+      }
+      return;
+    }
 
     const source =
       mode === "code"
@@ -207,7 +236,7 @@ export default function ScanInput({
           />
           <div
             id="scan-code-help"
-            className="mt-1 flex justify-between text-xs text-slate-500"
+            className="mt-1 flex justify-between text-xs text-slate-400"
           >
             <button
               type="button"
@@ -293,6 +322,31 @@ export default function ScanInput({
         </div>
       )}
 
+      {mode === "batch" && (
+        <div>
+          <label htmlFor="scan-batch" className="sr-only">
+            Batch contract sources or IDs
+          </label>
+          <textarea
+            id="scan-batch"
+            value={batchText}
+            onChange={(e) => setBatchText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            rows={10}
+            spellCheck={false}
+            placeholder={`Enter multiple contract IDs or GitHub URLs (one per line)…\n\nExample:\nCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM\nCBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB2KM\nhttps://github.com/SorobanGuard/Guard-Contracts`}
+            className="w-full rounded-lg border border-slate-700 bg-slate-900/60 p-3 font-mono text-sm text-slate-200"
+          />
+          <div className="mt-1 flex justify-between text-xs text-slate-500">
+            <span>
+              {parsedBatchSources.length} item
+              {parsedBatchSources.length !== 1 ? "s" : ""} queued for batch scan
+            </span>
+            <span>Concurrency limit: 3</span>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div role="alert" className="mt-4 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
           <p>{error}</p>
@@ -317,7 +371,9 @@ export default function ScanInput({
           ? "Scanning…"
           : isRateLimited
             ? `Rate limited — retry in ${countdown}s`
-            : "Scan contract"}
+            : mode === "batch"
+              ? `Scan Batch (${parsedBatchSources.length})`
+              : "Scan contract"}
       </button>
     </form>
   );
