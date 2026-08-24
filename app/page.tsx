@@ -20,6 +20,7 @@ import { NETWORKS } from '@/types/stellar'
 import { addRecent } from '@/lib/recentScans'
 import RecentScansPanel from '@/components/RecentScansPanel'
 import type { RecentScan } from '@/lib/recentScans'
+import ApiHealthBanner from '@/components/ApiHealthBanner'
 
 const TOUR_STEPS = [
   {
@@ -182,6 +183,8 @@ export default function HomePage() {
         const retryAfter = err.retryAfter ?? 60
         setQuota({ remaining: 0, limit: 0, resetAt: Date.now() + retryAfter * 1000 })
         setError(err.message)
+      } else if (err instanceof TypeError && err.message.includes('fetch')) {
+        setError('The scanner backend is unavailable. Please try again later.')
       } else {
         setError(err instanceof Error ? err.message : 'Unexpected error')
       }
@@ -203,6 +206,7 @@ export default function HomePage() {
       </div>
 
       {/* Network health banner */}
+      <ApiHealthBanner />
 
       {/* Nav */}
       <header className="border-b border-[var(--border)] bg-[var(--bg)]/80 backdrop-blur-sm">
