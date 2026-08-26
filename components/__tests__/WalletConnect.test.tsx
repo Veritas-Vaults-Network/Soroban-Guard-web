@@ -10,7 +10,7 @@ import * as freighterApi from '@stellar/freighter-api'
 jest.mock('@stellar/freighter-api', () => ({
   __esModule: true,
   ...jest.requireActual('@stellar/freighter-api'),
-  isConnected: jest.fn().mockResolvedValue(true),
+  isConnected: jest.fn().mockResolvedValue({ isConnected: true }),
 }))
 
 type MockWindow = Window & { freighter?: MockFreighterAPI }
@@ -18,7 +18,7 @@ type MockWindow = Window & { freighter?: MockFreighterAPI }
 describe('WalletConnect Component', () => {
   beforeEach(() => {
     clearFreighterMock(window as unknown as MockWindow)
-    jest.mocked(freighterApi.isConnected).mockResolvedValue(true)
+    jest.mocked(freighterApi.isConnected).mockResolvedValue({ isConnected: true })
 
     // Mock global fetch for Horizon requests
     global.fetch = jest.fn().mockResolvedValue({
@@ -31,7 +31,7 @@ describe('WalletConnect Component', () => {
   it('handles Freighter not installed cleanly with an install link without throwing', async () => {
     // Mock window without freighter and isConnected returning false
     delete (window as unknown as { freighter?: unknown }).freighter
-    jest.mocked(freighterApi.isConnected).mockResolvedValue(false)
+    jest.mocked(freighterApi.isConnected).mockResolvedValue({ isConnected: false })
 
     render(
       <WalletProvider initialNetwork={NETWORKS.testnet}>
