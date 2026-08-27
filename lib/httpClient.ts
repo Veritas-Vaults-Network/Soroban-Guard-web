@@ -18,7 +18,6 @@ export async function fetchWithRetry(url: string, options: FetchOptions = {}): P
   const maxAttempts = retryPolicy.maxAttempts ?? 3
   const isTest = typeof process !== 'undefined' && (
     process.env.NODE_ENV === 'test' ||
-    (globalThis as any).jest !== undefined ||
     (globalThis as any).vi !== undefined
   )
   const baseDelayMs = isTest ? 0 : (retryPolicy.baseDelayMs ?? 1000)

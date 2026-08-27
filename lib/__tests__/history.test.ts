@@ -1,11 +1,11 @@
 import { addScanRecord, getScanHistory, getById, clearScanHistory, getAllScanHistory } from '../history'
 import { CONTRACT_SCAN_RECORD_SCHEMA_VERSION } from '@/types/stellar'
 import { SCORE_VERSION } from '../score'
+import { vi } from 'vitest'
 
 const STORAGE_KEY = 'sg_scan_history'
 
-declare const vi: any
-const testRunner = typeof jest !== 'undefined' ? jest : vi
+const testRunner = vi
 
 const mockLocalStorage = (() => {
   let store: Record<string, string> = {}

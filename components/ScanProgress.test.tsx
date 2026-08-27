@@ -5,10 +5,10 @@ import ScanProgress from './ScanProgress'
 
 describe('ScanProgress', () => {
   beforeEach(() => {
-    jest.useFakeTimers()
+    vi.useFakeTimers()
   })
   afterEach(() => {
-    jest.useRealTimers()
+    vi.useRealTimers()
   })
 
   it('renders nothing when not loading', () => {
@@ -26,7 +26,7 @@ describe('ScanProgress', () => {
 
   it('advances to the next step after 1500ms', () => {
     render(<ScanProgress loading={true} />)
-    act(() => { jest.advanceTimersByTime(1500) })
+    act(() => { vi.advanceTimersByTime(1500) })
     const labels = screen.getAllByText(/Uploading|Parsing|Analyzing|Done/i)
     // Uploading should now be done (indigo-400)
     expect(labels[0]).toHaveClass('text-indigo-400')
@@ -37,7 +37,7 @@ describe('ScanProgress', () => {
   it('shows per-step elapsed duration for a completed step', () => {
     render(<ScanProgress loading={true} />)
     // Advance past step 0→1 transition
-    act(() => { jest.advanceTimersByTime(1600) })
+    act(() => { vi.advanceTimersByTime(1600) })
     // The completed "Uploading" step should show a duration like "— 1.5s"
     expect(screen.getByText(/—\s*\d+\.\d+s/)).toBeInTheDocument()
   })
@@ -45,7 +45,7 @@ describe('ScanProgress', () => {
   it('shows live elapsed time for the active step', () => {
     render(<ScanProgress loading={true} />)
     // Tick the interval a bit within step 0
-    act(() => { jest.advanceTimersByTime(900) })
+    act(() => { vi.advanceTimersByTime(900) })
     // Should show something like "0.9s" next to the active step label
     expect(screen.getByText(/0\.\d+s/)).toBeInTheDocument()
   })
@@ -60,8 +60,8 @@ describe('ScanProgress', () => {
   })
 
   it('cleans up timers on unmount', () => {
-    const clearTimeoutSpy = jest.spyOn(globalThis, 'clearTimeout')
-    const clearIntervalSpy = jest.spyOn(globalThis, 'clearInterval')
+    const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout')
+    const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval')
     const { unmount } = render(<ScanProgress loading={true} />)
     unmount()
     expect(clearTimeoutSpy).toHaveBeenCalled()

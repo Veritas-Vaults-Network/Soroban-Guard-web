@@ -1,11 +1,11 @@
 import { addRecent, getRecent, removeRecent, truncateLabel, getPinned, pinScan, unpinScan } from '../recentScans'
 import type { RecentScan } from '../recentScans'
+import { vi } from 'vitest'
 
 const STORAGE_KEY = 'sg_recent_scans'
 const PINNED_KEY = 'sg_pinned_scans'
 
-declare const vi: any
-const testRunner = typeof jest !== 'undefined' ? jest : vi
+const testRunner = vi
 
 const mockLocalStorage = (() => {
   let store: Record<string, string> = {}

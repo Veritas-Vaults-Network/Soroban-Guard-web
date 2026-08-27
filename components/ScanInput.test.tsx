@@ -5,10 +5,10 @@ import '@testing-library/jest-dom'
 import ScanInput from '@/components/ScanInput'
 
 // Mock all lib imports that ScanInput uses
-jest.mock('@/lib/sampleContract', () => ({ SAMPLE_CONTRACT: '// sample' }))
-jest.mock('@/lib/stellar', () => ({ extractContractIdFromUrl: jest.fn(() => null), getContractWasmSize: jest.fn().mockResolvedValue(null) }))
+vi.mock('@/lib/sampleContract', () => ({ SAMPLE_CONTRACT: '// sample' }))
+vi.mock('@/lib/stellar', () => ({ extractContractIdFromUrl: vi.fn(() => null), getContractWasmSize: vi.fn().mockResolvedValue(null) }))
 
-const noop = jest.fn()
+const noop = vi.fn()
 
 beforeEach(() => {
   noop.mockClear()
