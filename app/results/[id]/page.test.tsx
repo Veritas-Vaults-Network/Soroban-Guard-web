@@ -4,14 +4,14 @@ import '@testing-library/jest-dom'
 import type { Finding } from '@/types/findings'
 
 // Must mock before importing the page
-const mockNotFound = jest.fn()
-jest.mock('next/navigation', () => ({ notFound: () => { mockNotFound(); throw new Error('NEXT_NOT_FOUND') } }))
-jest.mock('next/link', () => ({ __esModule: true, default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a> }))
-jest.mock('@/components/FindingsTable', () => ({ __esModule: true, default: ({ findings }: { findings: Finding[] }) => <ul>{findings.map((f, i) => <li key={i}>{f.check_name}</li>)}</ul> }))
-jest.mock('@/components/SeverityBadge', () => ({ __esModule: true, default: ({ severity }: { severity: string }) => <span>{severity}</span> }))
-jest.mock('@/components/ThemeToggle', () => ({ __esModule: true, default: () => <button>theme</button> }))
+const mockNotFound = vi.fn()
+vi.mock('next/navigation', () => ({ notFound: () => { mockNotFound(); throw new Error('NEXT_NOT_FOUND') } }))
+vi.mock('next/link', () => ({ __esModule: true, default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a> }))
+vi.mock('@/components/FindingsTable', () => ({ __esModule: true, default: ({ findings }: { findings: Finding[] }) => <ul>{findings.map((f, i) => <li key={i}>{f.check_name}</li>)}</ul> }))
+vi.mock('@/components/SeverityBadge', () => ({ __esModule: true, default: ({ severity }: { severity: string }) => <span>{severity}</span> }))
+vi.mock('@/components/ThemeToggle', () => ({ __esModule: true, default: () => <button>theme</button> }))
 
-const mockFetch = jest.fn()
+const mockFetch = vi.fn()
 global.fetch = mockFetch
 
 const finding: Finding = {
@@ -34,7 +34,7 @@ async function renderPage(id: string) {
 }
 
 describe('getFindings', () => {
-  beforeEach(() => { mockFetch.mockReset(); jest.resetModules() })
+  beforeEach(() => { mockFetch.mockReset(); vi.resetModules() })
 
   it('fetches findings and renders them', async () => {
     mockOkResponse([finding])
@@ -68,7 +68,7 @@ describe('getFindings', () => {
 })
 
 describe('generateMetadata', () => {
-  beforeEach(() => { mockFetch.mockReset(); jest.resetModules() })
+  beforeEach(() => { mockFetch.mockReset(); vi.resetModules() })
 
   it('returns title with finding count', async () => {
     mockOkResponse([finding])

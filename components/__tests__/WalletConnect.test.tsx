@@ -7,21 +7,23 @@ import { setupFreighterMock, clearFreighterMock, type MockFreighterAPI } from '@
 import { NETWORKS } from '@/types/stellar'
 import * as freighterApi from '@stellar/freighter-api'
 
-jest.mock('@stellar/freighter-api', () => ({
-  __esModule: true,
-  ...jest.requireActual('@stellar/freighter-api'),
-  isConnected: jest.fn().mockResolvedValue({ isConnected: true }),
-}))
+vi.mock(import('@stellar/freighter-api'), async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    isConnected: vi.fn().mockResolvedValue({ isConnected: true }),
+  }
+})
 
 type MockWindow = Window & { freighter?: MockFreighterAPI }
 
 describe('WalletConnect Component', () => {
   beforeEach(() => {
     clearFreighterMock(window as unknown as MockWindow)
-    jest.mocked(freighterApi.isConnected).mockResolvedValue({ isConnected: true })
+    vi.mocked(freighterApi.isConnected).mockResolvedValue({ isConnected: true })
 
     // Mock global fetch for Horizon requests
-    global.fetch = jest.fn().mockResolvedValue({
+    global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => ({ _embedded: { records: [] } }),
@@ -31,7 +33,7 @@ describe('WalletConnect Component', () => {
   it('handles Freighter not installed cleanly with an install link without throwing', async () => {
     // Mock window without freighter and isConnected returning false
     delete (window as unknown as { freighter?: unknown }).freighter
-    jest.mocked(freighterApi.isConnected).mockResolvedValue({ isConnected: false })
+    vi.mocked(freighterApi.isConnected).mockResolvedValue({ isConnected: false })
 
     render(
       <WalletProvider initialNetwork={NETWORKS.testnet}>
@@ -46,7 +48,7 @@ describe('WalletConnect Component', () => {
 
   it('handles user rejection gracefully without throwing unhandled errors', async () => {
     const mock = setupFreighterMock(window as unknown as MockWindow)
-    mock.getPublicKey = jest.fn().mockRejectedValue(new Error('User declined access'))
+    mock.getPublicKey = vi.fn().mockRejectedValue(new Error('User declined access'))
 
     render(
       <WalletProvider initialNetwork={NETWORKS.testnet}>
@@ -109,7 +111,7 @@ describe('WalletConnect Component', () => {
 
   it('never requests transaction signature for reading account contracts', async () => {
     const mock = setupFreighterMock(window as unknown as MockWindow)
-    const signSpy = jest.spyOn(mock, 'signTransaction')
+    const signSpy = vi.spyOn(mock, 'signTransaction')
 
     render(
       <WalletProvider initialNetwork={NETWORKS.testnet}>
