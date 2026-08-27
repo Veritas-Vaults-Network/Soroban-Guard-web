@@ -26,8 +26,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const findings = await getFindings(params.id)
   if (!findings) return { title: 'Soroban Guard — Results Not Found' }
 
-  const counts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0, Info: 0,
-}
+  const counts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0, Info: 0 }
   for (const f of findings) counts[f.severity]++
 
   const description = `${findings.length} finding${findings.length !== 1 ? 's' : ''} — Critical: ${counts.Critical}, High: ${counts.High}, Medium: ${counts.Medium}, Low: ${counts.Low}`
@@ -53,13 +52,11 @@ export default async function PermalinkPage({ params }: Props) {
   if (!findings) notFound()
 
   const list = findings as Finding[]
-  const counts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0, Info: 0,
-}
+  const counts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0, Info: 0 }
   for (const f of list) counts[f.severity]++
 
   const sorted = [...list].sort((a, b) => {
-    const order: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3, Info: 4,
-}
+    const order: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3, Info: 4 }
     return order[a.severity] - order[b.severity]
   })
 
@@ -79,13 +76,46 @@ export default async function PermalinkPage({ params }: Props) {
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:px-6">
         <div className="mb-8">
-          <h1 className="mb-2 text-2xl font-bold text-white">Scan Results</h1>
-          <p className="mb-6 text-sm text-slate-400">
-            {list.length === 0
-              ? 'No issues detected.'
-              : `${list.length} finding${list.length !== 1 ? 's' : ''} detected.`}
-          </p>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 className="mb-2 text-2xl font-bold text-white">Scan Results</h1>
+              <p className="text-sm text-slate-400">
+                {list.length === 0
+                  ? 'No issues detected.'
+                  : `${list.length} finding${list.length !== 1 ? 's' : ''} detected.`}
+              </p>
+            </div>
+
+            {/* Export Actions */}
+            <div className="flex flex-wrap items-center gap-2">
+              <a
+                href={`/api/export/download?id=${params.id}&format=sarif`}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-300 transition hover:bg-indigo-500/20"
+                aria-label="Download findings in SARIF 2.1.0 format"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Export SARIF
+              </a>
+              <a
+                href={`/api/export/download?id=${params.id}&format=json`}
+                className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-[var(--bg-hover)]"
+                aria-label="Download findings in JSON format"
+              >
+                JSON
+              </a>
+              <a
+                href={`/api/export/download?id=${params.id}&format=csv`}
+                className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-[var(--bg-hover)]"
+                aria-label="Download findings in CSV format"
+              >
+                CSV
+              </a>
+            </div>
+          </div>
+
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {(['Critical', 'High', 'Medium', 'Low'] as Severity[]).map(s => (
               <div key={s} className="rounded-xl border border-[var(--border)] bg-[#1a1d27] px-5 py-4">
                 <p className="mb-1 text-xs text-slate-400">{s}</p>

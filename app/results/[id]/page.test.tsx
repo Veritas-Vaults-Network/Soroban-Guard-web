@@ -54,6 +54,23 @@ describe('getFindings', () => {
     expect(screen.getByText(/no issues detected/i)).toBeInTheDocument()
   })
 
+  it('renders export links for SARIF, JSON, and CSV', async () => {
+    mockOkResponse([finding])
+    await renderPage('abc123')
+    expect(screen.getByRole('link', { name: /SARIF/i })).toHaveAttribute(
+      'href',
+      '/api/export/download?id=abc123&format=sarif'
+    )
+    expect(screen.getByRole('link', { name: /JSON/i })).toHaveAttribute(
+      'href',
+      '/api/export/download?id=abc123&format=json'
+    )
+    expect(screen.getByRole('link', { name: /CSV/i })).toHaveAttribute(
+      'href',
+      '/api/export/download?id=abc123&format=csv'
+    )
+  })
+
   it('calls notFound when fetch returns non-ok', async () => {
     mockFetch.mockResolvedValue({ ok: false })
     await expect(renderPage('bad-id')).rejects.toThrow('NEXT_NOT_FOUND')

@@ -1,4 +1,8 @@
 export * from './types'
 export * from './registry'
+export * from './sarif'
+export * from './csv'
+export * from './json'
+export * from './clientDownload'
 export { slackTarget } from './targets/slack'
 export { discordTarget } from './targets/discord'
