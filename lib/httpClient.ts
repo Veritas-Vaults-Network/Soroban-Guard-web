@@ -19,7 +19,6 @@ export async function fetchWithRetry(url: string, options: FetchOptions = {}): P
   const isTest = typeof process !== 'undefined' && (
     process.env.NODE_ENV === 'test' ||
     (globalThis as any).vi !== undefined
-    (globalThis as any).vi !== undefined
   )
   const baseDelayMs = isTest ? 0 : (retryPolicy.baseDelayMs ?? 1000)
   const backoffFactor = retryPolicy.backoffFactor ?? 2
